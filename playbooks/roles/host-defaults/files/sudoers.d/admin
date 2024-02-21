@@ -1,0 +1,2 @@
+admin ALL=NOPASSWD:/bin/systemctl reload nginx.service
+admin ALL=NOPASSWD:/usr/local/nginx/sbin/nginx -t

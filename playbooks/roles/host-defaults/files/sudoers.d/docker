@@ -1,0 +1,14 @@
+%docker ALL=(ALL) NOPASSWD:/usr/bin/docker
+%docker ALL=(ALL) NOPASSWD:/usr/bin/dockerd
+%docker ALL=(ALL) NOPASSWD:/usr/sbin/modprobe
+%docker ALL=(ALL) NOPASSWD:/usr/sbin/setcap
+%docker ALL=(ALL) NOPASSWD:/usr/bin/loginctl
+%docker ALL=(ALL) NOPASSWD:/usr/bin/tee
+%docker ALL=(ALL) NOPASSWD:/usr/bin/systemctl 
+%docker ALL=(ALL) NOPASSWD:/usr/sbin/sysctl
+%docker ALL=(ALL) NOPASSWD:/usr/bin/apt
+%docker ALL=(ALL) NOPASSWD:/usr/bin/apt-get
+%docker ALL=(ALL) NOPASSWD:/usr/bin/sh
+%docker ALL=(ALL) NOPASSWD:/usr/bin/usermod
+%docker ALL=(ALL) NOPASSWD:/usr/sbin/iptables
+%docker ALL=(ALL) NOPASSWD:/usr/bin/rootlesskit

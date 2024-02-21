@@ -1,5 +1,5 @@
 ---
-app_domain_name: docker.local
+app_domain_name: iac.panda.betcity.dev 
 gluster_volume_path: /glusterfs/bricks
 gluster_volume_name: gfs
 gluster_mount_path: /mnt/gfs
@@ -13,8 +13,8 @@ portainer_admin_password: password1234
 portainer_agent_secret: mysecrettoken
 traefik_listen_port: 80
 traefik_admin_port: 8080
-traefik_network_name: web
-traefik_app_name: traefik
+traefik_network_name: network_web
+traefik_app_name: app_traefik
 traefik_admin_user: admin
 traefik_admin_password: password1234
 haproxy_stats_user: admin

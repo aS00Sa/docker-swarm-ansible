@@ -1,0 +1,12 @@
+{
+  "dns": ["127.0.0.1", "::1"],
+  "debug": true,
+  "exec-opts": ["native.cgroupdriver=systemd"],
+  "log-driver": "json-file",
+  "log-opts": {
+     "max-size": "100m"
+  },
+  "storage-driver": "overlay2",
+  "insecure-registries": ["http://192.168.1.191:8082","http://192.168.1.191:1111"],
+  "registry-mirrors": ["http://192.168.1.191:8082","http://192.168.1.191:1111"]
+}

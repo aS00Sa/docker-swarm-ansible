@@ -52,6 +52,7 @@
       - curl
       - gnupg-agent
       - software-properties-common
+      - virtualenv
       - python-pip
       - python3-pip
       - apache2-utils
