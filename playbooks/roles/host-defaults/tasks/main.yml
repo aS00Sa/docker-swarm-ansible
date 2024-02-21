@@ -53,9 +53,15 @@
       - gnupg-agent
       - software-properties-common
       - virtualenv
-      - python-pip
       - python3-pip
       - apache2-utils
     state: present
     force_apt_get: true
     update_cache: yes
+
+- name: Install Docker Python library
+  become: true
+  become_method: sudo
+  pip:
+    name: docker
+

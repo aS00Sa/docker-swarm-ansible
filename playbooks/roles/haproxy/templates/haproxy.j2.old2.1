@@ -48,7 +48,7 @@ defaults
 frontend http-in
   bind *:80
   mode http
-  http-request add-header X-Forwarded-Proto http
+  reqadd X-Forwarded-Proto:\ http
 
   # uncomment to redirect http connects to https
   #redirect scheme https
@@ -58,7 +58,7 @@ frontend http-in
 frontend https_in
   bind *:443 ssl crt /etc/ssl/{{app_domain_name}}/{{app_domain_name}}.pem
   mode http
-  http-request add-header X-Forwarded-Proto https if { ssl_fc }
+  reqadd X-Forwarded-Proto:\ https
   default_backend docker_swarm_layer7
 
 backend docker_swarm_layer7
