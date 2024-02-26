@@ -1,0 +1,17 @@
+{
+  "dns": ["127.0.0.1", "::1"],
+  "debug": true,
+  "exec-opts": ["native.cgroupdriver=systemd"],
+  "log-driver": "json-file",
+  "log-opts": {
+     "max-size": "100m"
+  },
+  "storage-driver": "overlay2",
+  "insecure-registries": ["http://192.168.1.191:8082","http://192.168.1.191:1111"],
+  "registry-mirrors": ["http://192.168.1.191:8082","http://192.168.1.191:1111"],
+  "tls": true,
+  "tlsverify": true,
+  "tlscacert": "/etc/ssl/{{ app_domain_name }}/any.{{ app_domain_name }}.crt",
+  "tlscert": "/etc/ssl/{{ app_domain_name }}/{{ ansible_hostname }}.{{ app_domain_name }}.crt",
+  "tlskey": "/etc/ssl/{{ app_domain_name }}/{{ ansible_hostname }}.{{ app_domain_name }}.key"
+}

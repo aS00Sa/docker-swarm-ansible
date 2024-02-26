@@ -56,7 +56,7 @@ frontend http-in
   default_backend docker_swarm_layer7
 
 frontend https_in
-  bind *:443 ssl crt /etc/ssl/{{app_domain_name}}/{{app_domain_name}}.pem
+  bind *:443 ssl crt /etc/ssl/{{app_domain_name}}/any.panda.betcity.dev.chained.pem
   mode http
   http-request add-header X-Forwarded-Proto https if { ssl_fc }
   default_backend docker_swarm_layer7

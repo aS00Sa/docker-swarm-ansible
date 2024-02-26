@@ -53,3 +53,25 @@
   wait_for:
     path: /var/run/docker.sock
 
+- name: Copy config.json to host
+  become: true
+  become_method: sudo
+  template:
+    src: config.json.j2
+    dest: /etc/docker/config.json
+    mode: '0660'
+
+- name: Copy daemon.json to host
+  become: true
+  become_method: sudo
+  template:
+    src: daemon.json.j2
+    dest: /etc/docker/daemon.json
+    mode: '0660'
+
+- name: Ensure docker deamon restarting
+  become: true
+  become_method: sudo
+  service:
+    name: docker
+    state: restarted

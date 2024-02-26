@@ -1,36 +1,36 @@
 ---
-- name: Copy ca.crt on the remote machine
+- name: Copy Betcity_CA.crt on the remote machine
   become: true
   become_method: sudo
   copy:
-    src: "{{ playbook_dir }}/roles/generate-certs/files/ca.crt"
-    dest: "${HOME}/ca.crt"
+    src: "{{ playbook_dir }}/roles/generate-certs/files/Betcity_CA.crt"
+    dest: "${HOME}/Betcity_CA.crt"
 
-- name: Copy panda.betcity.dev.crt on the remote machine
+- name: Copy Betcity_CA.crt to /usr/share/ca-certificates/Betcity_CA.crt
   become: true
   become_method: sudo
   copy:
-    src: "{{ playbook_dir }}/roles/generate-certs/files/panda.betcity.dev.crt"
-    dest: "${HOME}/panda.betcity.dev.crt"
-
-- name: Copy panda.betcity.dev.key on the remote machine
-  become: true
-  become_method: sudo
-  copy:
-    src: "{{ playbook_dir }}/roles/generate-certs/files/panda.betcity.dev.key"
-    dest: "${HOME}/panda.betcity.dev.key"
-
-- name: Copy ca.crt to /usr/share/ca-certificates/ca.crt
-  become: true
-  become_method: sudo
-  copy:
-    src: "{{ playbook_dir }}/roles/generate-certs/files/ca.crt"
+    src: "{{ playbook_dir }}/roles/generate-certs/files/Betcity_CA.crt"
     dest: "/usr/share/ca-certificates/Betcity_CA.crt"
 
 - name: update trusted ca debian/ubuntu
   become: true
   become_method: sudo
   shell: /usr/sbin/update-ca-certificates
+
+- name: Copy panda.betcity.dev.crt on the remote machine
+  become: true
+  become_method: sudo
+  copy:
+    src: "{{ playbook_dir }}/roles/generate-certs/files/any.panda.betcity.dev.crt"
+    dest: "${HOME}/any.panda.betcity.dev.crt"
+
+- name: Copy panda.betcity.dev.key on the remote machine
+  become: true
+  become_method: sudo
+  copy:
+    src: "{{ playbook_dir }}/roles/generate-certs/files/any.panda.betcity.dev.key"
+    dest: "${HOME}/any.panda.betcity.dev.key"
 
 - name: Copy cert generation script to host
   become: true

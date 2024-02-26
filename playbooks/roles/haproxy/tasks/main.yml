@@ -15,7 +15,10 @@
   template:
     src: haproxy.j2
     dest: /etc/haproxy/haproxy.cfg
-    mode: 0775
+    backup: yes
+    owner: root
+    group: root
+    mode: '0600'
 
 - name: Restart HAProxy service
   become: true

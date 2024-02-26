@@ -1,10 +1,3 @@
-#[all]
-#192.168.28.205 dc2-k8s-devops-m1
-#192.168.28.206 dc2-k8s-devops-i1
-#192.168.28.207 dc2-k8s-devops-w1
-#192.168.28.208 dc2-k8s-devops-w2
-#192.168.28.209 dc2-k8s-devops-w3
-
 [haproxy]
 192.168.28.205
 192.168.28.206
@@ -17,9 +10,6 @@
 [swarm_workers]
 192.168.28.205
 192.168.28.206
-192.168.28.207
-192.168.28.208
-192.168.28.209
 
 [gluster_nodes]
 192.168.28.207
@@ -31,7 +21,7 @@
 device2_hdd_dev="/dev/sdb"
 #
 ansible_connection="ssh"
-# user for ansible 
+# user for ansible
 ansible_user="saglaev_aa"
 # mkpasswd --method=SHA-512
 ansible_ssh_pass="$6$BtcJoKyVO00R9YYj$QDoFotIIAmjaHPBxtGB.8EvKGtuY4W6TOpMfPHZaK5I8/0/rt6whkPlfZEWkZNnXaTof53lRhJ6kYKNxDyVDE1"
