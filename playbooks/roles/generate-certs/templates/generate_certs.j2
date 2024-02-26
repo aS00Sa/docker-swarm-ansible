@@ -15,56 +15,60 @@ fi
 if [ ! -d ${WORKING_DIR} ]; then
   mkdir -p ${WORKING_DIR}
 fi
-#echo "Create Certificate Authority";
+
+echo "Create Certificate Authority";
 #/bin/openssl genrsa -out ca.key 2048
 #/bin/openssl req -x509 -new -nodes -sha256 -days 3650 -subj "/C=RU/ST=RO/L=RND/O=upZERO" -key ca.key -out ca.crt
 /usr/bin/cp ${HOME}/ca.crt ${HOME}/panda.betcity.dev.key ${HOME}/panda.betcity.dev.crt ${WORKING_DIR}
-/usr/bin/mv ${HOME}/ca.crt /usr/share/ca-certificates
-/usr/sbin/update-ca-certificates
 
-# echo "1. Create the Server Private Key";
-#/bin/openssl genrsa -out ${WORKING_DIR}/$FQDN.key 2048 &> /dev/null
+echo "1. Create the Server Private Key";
+/bin/openssl genrsa -out ${WORKING_DIR}/$FQDN.key 2048
 
-# echo "2. Create Certificate Signing Request Configuration";
-#cat >${WORKING_DIR}/$FQDN-csr.conf<< EOF
-#prompt = no
-#default_md = sha256
-#req_extensions = req_ext
-#distinguished_name = dn
-#[ dn ]
-#C = RU
-#ST = RO
-#L = RND
-#O = upZERO
-#CN = $FQDN
-#emailAddress = root@$FQDN
-#[ req_ext ]
-#subjectAltName = @alt_names
-#[ alt_names ]
-#DNS.1 = $FQDN
-#DNS.2 = $DOMAIN
-#DNS.3 = $HOST
-#IP.1 = $IP
-#EOF
+echo "2. Create Certificate Signing Request Configuration";
+cat >${WORKING_DIR}/$FQDN-csr.conf<< EOF
+prompt = no
+default_md = sha256
+req_extensions = req_ext
+distinguished_name = dn
+[ dn ]
+C = RU
+ST = RO
+L = RND
+O = upZERO
+CN = $FQDN
+emailAddress = root@$FQDN
+[ req_ext ]
+subjectAltName = @alt_names
+[ alt_names ]
+DNS.1 = $FQDN
+DNS.2 = $DOMAIN
+DNS.3 = $HOST
+IP.1 = $IP
+EOF
 
-# echo "3. Generate Certificate Signing Request (CSR) Using Server Private Key";
-#/bin/openssl req -new -key $FQDN.key -out ${WORKING_DIR}/$FQDN.csr -config ${WORKING_DIR}/$FQDN-csr.conf  &> /dev/null
+echo "3. Generate Certificate Signing Request (CSR) Using Server Private Key";
+/bin/openssl req -new -key ${WORKING_DIR}/$FQDN.key -out ${WORKING_DIR}/$FQDN.csr -config ${WORKING_DIR}/$FQDN-csr.conf
 
-# echo "4. Create a external file";
-#cat >${WORKING_DIR}/$FQDN-cert.conf<< EOF
-#authorityKeyIdentifier=keyid,issuer
-#basicConstraints=CA:FALSE
-#keyUsage = digitalSignature, nonRepudiation, keyEncipherment, dataEncipherment
-#subjectAltName = @alt_names
-#[alt_names]
-#DNS.1 = $FQDN
-#DNS.2 = $DOMAIN
-#DNS.3 = $HOST
-#IP.1 = $IP
-#EOF
+echo "4. Create a external file";
+cat >${WORKING_DIR}/$FQDN-cert.conf<< EOF
+authorityKeyIdentifier=keyid,issuer
+basicConstraints=CA:FALSE
+keyUsage = digitalSignature, nonRepudiation, keyEncipherment, dataEncipherment
+subjectAltName = @alt_names
+[alt_names]
+DNS.1 = $FQDN
+DNS.2 = $DOMAIN
+DNS.3 = $HOST
+IP.1 = $IP
+EOF
 
-# echo "5. Generate SSL certificate With self signed CA";
-#/bin/openssl x509 -req -in ${WORKING_DIR}/$FQDN.csr -CA ${WORKING_DIR}/panda.betcity.dev.crt -CAkey ${WORKING_DIR}/panda.betcity.dev.key -CAcreateserial -out ${WORKING_DIR}/$FQDN.crt -days 365 -sha256 -extfile ${WORKING_DIR}/$FQDN-cert.conf &> /dev/null
+echo "5. Generate SSL certificate With self signed CA";
+/bin/openssl x509 -req -in ${WORKING_DIR}/$FQDN.csr -CA ${WORKING_DIR}/panda.betcity.dev.crt -CAkey \
+${WORKING_DIR}/panda.betcity.dev.key -CAcreateserial -out ${WORKING_DIR}/$FQDN.crt -days 365 -sha256 -extfile \
+${WORKING_DIR}/$FQDN-cert.conf
 
-# echo "Verify ip SAN";
+#echo "Verify ip SAN";
 #/bin/openssl x509 -in $FQDN.crt -noout -text|grep -A1 "Subject Alternative Name"
+
+/usr/bin/cp ${WORKING_DIR}/$FQDN.key ${WORKING_DIR}/$FQDN.crt ${DEFAULT_SSL_DIR}
+/usr/bin/cp ${WORKING_DIR}/panda.betcity.dev.key ${WORKING_DIR}/panda.betcity.dev.crt ${DEFAULT_SSL_DIR}
