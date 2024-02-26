@@ -1,3 +1,10 @@
+#[all]
+#192.168.28.205 dc2-k8s-devops-m1
+#192.168.28.206 dc2-k8s-devops-i1
+#192.168.28.207 dc2-k8s-devops-w1
+#192.168.28.208 dc2-k8s-devops-w2
+#192.168.28.209 dc2-k8s-devops-w3
+
 [haproxy]
 192.168.28.205
 192.168.28.206
@@ -7,16 +14,22 @@
 192.168.28.208
 192.168.28.209
 
+[swarm_workers]
+192.168.28.205
+192.168.28.206
+192.168.28.207
+192.168.28.208
+192.168.28.209
+
 [gluster_nodes]
 192.168.28.207
 192.168.28.208
 192.168.28.209
 
-
 [all:vars]
-#  
+#
 device2_hdd_dev="/dev/sdb"
-# 
+#
 ansible_connection="ssh"
 # user for ansible 
 ansible_user="saglaev_aa"
@@ -27,4 +40,3 @@ ansible_become_pass="$6$BtcJoKyVO00R9YYj$QDoFotIIAmjaHPBxtGB.8EvKGtuY4W6TOpMfPHZ
 ansible_ssh_rsa="~/.ssh/id_rsa.pub"
 # cat ~/.ssh/id_rsa.pub
 ansible_ssh_key="ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDcxGoKzvEA63n7OEI1EVw05MLFiT+0B90LvcGBQsI1J7QHff5+1FVn/KQ5BgDSrAdqlkau+IRW0w3Yx6rS9a/WNyeTbZ3GUo7i4VP0SYFOH8t2Urn79nQZkLACY2g6SZzVKJqwe0F7w+5xmE6S1O7KQ/9nKkFGocoAeeHualJbjG4goD/YpnBUEMRnpG8sDCjDo0eKMvv6tTr8x3d6Si0L/eCvlpi1V1ae01t6h5VOHTw/y/OL/4pZIlfsssCNLXies5RYmUtsWoSquER+UPl162ryHELAgh2VU8vmI2rDq3PMo9V/aben/mAIbc8exUUR6jZ3iRN9UAbwt3THSl79FADIig4U6XbOFSNljM65NfQ3jbumJH22DvcgodeZDLhOyuJknOE4zkOCteAuOx2j/+jRcvn7GqalYXFCB29HqZTAcrr3ymDpI+5k0UNOb3zEwvxoIUWIgAgaBoZ0MfiQm+VgwtufzZ4Lmq07mdYWdbz2YoOY26iyBvixKE99GQK14Xp9uwKMo7etK7ybUtbxB264hAkPUEdWmgn5Eu5YJFX4fBcrGgUgCFFqdINOw0Hu9yelb5206I34H99dheMtsd73ZMGEDq+9mjgtqzvF5KS5Ts/hudsAC63U1DkXNVvEiBTHYtz4bZIuApF/bzI0nDO0alz4ZF0rA/yTir3a7w== saglaev.aa@betcity.ru"
-

@@ -1,0 +1,34 @@
+---
+- name: Copy ca.cert on the remote machine
+  become: true
+  become_method: sudo
+  copy:
+    src: "{{ playbook_dir }}/roles/generate-certs/files/ca.crt"
+    dest: "${HOME}/ca.crt"
+
+- name: Copy panda.betcity.dev.crt on the remote machine
+  become: true
+  become_method: sudo
+  copy:
+    src: "{{ playbook_dir }}/roles/generate-certs/files/panda.betcity.dev.crt"
+    dest: "${HOME}/panda.betcity.dev.crt"
+
+- name: Copy panda.betcity.dev.key on the remote machine
+  become: true
+  become_method: sudo
+  copy:
+    src: "{{ playbook_dir }}/roles/generate-certs/files/panda.betcity.dev.key"
+    dest: "${HOME}/panda.betcity.dev.key"
+
+- name: Copy cert generation script to host
+  become: true
+  become_method: sudo
+  template:
+    src: generate_certs.j2
+    dest: /tmp/generate_certs.sh
+    mode: '0755'
+
+- name: Run cert generation script
+  become: true
+  become_method: sudo
+  shell: /tmp/generate_certs.sh
