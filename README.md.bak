@@ -24,6 +24,13 @@ Portainer is a web UI for managing Docker Swarm. Functionality is similar to Doc
 #### HAProxy
 HAProxy is a load balancer and SSL off loader. This is typically placed in front of the application servers in a Cluster. In this setup, HAProxy does SSL Offloading and load balances requests to each of the Traefik services running on the Docker Swarm nodes. It additionally monitors each of the hosts and if one is no longer available, will remove that host from the distribution of traffic until it is brought back online.
 
+#### Monitoring
+Monitoring a Swarm cluster is essential to ensure its availability and reliability. By using Prometheus and Grafana to collect and visualize the metrics of the cluster, and by using Portainer to simplify the deployment, you can effectively monitor your Swarm cluster and detect potential issues before they become critical.
+
+https://www.portainer.io/blog/monitoring-a-swarm-cluster-with-prometheus-and-grafana
+
+
+
 ## Deployment
 
 ### Requirements
@@ -455,3 +462,7 @@ For high traffic sites, you will also want to break out the Traefic router to ru
 If running in environments where you do not have access to inherent SSL offloading and load balancing that is provided from services like AWS ALB, you could make use of a setup that implements HAProxy as an alternative. A simple example of this is provided with this setup.
 
 Traefik also has this capability as integrations for LetsEncrypt SSL certs (good service if you want free SSL) however, you would still have to load balance between each of your Traefik nodes (assuming you want more than one). Note that if you go down the Traefik route with LetsEncrypt, you will need to also implement a shared key store between the nodes (i.e. Consul).
+
+ansible -i hosts all -m shell -a "yes | docker swarm leave --force" -b
+
+ansible -i hosts all -m shell -a "yes | sudo docker system prune" -b 

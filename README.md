@@ -12,17 +12,20 @@ Containers, nuff said.
 #### Docker Swarm
 Uses Docker to create a swarm of Docker hosts where you can deploy application services. A Swarm is managed like a single Docker node and allows service networks to span across multiple hosts.
 
-#### Gluster
-Gluster is a Distributed Filesystem to allow shared persistent storage volumes across Docker Swarm Cluster. This is used as an alternative to NFS or other shared storage technologies for simplicity and minimal hardware footprint. This example will install the Gluster Storage Plugin for Docker.
-
-#### Traefik
-Traefik is a Layer 7 Router that automatically discovers services in Docker Swarm and routes traffic to the appropriate container(s) in the cluster. Similar to the functionality provided by Docker EE UCP with Interlock. The nice thing about Traefik is that it integrates into the Docker Swarm API and will dynamically create the Layer 7 routes based on labels you add to you containers or services. There is no administrative action in Traefik itself.
-
 #### Portainer
 Portainer is a web UI for managing Docker Swarm. Functionality is similar to Docker EE UCP but provides more features and is an open source project.
 
 #### HAProxy
-HAProxy is a load balancer and SSL off loader. This is typically placed in front of the application servers in a Cluster. In this setup, HAProxy does SSL Offloading and load balances requests to each of the Traefik services running on the Docker Swarm nodes. It additionally monitors each of the hosts and if one is no longer available, will remove that host from the distribution of traffic until it is brought back online.
+HAProxy (and KeepAlived with VIP-address) is a load balancer for traffic masters on the Docker Swarm.
+It additionally monitors each of the hosts and if one is no longer available, will remove that host from the distribution of traffic until it is brought back online.
+
+#### Monitoring
+Monitoring a Swarm cluster is essential to ensure its availability and reliability.
+By using Prometheus and Grafana to collect and visualize the metrics of the cluster, and by using Portainer to simplify the deployment, you can effectively monitor your Swarm cluster and detect potential issues before they become critical.
+
+https://www.portainer.io/blog/monitoring-a-swarm-cluster-with-prometheus-and-grafana
+
+
 
 ## Deployment
 
@@ -36,48 +39,6 @@ _For OSX with Homebrew:_
 
 ```bash
 brew install ansible
-```
-
-**Setup Vagrant**
-
-If wanting to utilize Vagrant, you will need to make Vagrant and Virtualbox are both installed.
-
-_For OSX with Homebrew:_
-
-```bash
-brew cask install vagrant
-brew cask install virtualbox
-```
-
-### Setup Machines to Host the Swarm Cluster
-
-#### Vagrant
-
-If you wish to try this setup with Vagrant the following steps can be used to get up and running fast. The Vagrant file deploys 4 hosts.
-
-* 1 HAParoxy Host
-* 3 Docker Swarm Hosts
-
-To bring up the infrastructure, run:
-
-```bash
-# install disk resize plugin
-vagrant plugin install vagrant-disksize
-
-# launch vagrant environment
-vagrant up
-```
-
-To shut down the infrastructure in Vagrant, run:
-
-```bash
-vagrant halt
-```
-
-To tear down all the infrastructure in Vagrant, run:
-
-```bash
-vagrant destroy -f
 ```
 
 #### External Hosts or Manual Setup
@@ -103,7 +64,6 @@ Ansible is used to provision the infrastructure.
 All customizations are found in the Ansible Inventory that is defined in the files:
 
 * `hosts` - Inventory of hosts
-* `host-vagrant` - Inventory of hosts for vagrant setup
 * `playbooks/config.yml` - Application config options
 
 Inventory Groups:
@@ -111,7 +71,6 @@ Inventory Groups:
 * `[haproxy]` SINGLE node that will be configured as the front end load balancer with HAProxy
 * `[swarm_managers]` group in hosts MUST define at minimum 3 Nodes
 * `[swarm_workers]` group in hosts is optional and can include any number of non Manager Nodes
-* `[gluster_nodes]` group in host MUST define ONLY 3 Nodes
 
 ### Deployment Overview
 
@@ -124,15 +83,12 @@ The following high level actions are performed by the Ansible script:
 * The first node defined in `[swarm_managers]` is setup as the leader in the Swarm Cluster
 * The remaining nodes are setup as Swarm Managers (3 required for clustering, ie 1 Leader, 2 managers)
 * If `[swarm_workers]` is defined, joins these to the Swarm Cluster with the Worker role
-* On `[gluster_nodes]`, configures the second drive (sdb) with a XFS file system
-* Sets up a GlusterFS Cluster on nodes in `[gluster_nodes]` (Ansible will assume there are 3 total, others in this group will not be initialized)
 * Install Docker Gluster Storage Plugin on all `[swarm_managers]` and `[swarm_workers]`
-* Installs [Traefik](https://traefik.io) stack as a global Service on all `[swarm_managers]`
 * Install [Portainer](https://www.portainer.io) Agents as a global service on all `[swarm_managers]` and `[swarm_workers]`
 * Install Portainer UI with a replica set of 1 on `[swarm_managers]`
 * Install HAProxy on dedicated node
-* Creates a self signed certificate for SSL offloading with HA Proxy
-* Routes traffic received on port 80 and 443 to the Traefic Services running on the Swarm manager Nodes.
+* Creates a self signed certificate for Docker
+* Routes traffic to the Swarm manager Nodes.
 
 ### Setup DNS
 
@@ -156,12 +112,6 @@ Each of the deployed applications must resolve to the host running HAProxy. You 
 
 This should return ok and ensure that Ansible config is able to login and execute commands on the hosts.
 
-**For Vagrant Infrastructure**
-
-```bash
-ansible all --inventory-file=hosts-vagrant -a "/bin/echo hello"
-```
-
 **For External Hosts or Manual Setup on Ubuntu 18.04**
 
 ```bash
@@ -172,25 +122,11 @@ ansible all -a "/bin/echo hello"
 
 Once everything is configured and verified, run the playbook to configure the clusters.
 
-**For Vagrant Infrastructure**
-
-```bash
-ansible-playbook --inventory-file=hosts-vagrant playbooks/install.yml
-```
-
 **For External Hosts or Manual Setup on Ubuntu 18.04**
 
 ```bash
 ansible-playbook playbooks/install.yml
 ```
-
-### Test Connectivity to Traefik
-
-If using the default Ansible variables defined in the hosts file, you can navigate to:
-
-* http://traefik.docker.local
-
-Username/Password = admin:password1234
 
 ### Test Connectivity to Portainer
 
@@ -210,88 +146,6 @@ Username/Password = admin:password1234
 
 ### Test Deploying a Simple Application Stack to the Swarm
 
-**wordpress-stack.yml**
-
-_Note: This assumes that you are using the default Ansible variables in the hosts file._
-
-```yaml
-version: '3.5'
-services:
-  wordpress:
-    image: wordpress
-    environment:
-      WORDPRESS_DB_HOST: db
-      WORDPRESS_DB_USER: exampleuser
-      WORDPRESS_DB_PASSWORD: examplepass
-      WORDPRESS_DB_NAME: exampledb
-    ports:
-      - "80"
-    networks:
-      - wordpress
-      - web
-    volumes:
-      - wordress_data:/var/www/html/wp-content
-    deploy:
-      labels:
-        - "traefik.enable=true"
-        - "traefik.http.routers.wordpress.rule=Host(`wordpress.docker.local`)"
-        - "traefik.http.services.wordpress.loadbalancer.server.port=80"
-        - "traefik.docker.network=web"
-
-  db:
-    image: mysql:5.7
-    environment:
-      MYSQL_DATABASE: exampledb
-      MYSQL_USER: exampleuser
-      MYSQL_PASSWORD: examplepass
-      MYSQL_RANDOM_ROOT_PASSWORD: '1'
-    networks:
-      - wordpress
-    volumes:
-      - mysql_data:/var/lib/mysql
-
-networks:
-  wordpress:
-    driver: overlay
-    attachable: true
-    name: wordpress
-  web:
-    external: true
-    name: web
-
-volumes:
-  wordress_data:
-    driver: glusterfs
-    name: "gfs/wordpress_data"
-  mysql_data:
-    driver: glusterfs
-    name: "gfs/wordpress_mysql"
-```
-
-**Deploying stack from CLI**
-
-From a Docker Swarm Node (Manager or Worker):
-
-```bash
-# Create Directories on Mounted GFS volume for storage
-sudo mkdir /mnt/gfs/wordpress_data
-sudo mkdir /mnt/gfs/wordpress_mysql
-
-# Deploy above wordpress stack
-docker stack deploy --compose-file=wordpress-stack.yml wordpress
-```
-
-**Deploying Stack from Portainer UI**
-
-1. Access Portainer UI at http://portainer.docker.local
-2. Select Stacks
-3. Name the stack 'wordpress'
-4. Copy and Paste above yaml into Web Editor
-5. Click 'Deploy Stack'
-
-**Test Wordpress**
-
-Navigate to: http://wordpress.docker.local
 
 _Note: This may take a few minutes to respond after creating stack due to docker downloading images referenced and them starting up._
 
@@ -314,76 +168,6 @@ Ensure the following:
        ports:
           - "80"
        [...]
-   ```
-
-2. The deploy option on the exposed service must have the Traefik network assigned and Traefik labels added. The router name and service are arbitrary, but must be unique in Traefik.
-
-   Example:
-
-   ```yaml
-   services:
-     myservice:
-       [...]
-       networks:
-         <traefik_network_name>:
-           external: true
-           name: <traefik_network_name>
-       [...]
-       deploy:
-         labels:
-           - "traefik.enable=true"
-           - "traefik.http.routers.<router_name>.rule=Host(`<web_url>`)"
-           - "traefik.http.services.<service_name>.loadbalancer.server.port=<container_port>"
-           - "traefik.docker.network=<traefik_network_name>"
-   ```
-
-3. The Traefik Network must be defined in your compose file in order to assign it to a service. This network has already been created if you have already installed Traefik so it must be reference as an external service.
-
-   Example:
-
-   ```yaml
-   [...]
-   networks:
-     <traefik_network_name>:
-       external: true
-       name: <traefik_network_name>
-   ```
-
-**Services That Will Require Persistent Storage (via GlusterFS)**
-
-_Note: For a full example reference Wordpress config above._
-
-Ensure the following:
-
-1. The volumes are defined that use the Gluster Storage Driver.
-
-   Example:
-
-   ```yaml
-   volumes:
-     <volume_name>:
-       driver: glusterfs
-       name: "gfs/<volume_dir>"
-   ```
-
-2. The volumes of the service use the defined volumes.
-
-   Example:
-
-   ```yaml
-   services:
-     myservice:
-       [...]
-       volumes:
-         - <volume_name>:<container_path>
-   ```
-
-3. The volume dir path has been created on in Gluster volume.
-
-   Example:
-
-   ```bash
-   sudo mkdir <gluster_mount_path>/<volume_dir>
    ```
 
 ## Re-running Ansible Playbook
@@ -411,8 +195,6 @@ ansible_ssh_private_key_file=/path/to/ssh_key.pem
 In addition to this, you want to make sure that the user can run `sudo` without a password. This will be the typical setup when using an Ubuntu AMI from AWS with EC2.
 
 **Load Balancer and SSL**
-
-While Traefik can be configured to do SSL offloading, often a better better approach is to make use of an AWS Application Load Balancer (ALB). The advantages to this is that it can do the SSL offloading as well as distribute traffic between each of your Traefik router nodes.
 
 For each domain you wish to host Docker applications under:
 
@@ -448,14 +230,6 @@ To do this you can modify the Ansible hosts file. For example, to split out Glus
 
 **Other Considerations**
 
-While Gluster is a good way to have a distributed filesystem for use with Swarm, if you are deploying on a Cloud provider, it would be advisable to use another volume storage Driver. What you choose for this will depend on performance, cost, and complexity requirements. Amazons EFS (NFS) is one of many ways to accomplish this.
-
-For high traffic sites, you will also want to break out the Traefic router to run on dedicated hosts. This is out of the scope of this Ansible playbook, but should be fairly easy to modify. An option would be to setup 2 dedicated Swarm Workers and deploy Traefik services only to those. However, to keep other workloads off these workers, or to make sure Traefik services are only assigned here, you will have to make use of Docker labels and constraints.
-
-If running in environments where you do not have access to inherent SSL offloading and load balancing that is provided from services like AWS ALB, you could make use of a setup that implements HAProxy as an alternative. A simple example of this is provided with this setup.
-
-Traefik also has this capability as integrations for LetsEncrypt SSL certs (good service if you want free SSL) however, you would still have to load balance between each of your Traefik nodes (assuming you want more than one). Note that if you go down the Traefik route with LetsEncrypt, you will need to also implement a shared key store between the nodes (i.e. Consul).
-
 ansible -i hosts all -m shell -a "yes | docker swarm leave --force" -b
 
-ansible -i hosts all -m shell -a "yes | sudo docker system prune" -b 
+ansible -i hosts all -m shell -a "yes | sudo docker system prune" -b
