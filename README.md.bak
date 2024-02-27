@@ -455,7 +455,3 @@ For high traffic sites, you will also want to break out the Traefic router to ru
 If running in environments where you do not have access to inherent SSL offloading and load balancing that is provided from services like AWS ALB, you could make use of a setup that implements HAProxy as an alternative. A simple example of this is provided with this setup.
 
 Traefik also has this capability as integrations for LetsEncrypt SSL certs (good service if you want free SSL) however, you would still have to load balance between each of your Traefik nodes (assuming you want more than one). Note that if you go down the Traefik route with LetsEncrypt, you will need to also implement a shared key store between the nodes (i.e. Consul).
-
-ansible -i hosts all -m shell -a "yes | docker swarm leave --force" -b
-
-ansible -i hosts all -m shell -a "yes | sudo docker system prune" -b 

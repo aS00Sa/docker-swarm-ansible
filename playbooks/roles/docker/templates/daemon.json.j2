@@ -8,10 +8,5 @@
   },
   "storage-driver": "overlay2",
   "insecure-registries": ["http://192.168.1.191:8082","http://192.168.1.191:1111"],
-  "registry-mirrors": ["http://192.168.1.191:8082","http://192.168.1.191:1111"],
-  "tls": true,
-  "tlsverify": true,
-  "tlscacert": "/etc/ssl/{{ app_domain_name }}/any.{{ app_domain_name }}.crt",
-  "tlscert": "/etc/ssl/{{ app_domain_name }}/{{ ansible_hostname }}.{{ app_domain_name }}.crt",
-  "tlskey": "/etc/ssl/{{ app_domain_name }}/{{ ansible_hostname }}.{{ app_domain_name }}.key"
+  "registry-mirrors": ["http://192.168.1.191:8082","http://192.168.1.191:1111"]
 }

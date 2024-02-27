@@ -59,7 +59,7 @@
   template:
     src: config.json.j2
     dest: /etc/docker/config.json
-    mode: '0660'
+    mode: '0640'
 
 - name: Copy daemon.json to host
   become: true
@@ -67,7 +67,15 @@
   template:
     src: daemon.json.j2
     dest: /etc/docker/daemon.json
-    mode: '0660'
+    mode: '0640'
+
+- name: Copy docker.service to host
+  become: true
+  become_method: sudo
+  template:
+    src: docker.service.j2
+    dest: /lib/systemd/system/docker.service
+    mode: '0640'
 
 - name: Ensure docker deamon restarting
   become: true
@@ -75,3 +83,4 @@
   service:
     name: docker
     state: restarted
+    daemon_reload: true

@@ -4,8 +4,9 @@
   register: swarm_status
   ignore_errors: true
 
+#  shell: docker swarm init --dispatcher-heartbeat 1s --ca-cert=/etc/ssl/{{app_domain_name}}/any.panda.betcity.dev.crt --ca-key=/etc/ssl/{{app_domain_name}}/any.panda.betcity.dev.key --advertise-addr={{ inventory_hostname }}
 - name: Initialize new Docker Swarm Leader
-  shell: docker swarm init --advertise-addr={{ inventory_hostname }}
+  shell: docker swarm init --dispatcher-heartbeat 1s --advertise-addr={{ inventory_hostname }}
   when: swarm_status.rc != 0 and inventory_hostname == groups['swarm_managers'][0]
   run_once: true
 
@@ -18,3 +19,5 @@
   when: inventory_hostname == groups['swarm_managers'][0]
   shell: docker swarm join-token --quiet worker
   register: worker_token
+
+
