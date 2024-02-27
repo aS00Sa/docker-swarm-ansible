@@ -14,6 +14,7 @@ Uses Docker to create a swarm of Docker hosts where you can deploy application s
 
 #### Portainer
 Portainer is a web UI for managing Docker Swarm. Functionality is similar to Docker EE UCP but provides more features and is an open source project.
+https://www.portainer.io/blog/monitoring-a-swarm-cluster-with-prometheus-and-grafana
 
 #### HAProxy
 HAProxy (and KeepAlived with VIP-address) is a load balancer for traffic masters on the Docker Swarm.
@@ -21,10 +22,31 @@ It additionally monitors each of the hosts and if one is no longer available, wi
 
 #### Monitoring
 Monitoring a Swarm cluster is essential to ensure its availability and reliability.
-By using Prometheus and Grafana to collect and visualize the metrics of the cluster, and by using Portainer to simplify the deployment, you can effectively monitor your Swarm cluster and detect potential issues before they become critical.
-
 https://www.portainer.io/blog/monitoring-a-swarm-cluster-with-prometheus-and-grafana
 
+By using Prometheus and Grafana to collect and visualize the metrics of the cluster, and by using Portainer to simplify the deployment, you can effectively monitor your Swarm cluster and detect potential issues before they become critical.
+
+docker stack deploy -c monitoring/docker-compose.yml prom
+Creating network prom_net
+Creating service prom_node-exporter
+Creating service prom_grafana
+Creating service prom_prometheus
+Creating service prom_cadvisor
+
+docker stack ps prom
+docker stack services prom
+
+
+docker node ls
+
+docker node update --label-add monitoring=true dc2-k8s-devops-w1
+docker node update --label-add monitoring=true dc2-k8s-devops-w2
+docker node update --label-add monitoring=true dc2-k8s-devops-w3
+
+
+
+#### App Templates
+https://github.com/portainer/templates/tree/v3
 
 
 ## Deployment
