@@ -17,7 +17,7 @@ fi
 echo "Create Certificate Authority";
 #/bin/openssl genrsa -out ca.key 2048
 #/bin/openssl req -x509 -new -nodes -sha256 -days 3650 -subj "/C=RU/ST=RO/L=RND/O=upZERO" -key ca.key -out ca.crt
-/usr/bin/mv ${HOME}/Betcity_CA.crt ${HOME}/any.panda.betcity.dev.crt ${HOME}/any.panda.betcity.dev.key ${WORKING_DIR}
+/usr/bin/mv ${HOME}/Betcity_CA.crt ${HOME}/{{ app_domain_name }}.crt ${HOME}/{{ app_domain_name }}.key ${WORKING_DIR}
 
 echo "1. Create the Server Private Key";
 /bin/openssl genrsa -out ${WORKING_DIR}/$FQDN.key 4096
@@ -61,8 +61,8 @@ IP.1 = $IP
 EOF
 
 echo "5. Generate SSL certificate With self signed CA";
-/bin/openssl x509 -req -in ${WORKING_DIR}/$FQDN.csr -CA ${WORKING_DIR}/any.panda.betcity.dev.crt -CAkey \
-${WORKING_DIR}/any.panda.betcity.dev.key -CAcreateserial -out ${WORKING_DIR}/$FQDN.crt -days 365 -sha256 -extfile \
+/bin/openssl x509 -req -in ${WORKING_DIR}/$FQDN.csr -CA ${WORKING_DIR}/{{ app_domain_name }}.crt -CAkey \
+${WORKING_DIR}/{{ app_domain_name }}.key -CAcreateserial -out ${WORKING_DIR}/$FQDN.crt -days 365 -sha256 -extfile \
 ${WORKING_DIR}/$FQDN-cert.conf
 
 #echo "Verify ip SAN";
@@ -73,8 +73,9 @@ if [ ! -d ${DEFAULT_SSL_DIR} ]; then
   mkdir -p ${DEFAULT_SSL_DIR}
 fi
 
+/usr/bin/cp ${WORKING_DIR}/Betcity_CA.crt /etc/ssl/
 /usr/bin/cp ${WORKING_DIR}/$FQDN.key ${WORKING_DIR}/$FQDN.crt ${DEFAULT_SSL_DIR}
-/usr/bin/cp ${WORKING_DIR}/any.panda.betcity.dev.crt ${WORKING_DIR}/any.panda.betcity.dev.key ${DEFAULT_SSL_DIR}
+/usr/bin/cp ${WORKING_DIR}/{{ app_domain_name }}.crt ${WORKING_DIR}/{{ app_domain_name }}.key ${DEFAULT_SSL_DIR}
 
-/usr/bin/cat ${WORKING_DIR}/any.panda.betcity.dev.crt ${WORKING_DIR}/Betcity_CA.crt \
-${WORKING_DIR}/any.panda.betcity.dev.key > ${DEFAULT_SSL_DIR}/any.panda.betcity.dev.chained.pem
+/usr/bin/cat ${WORKING_DIR}/{{ app_domain_name }}.crt ${WORKING_DIR}/Betcity_CA.crt \
+${WORKING_DIR}/{{ app_domain_name }}.key > ${DEFAULT_SSL_DIR}/{{ app_domain_name }}.chained.pem

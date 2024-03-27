@@ -1,20 +1,13 @@
 [haproxy]
-192.168.28.205
-192.168.28.206
 
 [swarm_managers]
-192.168.28.207
-192.168.28.208
-192.168.28.209
+192.168.21.35
+192.168.21.36
+192.168.21.37
 
 [swarm_workers]
-192.168.28.205
-192.168.28.206
 
 [gluster_nodes]
-192.168.28.207
-192.168.28.208
-192.168.28.209
 
 [all:vars]
 #
@@ -24,9 +17,9 @@ ansible_connection="ssh"
 # user for ansible
 ansible_user="saglaev_aa"
 # mkpasswd --method=SHA-512
-ansible_ssh_pass="$6$BtcJoKyVO00R9YYj$QDoFotIIAmjaHPBxtGB.8EvKGtuY4W6TOpMfPHZaK5I8/0/rt6whkPlfZEWkZNnXaTof53lRhJ6kYKNxDyVDE1"
-ansible_become_pass="$6$BtcJoKyVO00R9YYj$QDoFotIIAmjaHPBxtGB.8EvKGtuY4W6TOpMfPHZaK5I8/0/rt6whkPlfZEWkZNnXaTof53lRhJ6kYKNxDyVDE1"
+ansible_ssh_pass="$6$.Vms/PSkEaw1H1If$eh1/lAL1LmLqkgSrgcItNoFA7nnKmYGLo8.vZlQiRpiYNz/MlPkU2ShYmHO7fgeZiGE4HP4CJbqnNfvYF8C/31"
+ansible_become_pass="$6$.Vms/PSkEaw1H1If$eh1/lAL1LmLqkgSrgcItNoFA7nnKmYGLo8.vZlQiRpiYNz/MlPkU2ShYmHO7fgeZiGE4HP4CJbqnNfvYF8C/31"
 # rsa public file
 ansible_ssh_rsa="~/.ssh/id_rsa.pub"
 # cat ~/.ssh/id_rsa.pub
-ansible_ssh_key="ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDcxGoKzvEA63n7OEI1EVw05MLFiT+0B90LvcGBQsI1J7QHff5+1FVn/KQ5BgDSrAdqlkau+IRW0w3Yx6rS9a/WNyeTbZ3GUo7i4VP0SYFOH8t2Urn79nQZkLACY2g6SZzVKJqwe0F7w+5xmE6S1O7KQ/9nKkFGocoAeeHualJbjG4goD/YpnBUEMRnpG8sDCjDo0eKMvv6tTr8x3d6Si0L/eCvlpi1V1ae01t6h5VOHTw/y/OL/4pZIlfsssCNLXies5RYmUtsWoSquER+UPl162ryHELAgh2VU8vmI2rDq3PMo9V/aben/mAIbc8exUUR6jZ3iRN9UAbwt3THSl79FADIig4U6XbOFSNljM65NfQ3jbumJH22DvcgodeZDLhOyuJknOE4zkOCteAuOx2j/+jRcvn7GqalYXFCB29HqZTAcrr3ymDpI+5k0UNOb3zEwvxoIUWIgAgaBoZ0MfiQm+VgwtufzZ4Lmq07mdYWdbz2YoOY26iyBvixKE99GQK14Xp9uwKMo7etK7ybUtbxB264hAkPUEdWmgn5Eu5YJFX4fBcrGgUgCFFqdINOw0Hu9yelb5206I34H99dheMtsd73ZMGEDq+9mjgtqzvF5KS5Ts/hudsAC63U1DkXNVvEiBTHYtz4bZIuApF/bzI0nDO0alz4ZF0rA/yTir3a7w== saglaev.aa@betcity.ru"
+ansible_ssh_key="ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQClilD6RZRbKe7z2KFZ1dCkd7Qt4nm59zyTpL7V6jGRIp5aTNXCKwoej8DXHtKxu054nDi4j0gLh6Zd7oIgFqvbCs8ZkfGG4xQzWTUNrsBZyxr+FlTzO5+URnD7gSJrTtuLDEmTHcvxpazFG2di/rsqBQJ9pUwirvT6lCPtH7Qf2hRtxp6RvrxM3o2czn0kDX8d+ua/hhutDbYkbCpKCvWZY0Bcy8hQMdUNhvvnHukzT/myAS1y3Z8KHS879b/hdHrzG4U/OGKYmGd1g2zH3GjBueahWjCFbsCCT6JyiiraFlUkphxLxkpMPCtClvM4dH8IN1IklXvsGNpn3y5xMMztp7MPqwSh7426E+aoL1QvrhzN/7Z/9mqzkholAJ1nXfjju5ubASxJPLbQErIlP+3dCNzV1dtHhELeMa7csTxuHf6ZVfaFkoMWznPiaarwAhn2vkD8Bgyqd/v+8uaZocYCHaPEFnuDz4r9yWeJQd7y5yQ88VQDq01GP102wNVv5kdFPnWJLyrvLCJBa5A0afWaMgXDODdRIHmV6XjH+HTMtVxlCUzMQ5oB72VBTly6r8gaPkZJlfWrjtAzJw2Q/3YP6L2ofpCZetPv6KdUvYzZ93OuR+WRW/9+AAHigpcAqG2TRxOpqNCp5p6+jfJvacA2TEEgWhTN7kg8yJEicj9FCQ== saglaev.aa@betcity.ru"

@@ -1,0 +1,129 @@
+Certificate:
+    Data:
+        Version: 3 (0x2)
+        Serial Number:
+            98:9f:85:c6:90:c2:59:d8:f4:7b:32:db:85:5c:4c:9b
+    Signature Algorithm: sha256WithRSAEncryption
+        Issuer: CN=Betcity
+        Validity
+            Not Before: Mar 27 07:23:44 2024 GMT
+            Not After : Mar 27 07:23:44 2025 GMT
+        Subject: CN=panda3.betcity.dev
+        Subject Public Key Info:
+            Public Key Algorithm: rsaEncryption
+                Public-Key: (4096 bit)
+                Modulus:
+                    00:c2:13:cc:16:c7:0f:56:6d:89:ae:a8:02:b9:e7:
+                    f9:34:15:00:88:4b:35:90:75:44:04:8c:b7:9b:f8:
+                    df:2d:6e:33:ce:af:3c:f6:f0:96:d4:1d:5a:04:9f:
+                    27:66:b7:f5:01:13:60:79:73:59:c7:ff:c4:6b:5f:
+                    3e:ad:02:41:68:61:c7:f9:bd:1e:bf:73:f2:e3:9b:
+                    b0:e1:bc:90:c3:fb:2c:2f:b7:60:67:3a:58:78:62:
+                    35:59:fb:8a:48:e0:df:63:5b:fd:e7:aa:7d:e1:dd:
+                    90:c8:65:54:45:68:dc:fe:ae:0d:9f:61:56:8a:cd:
+                    54:56:67:76:cc:bb:2a:60:6c:d0:55:8d:79:f7:16:
+                    34:57:39:86:d3:78:53:89:3d:60:87:cf:57:cc:2e:
+                    63:95:81:0d:dc:91:7a:7d:c0:83:70:75:cd:97:b8:
+                    c0:52:34:46:d1:b7:01:25:ab:6b:f7:e7:92:f7:45:
+                    0c:7a:0d:8d:e6:fc:26:dc:50:43:d2:52:14:53:30:
+                    21:1d:6c:98:89:15:af:70:bf:a4:79:1d:5a:ab:03:
+                    58:b3:40:9a:90:af:3a:24:34:22:c3:b2:d8:05:0f:
+                    de:09:f2:31:31:3e:cb:85:48:08:82:97:3f:7e:3b:
+                    12:3a:e5:12:10:0a:3d:18:77:d1:73:9b:dd:3d:24:
+                    fd:db:90:ac:af:ac:c9:9c:1e:92:49:0d:93:05:23:
+                    fb:60:36:b2:1b:39:35:7b:4b:b6:41:74:81:73:df:
+                    70:65:0e:a2:34:46:38:a6:7b:81:1a:e8:18:4b:a4:
+                    b9:53:c2:49:5f:e8:4c:81:9e:d6:8a:ff:79:48:1d:
+                    f8:49:54:91:0c:ef:ed:9a:9c:9a:35:7d:a6:c4:b0:
+                    16:d7:c8:86:9d:07:2c:2c:8b:fb:6f:37:58:e7:fa:
+                    c8:f5:a5:1d:24:ed:c2:0c:b9:dd:23:75:48:8c:7b:
+                    7c:97:dd:12:bb:7c:cb:17:1c:f6:48:45:31:56:2b:
+                    33:a8:01:7e:18:e4:9a:1c:6f:cf:67:8d:02:71:b2:
+                    32:87:ad:8d:77:ac:d6:a4:ee:3c:ec:42:55:13:1f:
+                    16:1d:26:19:ca:c3:0a:47:26:d3:d5:4b:ac:ac:58:
+                    d3:3f:60:fb:c4:54:02:44:63:ea:be:78:c8:71:fd:
+                    f7:ea:a5:b8:60:05:9b:0f:b2:1d:e1:02:da:52:5c:
+                    4a:d8:30:49:9b:7e:04:e8:a0:21:38:37:f4:6d:6c:
+                    19:fc:30:af:4b:b0:db:a8:25:1b:91:00:e4:b7:6b:
+                    fb:b2:5e:6f:08:b8:bc:a2:62:d0:e9:67:14:22:e0:
+                    e3:a5:ea:9e:fd:6e:c8:74:24:1a:34:bf:93:51:77:
+                    75:a2:c3
+                Exponent: 65537 (0x10001)
+        X509v3 extensions:
+            X509v3 Basic Constraints: 
+                CA:FALSE
+            X509v3 Subject Key Identifier: 
+                22:78:A7:28:6A:AE:88:D2:22:D7:F6:29:6A:D7:C4:6C:D4:44:71:75
+            X509v3 Authority Key Identifier: 
+                keyid:3D:61:73:BF:15:EA:FC:A9:F4:6D:E4:4A:19:55:E2:71:25:6D:33:50
+                DirName:/CN=Betcity
+                serial:FF:98:B4:77:69:91:D0:55
+
+            X509v3 Extended Key Usage: 
+                TLS Web Server Authentication
+            X509v3 Key Usage: 
+                Digital Signature, Key Encipherment
+            X509v3 Subject Alternative Name: 
+                DNS:*.panda3.betcity.dev, DNS:panda3.betcity.dev
+    Signature Algorithm: sha256WithRSAEncryption
+         20:ae:bc:48:33:0c:e9:0a:3c:5c:f0:a5:a7:3a:c0:8c:3c:dc:
+         91:0b:12:dc:d6:9b:dd:51:f2:f6:97:80:76:d5:fe:5c:19:bf:
+         fc:93:2c:b6:33:0c:7d:f5:03:53:81:d0:ff:f2:d4:3a:73:eb:
+         29:e4:04:b8:94:e6:23:b3:d5:1f:b0:b6:f3:86:79:8b:f3:50:
+         88:0e:0d:56:ae:d9:fc:af:f8:ab:b8:7e:31:60:e2:23:52:93:
+         cb:fd:01:02:bc:f4:38:da:e4:16:10:e1:88:27:90:bd:48:61:
+         0e:3b:d9:53:74:eb:a0:68:a5:5f:e6:14:7f:e8:15:48:fd:d4:
+         28:84:91:81:85:65:6f:d3:48:8e:fa:ed:d7:ff:d7:a4:60:3f:
+         b7:9e:c6:9b:1e:bb:4b:12:26:62:ec:17:d4:0d:51:63:a4:e4:
+         df:f8:5b:c2:ba:9a:22:f6:e1:73:d2:7c:0e:d6:01:ac:4e:03:
+         cb:5c:b7:85:92:80:61:d7:73:0f:7e:7b:cd:de:76:b0:4f:4e:
+         03:12:0f:bd:68:22:f0:0c:2e:80:a6:9b:2d:b9:a5:62:d6:57:
+         ff:46:04:c8:33:28:36:6a:9c:e9:75:01:7a:95:bc:63:f0:61:
+         11:69:04:5f:6a:5c:5a:16:f3:ce:10:6e:b8:06:47:a8:23:19:
+         32:22:37:8f:7c:cc:58:bb:2a:76:8c:e2:47:83:e2:b9:1f:57:
+         74:00:61:93:5a:1a:7d:01:b0:ed:44:6f:e1:9d:e6:f0:16:ce:
+         64:ee:a9:cb:43:db:67:eb:3f:96:98:1c:a8:0a:d5:58:76:ee:
+         78:fb:17:2d:cc:5a:90:87:5b:21:f3:b2:8f:9e:19:a1:61:89:
+         fe:ee:7c:ba:55:1c:90:f2:96:0b:f1:44:89:48:41:63:b4:60:
+         91:05:fa:10:2d:44:e0:73:89:40:4f:93:66:d2:13:d7:24:8b:
+         6d:25:19:61:91:35:fc:0f:b0:c4:e6:9d:d4:d0:b1:f9:7e:64:
+         b7:c5:dd:fd:22:f0:cb:2a:98:e0:05:13:3b:50:98:0c:c8:ac:
+         83:52:14:22:96:8c:7c:e7:bd:a5:6f:41:f4:de:6c:04:62:3a:
+         f7:b8:1d:aa:d0:a2:b5:ea:bc:18:31:1b:b8:3f:9b:86:b5:25:
+         c0:26:ad:21:2a:4e:57:20:81:4f:76:18:24:50:1b:b4:bc:ae:
+         5c:9b:99:0b:a8:68:04:74:a0:f5:20:89:27:fa:95:ea:79:c4:
+         bd:5a:db:a6:ef:9b:12:8b:d5:a3:fe:f0:0b:5f:8e:71:75:87:
+         45:3e:5f:ba:43:0c:fb:c1:fa:8e:eb:47:47:a7:01:43:3d:05:
+         51:32:16:e7:fc:9e:f6:26
+-----BEGIN CERTIFICATE-----
+MIIFgzCCA2ugAwIBAgIRAJifhcaQwlnY9Hsy24VcTJswDQYJKoZIhvcNAQELBQAw
+EjEQMA4GA1UEAwwHQmV0Y2l0eTAeFw0yNDAzMjcwNzIzNDRaFw0yNTAzMjcwNzIz
+NDRaMB0xGzAZBgNVBAMMEnBhbmRhMy5iZXRjaXR5LmRldjCCAiIwDQYJKoZIhvcN
+AQEBBQADggIPADCCAgoCggIBAMITzBbHD1Ztia6oArnn+TQVAIhLNZB1RASMt5v4
+3y1uM86vPPbwltQdWgSfJ2a39QETYHlzWcf/xGtfPq0CQWhhx/m9Hr9z8uObsOG8
+kMP7LC+3YGc6WHhiNVn7ikjg32Nb/eeqfeHdkMhlVEVo3P6uDZ9hVorNVFZndsy7
+KmBs0FWNefcWNFc5htN4U4k9YIfPV8wuY5WBDdyRen3Ag3B1zZe4wFI0RtG3ASWr
+a/fnkvdFDHoNjeb8JtxQQ9JSFFMwIR1smIkVr3C/pHkdWqsDWLNAmpCvOiQ0IsOy
+2AUP3gnyMTE+y4VICIKXP347EjrlEhAKPRh30XOb3T0k/duQrK+syZwekkkNkwUj
++2A2shs5NXtLtkF0gXPfcGUOojRGOKZ7gRroGEukuVPCSV/oTIGe1or/eUgd+ElU
+kQzv7ZqcmjV9psSwFtfIhp0HLCyL+283WOf6yPWlHSTtwgy53SN1SIx7fJfdErt8
+yxcc9khFMVYrM6gBfhjkmhxvz2eNAnGyMoetjXes1qTuPOxCVRMfFh0mGcrDCkcm
+09VLrKxY0z9g+8RUAkRj6r54yHH99+qluGAFmw+yHeEC2lJcStgwSZt+BOigITg3
+9G1sGfwwr0uw26glG5EA5Ldr+7Jebwi4vKJi0OlnFCLg46Xqnv1uyHQkGjS/k1F3
+daLDAgMBAAGjgcgwgcUwCQYDVR0TBAIwADAdBgNVHQ4EFgQUIninKGquiNIi1/Yp
+atfEbNREcXUwQgYDVR0jBDswOYAUPWFzvxXq/Kn0beRKGVXicSVtM1ChFqQUMBIx
+EDAOBgNVBAMMB0JldGNpdHmCCQD/mLR3aZHQVTATBgNVHSUEDDAKBggrBgEFBQcD
+ATALBgNVHQ8EBAMCBaAwMwYDVR0RBCwwKoIUKi5wYW5kYTMuYmV0Y2l0eS5kZXaC
+EnBhbmRhMy5iZXRjaXR5LmRldjANBgkqhkiG9w0BAQsFAAOCAgEAIK68SDMM6Qo8
+XPClpzrAjDzckQsS3Nab3VHy9peAdtX+XBm//JMstjMMffUDU4HQ//LUOnPrKeQE
+uJTmI7PVH7C284Z5i/NQiA4NVq7Z/K/4q7h+MWDiI1KTy/0BArz0ONrkFhDhiCeQ
+vUhhDjvZU3TroGilX+YUf+gVSP3UKISRgYVlb9NIjvrt1//XpGA/t57Gmx67SxIm
+YuwX1A1RY6Tk3/hbwrqaIvbhc9J8DtYBrE4Dy1y3hZKAYddzD357zd52sE9OAxIP
+vWgi8AwugKabLbmlYtZX/0YEyDMoNmqc6XUBepW8Y/BhEWkEX2pcWhbzzhBuuAZH
+qCMZMiI3j3zMWLsqdoziR4PiuR9XdABhk1oafQGw7URv4Z3m8BbOZO6py0PbZ+s/
+lpgcqArVWHbuePsXLcxakIdbIfOyj54ZoWGJ/u58ulUckPKWC/FEiUhBY7RgkQX6
+EC1E4HOJQE+TZtIT1ySLbSUZYZE1/A+wxOad1NCx+X5kt8Xd/SLwyyqY4AUTO1CY
+DMisg1IUIpaMfOe9pW9B9N5sBGI697gdqtCiteq8GDEbuD+bhrUlwCatISpOVyCB
+T3YYJFAbtLyuXJuZC6hoBHSg9SCJJ/qV6nnEvVrbpu+bEovVo/7wC1+OcXWHRT5f
+ukMM+8H6jutHR6cBQz0FUTIW5/ye9iY=
+-----END CERTIFICATE-----

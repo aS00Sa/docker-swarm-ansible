@@ -1,5 +1,12 @@
 ---
-- name: Remove old versions of Docker
+- name: Prevous docker deamon down
+  become: true
+  become_method: sudo
+  service:
+    name: docker
+    state: stopped 
+
+- name: Remove prevous versions of Docker
   become: true
   become_method: sudo
   apt:
@@ -82,5 +89,5 @@
   become_method: sudo
   service:
     name: docker
-    state: restarted
+    state: started
     daemon_reload: true

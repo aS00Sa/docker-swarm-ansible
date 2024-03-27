@@ -22,15 +22,15 @@
   become: true
   become_method: sudo
   copy:
-    src: "{{ playbook_dir }}/roles/generate-certs/files/any.panda.betcity.dev.crt"
-    dest: "${HOME}/any.panda.betcity.dev.crt"
+    src: "{{ playbook_dir }}/roles/generate-certs/files/{{ app_domain_name }}.crt"
+    dest: "${HOME}/{{ app_domain_name }}.crt"
 
 - name: Copy panda.betcity.dev.key on the remote machine
   become: true
   become_method: sudo
   copy:
-    src: "{{ playbook_dir }}/roles/generate-certs/files/any.panda.betcity.dev.key"
-    dest: "${HOME}/any.panda.betcity.dev.key"
+    src: "{{ playbook_dir }}/roles/generate-certs/files/{{ app_domain_name }}.key"
+    dest: "${HOME}/{{ app_domain_name }}.key"
 
 - name: Copy cert generation script to host
   become: true

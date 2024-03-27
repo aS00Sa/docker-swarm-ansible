@@ -132,12 +132,45 @@ Each of the deployed applications must resolve to the host running HAProxy. You 
 
 ### Test Connectivity to Hosts
 
+ssh-keygen -t rsa -b 4096 -C "saglaev.aa@betcity.ru"
+eval "$(ssh-agent -s)"
+ssh-add ~/.ssh/id_rsa
+cat ~/.ssh/id_rsa.pub
+
+vi hosts
+
+ssh-copy-id -i ~/.ssh/id_rsa.pub saglaev_aa@192.168.21.35
+
+ssh-copy-id -i ~/.ssh/id_rsa.pub saglaev_aa@192.168.21.36
+
+sudo tee -a /etc/sudoers.d/docker <<EOF >/dev/null
+%docker ALL=(ALL) NOPASSWD:/usr/bin/docker
+%docker ALL=(ALL) NOPASSWD:/usr/bin/dockerd
+%docker ALL=(ALL) NOPASSWD:/usr/sbin/modprobe
+%docker ALL=(ALL) NOPASSWD:/usr/sbin/setcap
+%docker ALL=(ALL) NOPASSWD:/usr/bin/loginctl
+%docker ALL=(ALL) NOPASSWD:/usr/bin/tee
+%docker ALL=(ALL) NOPASSWD:/usr/bin/systemctl
+%docker ALL=(ALL) NOPASSWD:/usr/sbin/sysctl
+%docker ALL=(ALL) NOPASSWD:/usr/bin/apt
+%docker ALL=(ALL) NOPASSWD:/usr/bin/apt-get
+%docker ALL=(ALL) NOPASSWD:/usr/bin/sh
+%docker ALL=(ALL) NOPASSWD:/usr/bin/usermod
+%docker ALL=(ALL) NOPASSWD:/usr/sbin/iptables
+%docker ALL=(ALL) NOPASSWD:/usr/bin/rootlesskit
+EOF
+
+sudo tee -a /etc/sudoers.d/sudo <<EOF >/dev/null
+%sudo ALL=(ALL) NOPASSWD:ALL
+EOF
+
+
 This should return ok and ensure that Ansible config is able to login and execute commands on the hosts.
 
 **For External Hosts or Manual Setup on Ubuntu 18.04**
 
 ```bash
-ansible all -a "/bin/echo hello"
+ansible all -a "/bin/echo hello" 
 ```
 
 ### Run Ansible Playbook
