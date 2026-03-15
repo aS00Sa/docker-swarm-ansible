@@ -1,9 +1,17 @@
 ---
-- name: Check if Swarm has already been initialized
-  shell: docker node ls
-  register: swarm_status
+#- name: Check if Swarm has already been initialized
+#  shell: docker info --format '{{ .Swarm.LocalNodeState }}'
+#  register: swarm_status
+#  ignore_errors: true
+
+- name: Check Swarm status by attempting to leave (safe)
+  shell: docker swarm leave --force
+  register: leave_result
   ignore_errors: true
+  changed_when: false
 
 - name: Add Docker node to existing Swarm as manager
   shell: sudo docker swarm join --token {{ hostvars[groups['swarm_managers'][0]]['worker_token']['stdout'] }} {{ hostvars[groups['swarm_managers'][0]]['ansible_default_ipv4']['address'] }}:2377
-  when: swarm_status.rc != 0
+#  when: swarm_status.stdout != "active"
+  when: leave_result.rc != 0
+
