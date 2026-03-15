@@ -127,6 +127,16 @@
 #    state: present
 #  when: not current_docker_installed or current_version_clean != target_docker_version
 
+- name: Install docker Python library
+  become: true
+  become_method: sudo
+#  pip:
+#    name: docker
+  apt:
+    name: "python3-docker"
+    state: present
+    update_cache: yes
+
 - name: Add current user to docker group
   become: true
   become_method: sudo
