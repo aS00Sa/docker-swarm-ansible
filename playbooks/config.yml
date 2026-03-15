@@ -24,13 +24,14 @@ portainer_gfs_subdir: portainer_gfs
 portainer_network_name: portainer_network
 portainer_volume_name: portainer_data
 portainer_app_name: portainer_app
+portainer_admin_user: portainer_admin
 portainer_admin_password: portainer1234
 portainer_agent_secret: portaineragenttocken
 traefik_listen_port: 80
 traefik_admin_port: 8080
 traefik_network_name: traefik_network
 traefik_app_name: traefik_app
-traefik_admin_user: traefic_admin
+traefik_admin_user: traefik_admin
 traefik_admin_password: traefik1234
 haproxy_stats_user: haproxy_stats
 haproxy_stats_password: haproxy1234
