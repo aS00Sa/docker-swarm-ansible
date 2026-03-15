@@ -1,7 +1,5 @@
 # Docker Swarm with GlusterFS, Traefik, HAProxy, and Portainer
 
-The goal of this repo is to demonstrate using Ansible to build out Docker Swarm architecture that can be used to simply and reliably deploy and manage container workloads. This setup is intended for a small Development Lab and to get familiar with how high availability, scaling, and routing works with Docker. This can be scaled to use in production and there are some notes at the end of this README that will point you in the right direction if you desire to do so.
-
 This setup will provide a 3 node Docker Swarm with Layer 7 routing, Web UI management, and a distributed file system for Container volumes. A HAProxy node is setup to load balance traffic between each of the Layer 7 routers on the Docker Swarm nodes.
 
 ### Technologies in Use
@@ -36,18 +34,15 @@ Creating service prom_cadvisor
 docker stack ps prom
 docker stack services prom
 
-
 docker node ls
 
-docker node update --label-add monitoring=true dc2-k8s-devops-w1
-docker node update --label-add monitoring=true dc2-k8s-devops-w2
-docker node update --label-add monitoring=true dc2-k8s-devops-w3
-
+docker node update --label-add monitoring=true dckr01.localdomain
+docker node update --label-add monitoring=true dckr02.localdomain
+docker node update --label-add monitoring=true dckr03.localdomain
 
 
 #### App Templates
 https://github.com/portainer/templates/tree/v3
-
 
 ## Deployment
 
@@ -56,7 +51,6 @@ https://github.com/portainer/templates/tree/v3
 **Setup Ansible**
 
 This makes use of Ansible to automate the deployment of this setup. To run the Ansible commands, your workstation should have the Ansible CLI utilities installed.
-
 _For OSX with Homebrew:_
 
 ```bash
@@ -69,14 +63,14 @@ If wanting to deploy on your own defined infrastructure you will need to provisi
 
 This has been tested with Ubuntu 18.04, but should* work with any Debian flavor of linux.
 
-* 4 Hosts running Ubuntu 18.04
-* Primary User of 'ubuntu' with password 'ubuntu' (modifiable in hosts definition)
+* 4 Hosts running debian
+* Primary User of 'debian' with password 'debian' (modifiable in hosts definition)
 * SSH Service available that above credentials can log in to
 * The 'ubuntu' user should have access to run `sudo`
 * Each host should have:
-  * 1 Core
-  * 1 GB Ram
-  * Primary drive of 20GB where OS is installed
+  * 2 Core
+  * 4 GB Ram
+  * Primary drive of 30GB where OS is installed
 * The 3 Docker Swarm hosts should also have a econdary non-initialized 10GB+ Drive. This will be used for XFS file system and Gluster Volumes.
 
 ## Initialize Infrastructure
@@ -85,7 +79,7 @@ Ansible is used to provision the infrastructure.
 
 All customizations are found in the Ansible Inventory that is defined in the files:
 
-* `hosts` - Inventory of hosts
+* `inventory.ini` - Inventory of hosts
 * `playbooks/config.yml` - Application config options
 
 Inventory Groups:
@@ -115,11 +109,9 @@ The following high level actions are performed by the Ansible script:
 ### Setup DNS
 
 For the Layer 7 routing to work, the DNS names must be used when accessing the apps through HAProxy and in turn, the Traefik Layer 7 Router.
-
 Each of the deployed applications must resolve to the host running HAProxy. You can accomplish this in one of two ways.
 
 1. DNS - If you a local DNS server, or are deploying into a public cloud, create a DNS entry that points to the HAProxy Host.
-
 2. Local Dev via Hosts File - If you are testing on a local network or in a dev environment, it may be easier to simply modify your hosts file. Example entries below will match the default names defined in the variables of the Ansible hosts file.
 
 **Example Entries in local Hosts File:**
@@ -165,9 +157,7 @@ sudo tee -a /etc/sudoers.d/sudo <<EOF >/dev/null
 %sudo ALL=(ALL) NOPASSWD:ALL
 EOF
 
-
 This should return ok and ensure that Ansible config is able to login and execute commands on the hosts.
-
 **For External Hosts or Manual Setup on Ubuntu 18.04**
 
 ```bash
@@ -175,48 +165,43 @@ ansible all -a "/bin/echo hello"
 ```
 
 ### Run Ansible Playbook
-
 Once everything is configured and verified, run the playbook to configure the clusters.
-
 **For External Hosts or Manual Setup on Ubuntu 18.04**
 
 ```bash
+sudo apt install python3-venv
+sudo apt install python3-pip
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -U pip
+python3 -m pip install -U -r requirements.txt
+
 ansible-playbook playbooks/install.yml
 ```
 
 ### Test Connectivity to Portainer
 
 If using the default Ansible variables defined in the hosts file, you can navigate to:
-
 * http://portainer.docker.local
-
 Username/Password = admin:password1234
 
 ### Test Connectivity to HAPRoxy Status Page
 
 If using the default Ansible variables defined in the hosts file, you can navigate to:
-
 * http://10.10.10.10/stats
-
 Username/Password = admin:password1234
 
 ### Test Deploying a Simple Application Stack to the Swarm
-
 
 _Note: This may take a few minutes to respond after creating stack due to docker downloading images referenced and them starting up._
 
 ### Breakdown of Required Elements Defined in Stack File
 
 **Services That Will Require a Eternal Web Route (Layer 7 via Traefik)**
-
 _Note: For a full example reference Wordpress config above._
-
 Ensure the following:
-
 1. The service declaration in your stack yaml file should have the port that will be used to access the web application exposed. This does not require it to be mapped to a host port.
-
    Example:
-
    ```yaml
    services:
      myservice:

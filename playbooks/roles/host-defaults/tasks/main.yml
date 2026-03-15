@@ -8,6 +8,7 @@
       - ca-certificates
       - curl
       - gnupg-agent
+#      - gnupg
 ##      - software-properties-common
       - virtualenv
       - python3-venv

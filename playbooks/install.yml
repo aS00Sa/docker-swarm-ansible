@@ -11,11 +11,11 @@
     - import_role:
         name: generate-certs
 
-#- hosts: haproxy
-#  tasks:
-#    - include_vars: "{{playbook_dir}}/config.yml"
-#    - import_role:
-#        name: haproxy
+- hosts: haproxy
+  tasks:
+    - include_vars: "{{playbook_dir}}/config.yml"
+    - import_role:
+        name: haproxy
 
 - hosts: swarm_managers
   tasks:
