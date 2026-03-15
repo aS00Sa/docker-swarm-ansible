@@ -21,15 +21,23 @@
   when: inventory_hostname == groups['swarm_managers'][0]
   become: true
   become_method: sudo
-  pip:
-    name: jsondiff
+#  pip:
+#    name: jsondiff
+  apt:
+    name: "python3-jsondiff"
+    state: present
+    update_cache: yes
 
 - name: Install pyyaml Python library
   when: inventory_hostname == groups['swarm_managers'][0]
   become: true
   become_method: sudo
-  pip:
-    name: pyyaml
+#  pip:
+#    name: pyyaml
+  apt:
+    name: "python3-pretty-yaml"
+    state: present
+    update_cache: yes
 
 - name: Deploy stack from a compose file (on first swarm node)
   when: inventory_hostname == groups['swarm_managers'][0]
