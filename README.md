@@ -124,6 +124,7 @@ Each of the deployed applications must resolve to the host running HAProxy. You 
 
 **Example Entries in local Hosts File:**
 
+vi hosts
 ```
 10.10.10.10 portainer.docker.local
 10.10.10.10 traefik.docker.local
@@ -131,17 +132,17 @@ Each of the deployed applications must resolve to the host running HAProxy. You 
 ```
 
 ### Test Connectivity to Hosts
-
-ssh-keygen -t rsa -b 4096 -C "saglaev.aa@betcity.ru"
+ssh-keygen -t rsa -b 4096 -C "$(whoami)@$(uname -n)-$(date -I)" -f ~/.ssh/id_rsa
+ssh-keygen -t ed25519 -b 4096 -C "$(whoami)@$(uname -n)-$(date -I)" -f ~/.ssh/id_ed25519
 eval "$(ssh-agent -s)"
 ssh-add ~/.ssh/id_rsa
 cat ~/.ssh/id_rsa.pub
 
-vi hosts
-
-ssh-copy-id -i ~/.ssh/id_rsa.pub saglaev_aa@192.168.21.35
-
-ssh-copy-id -i ~/.ssh/id_rsa.pub saglaev_aa@192.168.21.36
+ssh-copy-id -i ~/.ssh/id_rsa.pub debian@192.168.1.48
+ssh-copy-id -i ~/.ssh/id_rsa.pub debian@192.168.1.49
+ssh-copy-id -i ~/.ssh/id_rsa.pub debian@192.168.1.50
+ssh-copy-id -i ~/.ssh/id_rsa.pub debian@192.168.1.51
+ssh-copy-id -i ~/.ssh/id_rsa.pub debian@192.168.1.52
 
 sudo tee -a /etc/sudoers.d/docker <<EOF >/dev/null
 %docker ALL=(ALL) NOPASSWD:/usr/bin/docker

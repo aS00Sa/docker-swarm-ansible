@@ -8,19 +8,20 @@
       - ca-certificates
       - curl
       - gnupg-agent
-      - software-properties-common
+##      - software-properties-common
       - virtualenv
+      - python3-venv
       - python3-pip
       - apache2-utils
     state: present
     force_apt_get: true
     update_cache: yes
 
-- name: Install Docker Python library
-  become: true
-  become_method: sudo
-  pip:
-    name: docker
+##- name: Install Docker Python library
+##  become: true
+##  become_method: sudo
+##  pip:
+##    name: docker
 
 - name: Check if auto update is enabled
   stat:
