@@ -1,4 +1,19 @@
 ---
+target_docker_version: 26.1.5
+docker_packages:
+  - docker-ce
+  - containerd.io
+#  - docker-ce-cli
+#  - docker-buildx-plugin
+#  - docker-compose-plugin
+old_docker_packages:
+  - docker
+  - docker-engine
+  - docker.io
+  - docker-cli
+  - containerd.io
+  - containerd
+  - runc
 app_domain_name: localdomain 
 gluster_volume_path: /glusterfs/bricks
 gluster_volume_name: gfs
