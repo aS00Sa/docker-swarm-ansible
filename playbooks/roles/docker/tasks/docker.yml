@@ -20,7 +20,7 @@
 - name: Debug version info
   debug:
     msg:
-      - "Target Docker version: {{ target_docker_version }}"
+      - "Target Docker version: {{ docker_version }}"
       - "Current Docker version: {{ current_version_clean }}"
       - "Docker installed: {{ current_docker_installed }}"
 
@@ -28,7 +28,7 @@
   apt:
     update_cache: yes
     cache_valid_time: 3600
-  when: not current_docker_installed or current_version_clean != target_docker_version
+  when: not current_docker_installed or current_version_clean != docker_version
 
 - name: Remove old Docker packages if version mismatch
   become: true
@@ -39,7 +39,7 @@
     force_apt_get: true
     purge: yes
     autoremove: yes
-  when: current_docker_installed and current_version_clean != target_docker_version
+  when: current_docker_installed and current_version_clean != docker_version
   register: docker_removed
 
 - name: Download Docker GPG key
@@ -109,14 +109,14 @@
   become: true
   become_method: sudo
   apt:
-    name: "{{ item }}={{ target_docker_version }}*"
+    name: "{{ item }}={{ docker_version }}*"
     state: present
     update_cache: yes
   loop: "{{ docker_packages }}"
 #    - docker-ce
 #    - docker-ce-cli
 #    - containerd.io
-  when: not current_docker_installed or current_version_clean != target_docker_version
+  when: not current_docker_installed or current_version_clean != docker_version
   register: docker_installed
 
 #- name: Install Docker plugins (latest versions)
