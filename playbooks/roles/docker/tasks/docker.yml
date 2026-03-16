@@ -125,7 +125,7 @@
 #      - docker-buildx-plugin
 #      - docker-compose-plugin
 #    state: present
-#  when: not current_docker_installed or current_version_clean != target_docker_version
+#  when: not current_docker_installed or current_version_clean != docker_version
 
 - name: Install docker Python library
   become: true
@@ -144,7 +144,7 @@
     name: "{{ ansible_user }}"
     groups: docker
     append: yes
-  when: not current_docker_installed or current_version_clean != target_docker_version or docker_installed.changed
+  when: not current_docker_installed or current_version_clean != docker_version or docker_installed.changed
 
 - name: Verify Docker installation
   command: docker --version
@@ -187,5 +187,5 @@
     state: started
     enabled: yes
     daemon_reload: true
-#  when: not current_docker_installed or current_version_clean != target_docker_version or docker_installed.changed
+#  when: not current_docker_installed or current_version_clean != docker_version or docker_installed.changed
 
