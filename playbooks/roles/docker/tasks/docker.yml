@@ -187,5 +187,5 @@
     state: started
     enabled: yes
     daemon_reload: true
-  when: not current_docker_installed or current_version_clean != target_docker_version or docker_installed.changed
+#  when: not current_docker_installed or current_version_clean != target_docker_version or docker_installed.changed
 
