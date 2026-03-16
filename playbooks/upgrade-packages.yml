@@ -1,6 +1,6 @@
 ---
 - hosts: all
   tasks:
-    - include_vars: "{{playbook_dir}}/config.yml"
+    - include_vars: "{{playbook_dir}}/vars/config.yml"
     - import_role:
         name: upgrade-packages

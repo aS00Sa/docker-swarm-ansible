@@ -35,3 +35,4 @@ traefik_admin_user: traefik_admin
 traefik_admin_password: traefik1234
 haproxy_stats_user: haproxy_stats
 haproxy_stats_password: haproxy1234
+
