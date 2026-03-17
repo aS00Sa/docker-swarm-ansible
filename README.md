@@ -259,3 +259,34 @@ Start the volume: sudo gluster volume start gfs
 Mount the GlusterFS Volume (On Client Nodes)
 sudo mkdir -p /mnt/glusterfs
 sudo mount -t glusterfs 10.20.10.5:/gfs /mnt/gfs
+
+
+Основные шаги настройки GlusterFS (Ubuntu):
+Подготовка узлов: На всех узлах отредактируйте /etc/hosts, добавив IP-адреса и имена хостов:
+
+sudo nano /etc/hosts
+# Добавить: 192.168.10.11 node1, 192.168.10.12 node2 {Link: Cloud.ru https://cloud.ru/docs/evs/ug/topics/use-cases__evs-dedicated-clusterfs}
+
+Установка GlusterFS:
+sudo apt update
+sudo apt install glusterfs-server -y
+sudo systemctl start gluster thed && sudo systemctl enable glusterd
+
+Создание пула (на node1):
+sudo gluster peer probe node2
+sudo gluster peer status
+
+Создание и запуск тома (например, реплика 2):
+sudo mkdir -p /data/glusterfs/brick1/gv0
+sudo gluster volume create gv0 replica 2 node1:/data/glusterfs/brick1/gv0 node2:/data/glusterfs/brick1/gv0
+sudo gluster volume start gv0
+
+Монтирование (клиент):
+sudo apt install glusterfs-client
+sudo mount -t glusterfs node1:/gv0 /mnt/glusterfs
+
+Удаление (rm) GlusterFS:
+Для полного удаления (очистки) тома:
+Остановить и удалить том: sudo gluster volume stop gv0 && sudo gluster volume delete gv0
+Удалить данные: rm -rf /data/glusterfs/brick1/gv0
+Удалить пакеты: sudo apt purge glusterfs-server -y && sudo apt autoremove -y
