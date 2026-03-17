@@ -43,20 +43,20 @@
   become_method: sudo
   raw: systemd-run --property="After=apt-daily.service apt-daily-upgrade.service" --wait /bin/true
 
-- name: Reboot host(s) after disabling auto update
-  shell: sleep 2 && /sbin/shutdown -r now "ansible reboot request"
-  async: 1
-  poll: 0
-  ignore_errors: true
-  become: true
-  become_method: sudo
-  when: autoupdate.stat.exists and inventory_hostname != "127.0.0.1" and inventory_hostname != "localhost"
+#- name: Reboot host(s) after disabling auto update
+#  shell: sleep 2 && /sbin/shutdown -r now "ansible reboot request"
+#  async: 1
+#  poll: 0
+#  ignore_errors: true
+#  become: true
+#  become_method: sudo
+#  when: autoupdate.stat.exists and inventory_hostname != "127.0.0.1" and inventory_hostname != "localhost"
 
-- name: Waiting for host(s) to reboot
-  local_action: "wait_for host={{inventory_hostname}} port=22 state=started delay=60"
-  become: false
-  ignore_errors: true
-  when: autoupdate.stat.exists and inventory_hostname != "127.0.0.1" and inventory_hostname != "localhost"
+#- name: Waiting for host(s) to reboot
+#  local_action: "wait_for host={{inventory_hostname}} port=22 state=started delay=60"
+#  become: false
+#  ignore_errors: true
+#  when: autoupdate.stat.exists and inventory_hostname != "127.0.0.1" and inventory_hostname != "localhost"
 
 # - name: Upgrade all packages to the latest version
 #   become: true

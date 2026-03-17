@@ -1,9 +1,9 @@
 ---
-#- hosts: all
-#  tasks:
-#    - include_vars: "{{playbook_dir}}/vars/config.yml"
-#    - import_role:
-#        name: host-defaults
+- hosts: all
+  tasks:
+    - include_vars: "{{playbook_dir}}/vars/config.yml"
+    - import_role:
+        name: host-defaults
 
 #- hosts: all
 #  tasks:

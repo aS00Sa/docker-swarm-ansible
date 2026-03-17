@@ -221,4 +221,7 @@
 ```bash
 ansible -i inventory.ini all -m shell -a "yes | docker swarm leave --force" -b
 ansible -i inventory.ini all -m shell -a "yes | sudo docker system prune -f" -b
+
+ansible -i inventory.ini gluster_nodes -m shell -a "yes | sudo apt install -y software-properties-common"  --key-file /mnt/wslg/distro/home/assa/.ssh/id_ed25519 -u root
+
 ```
