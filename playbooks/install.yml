@@ -57,8 +57,8 @@
 #    - import_role:
 #        name: portainer
 
-- hosts: traefik
-  tasks:
-    - include_vars: "{{playbook_dir}}/vars/config.yml"
-    - import_role:
-        name: traefik
+#- hosts: traefik
+#  tasks:
+#    - include_vars: "{{playbook_dir}}/vars/config.yml"
+#    - import_role:
+#        name: traefik

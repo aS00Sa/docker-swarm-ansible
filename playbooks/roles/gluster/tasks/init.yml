@@ -35,7 +35,8 @@
   become_method: sudo
   shell: >
     gluster volume set {{gluster_volume_name}} auth.allow  \
-    {{groups['gluster_nodes'][0]}},{{groups['gluster_nodes'][1]}},{{groups['gluster_nodes'][2]}}
+    * 
+#    {{groups['gluster_nodes'][0]}},{{groups['gluster_nodes'][1]}},{{groups['gluster_nodes'][2]}}
 
 - name: Start Gluster Volume (on first node)
   when: glustervolume.stat.exists == false and inventory_hostname == groups['gluster_nodes'][0]

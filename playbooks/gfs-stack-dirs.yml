@@ -1,0 +1,25 @@
+---
+- hosts: swarm_managers:swarm_workers
+  gather_facts: true
+  tasks:
+    - include_vars: "{{ playbook_dir }}/vars/config.yml"
+
+    - name: Ensure stack_name is provided
+      assert:
+        that:
+          - stack_name is defined
+          - (stack_name | length) > 0
+        fail_msg: "Provide -e stack_name=<stack> (e.g. -e stack_name=myapp)"
+
+    - name: Ensure default stack_dirs
+      set_fact:
+        stack_dirs_effective: "{{ stack_dirs | default(['app-data', 'db']) }}"
+
+    - name: Create stack directories on GFS
+      become: true
+      become_method: sudo
+      loop: "{{ stack_dirs_effective }}"
+      file:
+        path: "{{ gluster_mount_path }}/stacks/{{ stack_name }}/{{ item }}"
+        state: directory
+        mode: "0775"
