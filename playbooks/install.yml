@@ -45,7 +45,7 @@
     - import_role:
         name: portainer
 
-- hosts: swarm_managers
+- hosts: traefik
   tasks:
     - include_vars: "{{playbook_dir}}/vars/config.yml"
     - import_role:

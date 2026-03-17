@@ -51,7 +51,7 @@
 3. **Настроить инвентори** в файлах:
 
    - `inventory.ini` – список хостов и группы (`[haproxy]`, `[swarm_managers]`, `[swarm_workers]`, `[gluster_nodes]`)
-   - `playbooks/config.yml` – базовые переменные и домены
+   - `playbooks/vars/config.yml` – базовые переменные и домены
 
    Минимум нужно:
 
@@ -97,7 +97,7 @@
 ```text
 10.10.10.10 portainer.docker.local
 10.10.10.11 traefik.docker.local
-10.10.10.12 haproxy.docker.local
+10.10.10.12 ha.docker.local
 ```
 
 В проде вместо этого обычно настраивается нормальный DNS и/или облачный балансировщик.
