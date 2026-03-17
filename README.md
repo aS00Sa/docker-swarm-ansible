@@ -225,3 +225,37 @@ ansible -i inventory.ini all -m shell -a "yes | sudo docker system prune -f" -b
 ansible -i inventory.ini gluster_nodes -m shell -a "yes | sudo apt install -y software-properties-common"  --key-file /mnt/wslg/distro/home/assa/.ssh/id_ed25519 -u root
 
 ```
+
+Step-by-Step Deployment GlusterFS (Run on all nodes)
+
+Ubuntu/Debian: sudo apt install glusterfs-server -y.
+Fedora/RHEL: yum install glusterfs-server -y.
+
+Start Service: sudo systemctl start glusterd and sudo systemctl enable glusterd.
+
+Prepare Bricks (Run on all nodes)
+Format and mount the brick storage:
+sudo mkfs.xfs -i size=512 /dev/sdb
+sudo mkdir -p /glusterfs/bricks/10.20.10.5
+echo '/dev/sdb /glusterfs/bricks/10.20.10.5 xfs defaults 0 0' | sudo tee -a /etc/fstab
+sudo mount -a
+
+Create a subdirectory (brick) for the volume: sudo mkdir -p /glusterfs/bricks/10.20.10.5/gfs
+Create the Trusted Storage Pool (Run on Node 1 only)
+Probe the other (ALL) nodes to join the cluster:
+sudo gluster peer probe 10.20.10.6
+sudo gluster peer probe 10.20.10.7
+
+Verify connectivity: sudo gluster peer status.
+
+Create and Start the Volume (Run on Node 1 only)
+Create a replicated volume (high availability):
+sudo gluster volume create gfs replica 3 \
+10.20.10.5:/glusterfs/bricks/10.20.10.5/gfs \
+10.20.10.6:/glusterfs/bricks/10.20.10.6/gfs \
+10.20.10.7:/glusterfs/bricks/10.20.10.7/gfs force
+
+Start the volume: sudo gluster volume start gfs
+Mount the GlusterFS Volume (On Client Nodes)
+sudo mkdir -p /mnt/glusterfs
+sudo mount -t glusterfs 10.20.10.5:/gfs /mnt/gfs
