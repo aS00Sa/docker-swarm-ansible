@@ -75,7 +75,7 @@
 5. **Запустить плейбук установки**:
 
    ```bash
-   ansible-playbook -i inventory.ini playbooks/install.yml
+   ansible-playbook -i inventory.ini playbooks/install.yml  --key-file /mnt/wslg/distro/home/assa/.ssh/id_ed25519 -u root
    ```
 
 После выполнения будет настроен Swarm, GlusterFS, Traefik, HAProxy и Portainer.
@@ -84,7 +84,7 @@
 
 - Обновляет пакеты и ставит зависимости.
 - Устанавливает Docker CE и настраивает Swarm (1 лидер + 2 менеджера, опционально воркеры).
-- Настраивает GlusterFS и Docker volume‑плагин.
+- Настраивает GlusterFS и монтирует общий volume в `/mnt/gfs` (на всех Swarm-нодах).
 - Разворачивает Portainer (агенты + UI).
 - Устанавливает и настраивает HAProxy, самоподписанный сертификат и маршрутизацию к менеджерам.
 
@@ -159,6 +159,57 @@
       ports:
         - "80"
   ```
+
+## Общее хранилище (GlusterFS) в `docker stack deploy`
+
+В Swarm “именованные каталоги” лучше делать так, чтобы они указывали на **одинаковый путь на всех нодах**.
+
+- **Важно**: обычный `named volume` (без volume‑plugin’а) в Swarm — это **локальный** том на каждой ноде. Если задача переедет на другую ноду, она увидит другой том/пустые данные.
+- **Рекомендуемый вариант** для общего хранилища: **bind** в путь, который примонтирован на всех нодах одинаково (в этом репо — GlusterFS в `/mnt/gfs`), и ограничить размещение `node.labels.gfs == true`.
+
+Чтобы при этом сохранить “красивые имена” томов в compose, можно использовать **именованные volumes поверх bind** через `driver_opts` (см. пример ниже).
+
+- **Создать каталоги под стек** (пример):
+
+  ```bash
+  ansible-playbook -i inventory.ini playbooks/gfs-stack-dirs.yml -e stack_name=example -e 'stack_dirs=["app-data","db"]'
+  ```
+
+- **Пример compose для стека**: `[examples/stack-with-gfs/docker-compose.yml](examples/stack-with-gfs/docker-compose.yml)`
+- **Деплой**:
+
+  ```bash
+  docker stack deploy -c examples/stack-with-gfs/docker-compose.yml example
+  ```
+
+В примере используется constraint `node.labels.gfs == true` (лейбл выставляется плейбуком), чтобы сервисы гарантированно запускались только на нодах с `/mnt/gfs`.
+
+## MinIO (S3) в Docker Swarm (с GFS + Traefik)
+
+Готовый пример стека: `examples/minio-s3/docker-compose.yml`.
+
+- **Директория под данные на GFS**:
+
+  ```bash
+  ansible-playbook -i inventory.ini playbooks/gfs-stack-dirs.yml -e stack_name=minio -e 'stack_dirs=["data"]'
+  ```
+
+- **Создать Swarm secrets** (выполнять на менеджере Swarm один раз):
+
+  ```bash
+  printf "minioadmin" | docker secret create minio_root_user -
+  printf "change-me-strong-password" | docker secret create minio_root_password -
+  ```
+
+- **Деплой стека**:
+
+  ```bash
+  APP_DOMAIN_NAME=localdomain docker stack deploy -c examples/minio-s3/docker-compose.yml minio
+  ```
+
+- **Доступ**:
+  - **S3 API**: `http://minio.<APP_DOMAIN_NAME>`
+  - **Console UI**: `http://minio-console.<APP_DOMAIN_NAME>`
 
 ## Повторный запуск и обслуживание
 

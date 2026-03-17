@@ -1,21 +1,29 @@
 ---
 - name: Check if Swarm has already been initialized
+  become: true
+  become_method: sudo
   shell: docker node ls
   register: swarm_status
   ignore_errors: true
 
 #  shell: docker swarm init --dispatcher-heartbeat 1s --ca-cert=/etc/ssl/{{app_domain_name}}/{{app_domain_name}}.crt --ca-key=/etc/ssl/{{app_domain_name}}/{{app_domain_name}}.key --advertise-addr={{ inventory_hostname }}
 - name: Initialize new Docker Swarm Leader
+  become: true
+  become_method: sudo
   shell: docker swarm init --dispatcher-heartbeat 1s --advertise-addr={{ inventory_hostname }}
   when: swarm_status.rc != 0 and inventory_hostname == groups['swarm_managers'][0]
   run_once: true
 
 - name: Get the Manager join-token
+  become: true
+  become_method: sudo
   shell: docker swarm join-token --quiet manager
   when: inventory_hostname == groups['swarm_managers'][0]
   register: manager_token
 
 - name: Get the worker join-token
+  become: true
+  become_method: sudo
   when: inventory_hostname == groups['swarm_managers'][0]
   shell: docker swarm join-token --quiet worker
   register: worker_token

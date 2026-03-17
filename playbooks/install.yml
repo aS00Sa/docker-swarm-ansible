@@ -1,37 +1,37 @@
 ---
-- hosts: all
-  tasks:
-    - include_vars: "{{playbook_dir}}/vars/config.yml"
-    - import_role:
-        name: host-defaults
+#- hosts: all
+#  tasks:
+#    - include_vars: "{{playbook_dir}}/vars/config.yml"
+#    - import_role:
+#        name: host-defaults
 
-- hosts: all
-  tasks:
-    - include_vars: "{{playbook_dir}}/vars/config.yml"
-    - import_role:
-        name: generate-certs
+#- hosts: all
+#  tasks:
+#    - include_vars: "{{playbook_dir}}/vars/config.yml"
+#    - import_role:
+#        name: generate-certs
 
-- hosts: haproxy
-  tasks:
-    - include_vars: "{{playbook_dir}}/vars/config.yml"
-    - import_role:
-        name: haproxy
+#- hosts: haproxy
+#  tasks:
+#    - include_vars: "{{playbook_dir}}/vars/config.yml"
+#    - import_role:
+#        name: haproxy
 
-- hosts: swarm_managers
-  tasks:
-    - include_vars: "{{playbook_dir}}/vars/config.yml"
-    - import_role:
-        name: docker
-    - import_role:
-        name: swarm-managers
+#- hosts: swarm_managers
+#  tasks:
+#    - include_vars: "{{playbook_dir}}/vars/config.yml"
+#    - import_role:
+#        name: docker
+#    - import_role:
+#        name: swarm-managers
 
-- hosts: swarm_workers
-  tasks:
-    - include_vars: "{{playbook_dir}}/vars/config.yml"
-    - import_role:
-        name: docker
-    - import_role:
-        name: swarm-workers
+#- hosts: swarm_workers
+#  tasks:
+#    - include_vars: "{{playbook_dir}}/vars/config.yml"
+#    - import_role:
+#        name: docker
+#    - import_role:
+#        name: swarm-workers
 
 - hosts: gluster_nodes
   tasks:
@@ -39,11 +39,23 @@
     - import_role:
         name: gluster
 
-- hosts: swarm_managers
-  tasks:
-    - include_vars: "{{playbook_dir}}/vars/config.yml"
-    - import_role:
-        name: portainer
+#- hosts: swarm_managers:swarm_workers
+#  tasks:
+#    - include_vars: "{{playbook_dir}}/vars/config.yml"
+#    - import_role:
+#        name: gluster-client
+
+#- hosts: swarm_managers
+#  tasks:
+#    - include_vars: "{{playbook_dir}}/vars/config.yml"
+#    - import_role:
+#        name: swarm-labels
+
+#- hosts: swarm_managers
+#  tasks:
+#    - include_vars: "{{playbook_dir}}/vars/config.yml"
+#    - import_role:
+#        name: portainer
 
 - hosts: traefik
   tasks:

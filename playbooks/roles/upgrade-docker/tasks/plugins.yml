@@ -1,18 +1,26 @@
 ---
 - name: Check if Gluster plugin has already been initialized
+  become: true
+  become_method: sudo
   shell: docker plugin inspect glusterfs
   register: gluster_plugin_status
   ignore_errors: true
 
 - name: Disable Docker Gluster plugin
+  become: true
+  become_method: sudo
   shell: docker plugin disable -f glusterfs
   when: gluster_plugin_status.rc == 0
 
 - name: Update Docker Gluster plugin
+  become: true
+  become_method: sudo
   shell: docker plugin upgrade --grant-all-permissions glusterfs trajano/glusterfs-volume-plugin
   when: gluster_plugin_status.rc == 0
 
 - name: Renable Gluster plugin
+  become: true
+  become_method: sudo
   shell: docker plugin enable glusterfs
   when: gluster_plugin_status.rc == 0
   
