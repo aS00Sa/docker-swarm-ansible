@@ -15,7 +15,7 @@
   when: glustervolume.stat.exists == false and inventory_hostname == groups['gluster_nodes'][0]
   become: true
   become_method: sudo
-  loop: "{{ groups['gluster_nodes'] }}"
+  loop: "{{ groups['gluster_nodes_brils'] }}"
   shell: gluster peer probe {{ item }}
 
 - name: Create Gluster Volume (on first node)
@@ -25,9 +25,9 @@
   shell: >
     gluster volume create {{gluster_volume_name}} \
     replica 3 \
-    {{groups['gluster_nodes'][0]}}:{{gluster_volume_path}}/{{groups['gluster_nodes'][0]}}/brick \
-    {{groups['gluster_nodes'][1]}}:{{gluster_volume_path}}/{{groups['gluster_nodes'][1]}}/brick \
-    {{groups['gluster_nodes'][2]}}:{{gluster_volume_path}}/{{groups['gluster_nodes'][2]}}/brick
+    {{groups['gluster_nodes_brils'][0]}}:{{gluster_volume_path}}/{{groups['gluster_nodes_brils'][0]}}/brick \
+    {{groups['gluster_nodes_brils'][1]}}:{{gluster_volume_path}}/{{groups['gluster_nodes_brils'][1]}}/brick \
+    {{groups['gluster_nodes_brils'][2]}}:{{gluster_volume_path}}/{{groups['gluster_nodes_brils'][2]}}/brick
 
 - name: Secure Gluster Volume (on first node)
   when: inventory_hostname == groups['gluster_nodes'][0]
@@ -35,7 +35,7 @@
   become_method: sudo
   shell: >
     gluster volume set {{gluster_volume_name}} auth.allow  \
-    {{groups['gluster_nodes'][0]}},{{groups['gluster_nodes'][1]}},{{groups['gluster_nodes'][2]}}
+    {{groups['gluster_nodes_brils'][0]}},{{groups['gluster_nodes_brils'][1]}},{{groups['gluster_nodes_brils'][2]}}
 
 - name: Start Gluster Volume (on first node)
   when: glustervolume.stat.exists == false and inventory_hostname == groups['gluster_nodes'][0]
