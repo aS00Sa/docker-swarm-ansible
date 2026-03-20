@@ -59,10 +59,10 @@
   when: autoupdate.stat.exists and inventory_hostname != "127.0.0.1" and inventory_hostname != "localhost"
 
 - name: Upgrade all packages to the latest version
-   become: true
-   become_method: sudo
-   apt:
-     name: "*"
-     state: latest
-     force_apt_get: true
-     update_cache: yes
+  become: true
+  become_method: sudo
+  apt:
+    name: "*"
+    state: latest
+    force_apt_get: true
+    update_cache: yes
