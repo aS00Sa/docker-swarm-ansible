@@ -1,0 +1,32 @@
+version: "3.8"
+
+services:
+  nexus:
+    image: sonatype/nexus3:latest
+    volumes:
+      - nexus_data:/nexus-data
+    networks:
+      - traefik_network
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.labels.gfs == true
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.nexus.rule=Host(`nexus.${APP_DOMAIN_NAME:-localdomain}`)"
+        - "traefik.http.routers.nexus.entrypoints=web"
+        - "traefik.http.services.nexus.loadbalancer.server.port=8081"
+
+volumes:
+  nexus_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /mnt/gfs/nexus-data
+
+networks:
+  traefik_network:
+    external: true
+    name: traefik_network

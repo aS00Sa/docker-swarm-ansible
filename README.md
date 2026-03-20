@@ -172,7 +172,8 @@
 - **Создать каталоги под стек** (пример):
 
   ```bash
-  ansible-playbook -i inventory.ini playbooks/gfs-stack-dirs.yml -e stack_name=example -e 'stack_dirs=["app-data","db"]'
+  ansible -i inventory.ini gluster_nodes -m file -a "path=/mnt/gfs/app-data state=directory mode=0775"
+  ansible -i inventory.ini gluster_nodes -m file -a "path=/mnt/gfs/db-data state=directory mode=0775"
   ```
 
 - **Пример compose для стека**: `[examples/stack-with-gfs/docker-compose.yml](examples/stack-with-gfs/docker-compose.yml)`
@@ -191,7 +192,7 @@
 - **Директория под данные на GFS**:
 
   ```bash
-  ansible-playbook -i inventory.ini playbooks/gfs-stack-dirs.yml -e stack_name=minio -e 'stack_dirs=["data"]'
+  ansible -i inventory.ini gluster_nodes -m file -a "path=/mnt/gfs/minio-data state=directory mode=0775"
   ```
 
 - **Создать Swarm secrets** (выполнять на менеджере Swarm один раз):
@@ -210,6 +211,27 @@
 - **Доступ**:
   - **S3 API**: `http://minio.<APP_DOMAIN_NAME>`
   - **Console UI**: `http://minio-console.<APP_DOMAIN_NAME>`
+
+## Nexus Sonatype (docker swarm) (с GFS + Traefik)
+
+Готовый пример стека: `examples/nexus-sonatype-swarm/docker-compose.yml`.
+
+- **Директория под данные на GFS**:
+
+  ```bash
+  ansible -i inventory.ini gluster_nodes -m file -a "path=/mnt/gfs/nexus-data state=directory mode=0775"
+  ```
+
+- **Деплой стека**:
+
+  ```bash
+  APP_DOMAIN_NAME=localdomain docker stack deploy -c examples/nexus-sonatype-swarm/docker-compose.yml nexus
+  ```
+
+- **Доступ**:
+  - `http://nexus.<APP_DOMAIN_NAME>`
+
+Пароль админа при первом старте появляется внутри volume `admin.password` в `/nexus-data/admin.password` (на GFS это `/mnt/gfs/nexus-data/admin.password`).
 
 ## Повторный запуск и обслуживание
 

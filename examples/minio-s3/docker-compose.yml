@@ -40,7 +40,7 @@ volumes:
     driver_opts:
       type: none
       o: bind
-      device: /mnt/gfs/stacks/minio/data
+      device: /mnt/gfs/minio-data
 
 networks:
   traefik_network:

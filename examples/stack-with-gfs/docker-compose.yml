@@ -32,10 +32,10 @@ volumes:
     driver_opts:
       type: none
       o: bind
-      device: /mnt/gfs/stacks/example/app-data
+      device: /mnt/gfs/app-data
   db_data:
     driver: local
     driver_opts:
       type: none
       o: bind
-      device: /mnt/gfs/stacks/example/db
+      device: /mnt/gfs/db-data
