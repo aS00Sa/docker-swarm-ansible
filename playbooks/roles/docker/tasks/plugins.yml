@@ -1,25 +1,50 @@
 ---
-- name: Check if Gluster plugin has already been initialized
-  become: true
-  become_method: sudo
-  shell: docker plugin inspect glusterfs
-  register: gluster_plugin_status
-  ignore_errors: true
+#- name: Check if Gluster plugin has already been initialized
+#  become: true
+#  become_method: sudo
+#  shell: docker plugin inspect glusterfs
+#  register: gluster_plugin_status
+#  ignore_errors: true
+#  failed_when: false
+#  changed_when: false
 
-- name: Install Docker Gluster plugin
-  become: true
-  become_method: sudo
-  shell: docker plugin install --alias glusterfs trajano/glusterfs-volume-plugin --grant-all-permissions --disable
-  when: gluster_plugin_status.rc != 0
+#- name: Install Docker Gluster plugin
+#  become: true
+#  become_method: sudo
+#  shell: docker plugin install --alias glusterfs trajano/glusterfs-volume-plugin --grant-all-permissions --disable
+#  when: gluster_plugin_status.rc != 0
 
-- name: Set Gluster plugin to use Gluster nodes
-  become: true
-  become_method: sudo
-  shell: docker plugin set glusterfs SERVERS={{groups['gluster_nodes'][0]}},{{groups['gluster_nodes'][1]}},{{groups['gluster_nodes'][2]}}
-  when: gluster_plugin_status.rc != 0
+#- name: Set Gluster plugin to use Gluster nodes
+#  become: true
+#  become_method: sudo
+#  shell: docker plugin set glusterfs SERVERS={{groups['gluster_nodes'][0]}},{{groups['gluster_nodes'][1]}},{{groups['gluster_nodes'][2]}}
+#  when: gluster_plugin_status.rc != 0
 
-- name: Enable Gluster plugin
+#- name: Enable Gluster plugin
+#  become: true
+#  become_method: sudo
+#  shell: docker plugin enable glusterfs
+#  when: gluster_plugin_status.rc != 0
+
+- name: Install Docker plugins (best effort)
   become: true
   become_method: sudo
-  shell: docker plugin enable glusterfs
-  when: gluster_plugin_status.rc != 0
+  apt:
+    name: "{{ item }}"
+    state: present
+    update_cache: yes
+  loop:
+    - docker-buildx-plugin
+    - docker-compose-plugin
+  failed_when: false
+  when: not current_docker_installed or current_version_clean != docker_version
+
+- name: Install docker Python library
+  become: true
+  become_method: sudo
+#  pip:
+#    name: docker
+  apt:
+    name: "python3-docker"
+    state: present
+    update_cache: yes

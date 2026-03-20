@@ -17,15 +17,44 @@
     path: "{{ gluster_mount_path }}"
     state: directory
 
+- name: Pick Gluster peer IPs for client mount
+  set_fact:
+    gluster_client_nodes: "{{ groups['gluster_nodes_fs'] | default(groups['gluster_nodes']) }}"
+
+- name: Check if {{ gluster_mount_path }} already mounted
+  become: true
+  become_method: sudo
+  command: mountpoint -q "{{ gluster_mount_path }}"
+  register: gfs_already_mounted
+  changed_when: false
+  failed_when: false
+
 - name: Mount Gluster volume {{ gluster_volume_name }} to {{ gluster_mount_path }}
   become: true
   become_method: sudo
-  mount:
-    path: "{{ gluster_mount_path }}"
-    src: "{{ groups['gluster_nodes'][0] }}:/{{ gluster_volume_name }}"
-    fstype: glusterfs
-    opts: "defaults,_netdev,backupvolfile-server={{ groups['gluster_nodes'][1] | default(groups['gluster_nodes'][0]) }}"
-    state: mounted
+  shell: >
+    mount -t glusterfs
+    "{{ gluster_client_nodes[0] }}:/{{ gluster_volume_name }}"
+    "{{ gluster_mount_path }}"
+    -o "defaults,_netdev,transport=tcp,backupvolfile-server={{ gluster_client_nodes[1] | default(gluster_client_nodes[0]) }}"
+  register: mount_try1
+  failed_when: false
+  when: (gfs_already_mounted.rc | default(1)) != 0
+
+- name: Fallback mount without backupvolfile-server
+  become: true
+  become_method: sudo
+  shell: >
+    mount -t glusterfs
+    "{{ gluster_client_nodes[0] }}:/{{ gluster_volume_name }}"
+    "{{ gluster_mount_path }}"
+    -o "defaults,_netdev,transport=tcp"
+  register: mount_try2
+  when:
+    - (gfs_already_mounted.rc | default(1)) != 0
+    - mount_try1 is defined
+    - (mount_try1.rc | default(1)) != 0
+  failed_when: (mount_try2.rc | default(1)) != 0
 
 - name: Verify {{ gluster_mount_path }} is a mountpoint
   become: true

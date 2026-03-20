@@ -109,34 +109,33 @@
     update_cache: yes
   when: docker_removed is defined and docker_removed.changed
 
-- name: Install specific Docker version
-  become: true
-  become_method: sudo
-  apt:
-    name: "{{ item }}={{ docker_version }}*"
-    state: present
-    update_cache: yes
-  loop: "{{ docker_packages }}"
+- name: Install specific Docker version (with fallback)
   when: not current_docker_installed or current_version_clean != docker_version
-  register: docker_installed
-
-#- name: Install Docker plugins (latest versions)
-#  apt:
-#    name:
-#      - docker-buildx-plugin
-#      - docker-compose-plugin
-#    state: present
-#  when: not current_docker_installed or current_version_clean != docker_version
-
-- name: Install docker Python library
   become: true
   become_method: sudo
-#  pip:
-#    name: docker
-  apt:
-    name: "python3-docker"
-    state: present
-    update_cache: yes
+  vars:
+    docker_pinned_packages: "{{ docker_packages | map('regex_replace', '^(.*)$', '\\1=' ~ docker_version ~ '*') | list }}"
+  block:
+    - name: Try to install Docker packages pinned to docker_version
+      apt:
+        name: "{{ docker_pinned_packages }}"
+        state: present
+        update_cache: yes
+      register: docker_installed_pinned
+      failed_when: false
+
+    - name: Fallback install available Docker package versions
+      apt:
+        name: "{{ docker_packages }}"
+        state: present
+        update_cache: yes
+      register: docker_installed_fallback
+      when: docker_installed_pinned.msg is search("no available installation candidate")
+
+    - name: Set docker_installed fact for later tasks
+      set_fact:
+        docker_installed: "{{ docker_installed_fallback | default(docker_installed_pinned) }}"
+
 
 - name: Add current user to docker group
   become: true
@@ -179,6 +178,7 @@
 #    src: docker.service.j2
 #    dest: /lib/systemd/system/docker.service
 #    mode: '0640'
+
 - name: Ensure Docker service is started and enabled
   become: true
   become_method: sudo

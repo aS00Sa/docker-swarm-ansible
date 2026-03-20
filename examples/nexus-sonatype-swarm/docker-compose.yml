@@ -3,8 +3,12 @@ version: "3.8"
 services:
   nexus:
     image: sonatype/nexus3:latest
+    ports:
+      - "8081:8081"
     volumes:
       - nexus_data:/nexus-data
+      - nexus_db:/nexus-data/db
+      - /var/run/docker.sock:/var/run/docker.sock
     networks:
       - traefik_network
     deploy:
@@ -25,6 +29,12 @@ volumes:
       type: none
       o: bind
       device: /mnt/gfs/nexus-data
+  nexus_db:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /mnt/gfs/nexus-db
 
 networks:
   traefik_network:

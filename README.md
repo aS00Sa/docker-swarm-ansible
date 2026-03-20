@@ -104,7 +104,6 @@
 
 ## Мониторинг
 
-
 ### Установка мониторинга (Prometheus + Grafana)
 
 1. Убедитесь, что Swarm‑кластер уже инициализирован и ноды в статусе `Ready`:
@@ -220,6 +219,7 @@
 
   ```bash
   ansible -i inventory.ini gluster_nodes -m file -a "path=/mnt/gfs/nexus-data state=directory mode=0775"
+  ansible -i inventory.ini gluster_nodes -m file -a "path=/mnt/gfs/nexus-db state=directory mode=0775"
   ```
 
 - **Деплой стека**:
@@ -231,7 +231,7 @@
 - **Доступ**:
   - `http://nexus.<APP_DOMAIN_NAME>`
 
-Пароль админа при первом старте появляется внутри volume `admin.password` в `/nexus-data/admin.password` (на GFS это `/mnt/gfs/nexus-data/admin.password`).
+Пароль админа при первом старте появляется внутри volume `admin.password` в `/nexus-data/admin.password` (на GFS это `/mnt/gfs/nexus-data/admin.password`). База данных хранится в `/nexus-data/db`, смонтирована на `/mnt/gfs/nexus-db`.
 
 ## Повторный запуск и обслуживание
 
@@ -244,7 +244,9 @@
 ansible -i inventory.ini all -m shell -a "yes | docker swarm leave --force" -b
 ansible -i inventory.ini all -m shell -a "yes | sudo docker system prune -f" -b
 
-ansible -i inventory.ini gluster_nodes -m shell -a "yes | sudo apt install -y software-properties-common"  --key-file /mnt/wslg/distro/home/assa/.ssh/id_ed25519 -u root
+ansible -i inventory.ini gluster_nodes --key-file /mnt/wslg/distro/home/assa/.ssh/id_ed25519 -u root -m shell -a "yes | sudo apt install -y software-properties-common"
+
+ansible -i inventory.ini all --key-file /mnt/wslg/distro/home/assa/.ssh/id_ed25519 -u root -m shell -a "yes | rm -fv /etc/apt/sources.list.d/docker.*"
 
 ```
 
@@ -312,3 +314,11 @@ sudo mount -t glusterfs node1:/gv0 /mnt/glusterfs
 Остановить и удалить том: sudo gluster volume stop gv0 && sudo gluster volume delete gv0
 Удалить данные: rm -rf /data/glusterfs/brick1/gv0
 Удалить пакеты: sudo apt purge glusterfs-server -y && sudo apt autoremove -y
+
+examples/stack-with-gfs/docker-compose.yml
+device: /mnt/gfs/app-data
+device: /mnt/gfs/db-data
+examples/minio-s3/docker-compose.yml
+device: /mnt/gfs/minio-data
+examples/nexus-sonatype-swarm/docker-compose.yml
+device: /mnt/gfs/nexus-data

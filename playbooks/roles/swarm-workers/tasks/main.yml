@@ -2,7 +2,8 @@
 - name: Check Swarm state
   become: true
   become_method: sudo
-  shell: docker info --format '{{ .Swarm.LocalNodeState }}'
+  # docker uses Go templates ({{ .Swarm.LocalNodeState }}); escape Jinja so Ansible passes it literally
+  shell: docker info --format "{{ '{{' }} .Swarm.LocalNodeState {{ '}}' }}"
   register: swarm_state
   ignore_errors: true
   changed_when: false
