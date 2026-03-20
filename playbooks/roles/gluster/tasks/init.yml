@@ -33,9 +33,16 @@
   when: inventory_hostname == groups['gluster_nodes'][0]
   become: true
   become_method: sudo
+  vars:
+    gluster_auth_allow_ips: >-
+      {{
+        ((groups['swarm_nodes'] | default([])) +
+         (groups['gluster_nodes_briks'] | default([])))
+        | unique
+      }}
   shell: >
     gluster volume set {{gluster_volume_name}} auth.allow  \
-    {{groups['gluster_nodes_briks'][0]}},{{groups['gluster_nodes_briks'][1]}},{{groups['gluster_nodes_briks'][2]}}
+    {{ gluster_auth_allow_ips | join(',') }}
 
 - name: Start Gluster Volume (on first node)
   when: glustervolume.stat.exists == false and inventory_hostname == groups['gluster_nodes'][0]
