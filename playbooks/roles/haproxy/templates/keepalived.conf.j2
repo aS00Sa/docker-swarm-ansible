@@ -1,0 +1,48 @@
+vrrp_script chk_haproxy {
+  script "/usr/bin/pgrep haproxy > /dev/null"
+  interval {{ keepalived_haproxy_check_interval }}
+  timeout 3
+  rise 2
+  fall 3
+}
+
+vrrp_instance VI_{{ keepalived_virtual_router_id }} {
+  {% set haproxy_group = groups['haproxy'] | default([]) %}
+  {% if haproxy_group | length == 0 or inventory_hostname == haproxy_group[0] %}
+  state MASTER
+  priority {{ keepalived_priority_master }}
+  {% else %}
+  state BACKUP
+  priority {{ keepalived_priority_backup }}
+  {% endif %}
+
+  interface {{ keepalived_interface }}
+  virtual_router_id {{ keepalived_virtual_router_id }}
+  advert_int 1
+
+  authentication {
+    auth_type PASS
+    auth_pass {{ keepalived_auth_pass }}
+  }
+
+  garp_master_delay {{ keepalived_garp_delay }}
+
+  track_script {
+    chk_haproxy
+  }
+
+  virtual_ipaddress {
+    {{ keepalived_vip_cidr }}
+  }
+
+  {% if groups['haproxy'] | length > 1 %}
+  unicast_peer {
+    {% for host in groups['haproxy'] %}
+    {% if host != inventory_hostname %}
+    {{ host }}
+    {% endif %}
+    {% endfor %}
+  }
+  {% endif %}
+}
+
