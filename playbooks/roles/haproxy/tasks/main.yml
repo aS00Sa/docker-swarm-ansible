@@ -20,6 +20,12 @@
     group: root
     mode: '0600'
 
+- name: Validate HAProxy configuration
+  become: true
+  become_method: sudo
+  command: haproxy -c -f /etc/haproxy/haproxy.cfg
+  register: haproxy_validate
+
 - name: Restart HAProxy service
   become: true
   become_method: sudo
