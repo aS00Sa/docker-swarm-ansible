@@ -1,0 +1,6 @@
+# {{ ansible_managed }}
+# Строки HAProxy httplog со статусом 403 (ACL deny).
+[Definition]
+_daemon = haproxy
+failregex = ^\w{3}\s+\d{1,2}\s+\d{2}:\d{2}:\d{2}\s+\S+\s+haproxy\[\d+\]:\s+<HOST>:\d+\s+\[[^\]]+\]\s+(http-in|https_in)\s+.*\s403\s
+ignoreregex =

@@ -1,0 +1,11 @@
+# {{ ansible_managed }}
+[haproxy-forbidden]
+enabled = true
+port = http,https
+protocol = tcp
+filter = haproxy-forbidden
+logpath = /var/log/haproxy.log
+maxretry = {{ fail2ban_maxretry }}
+findtime = {{ fail2ban_findtime }}
+bantime = {{ fail2ban_bantime }}
+ignoreip = {{ fail2ban_ignoreip }} {{ _fail2ban_cluster_ips | default([]) | join(' ') }}{% if fail2ban_ignoreip_extra | default('') | trim | length > 0 %} {{ fail2ban_ignoreip_extra }}{% endif %}

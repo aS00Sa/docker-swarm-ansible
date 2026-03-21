@@ -11,12 +11,6 @@
     - import_role:
         name: generate-certs
 
-- hosts: haproxy
-  tasks:
-    - include_vars: "{{playbook_dir}}/vars/config.yml"
-    - import_role:
-        name: haproxy
-
 - hosts: swarm_managers
   tasks:
     - include_vars: "{{playbook_dir}}/vars/config.yml"
@@ -62,6 +56,13 @@
     - include_vars: "{{playbook_dir}}/vars/config.yml"
     - import_role:
         name: traefik
+
+# HAProxy → Traefik на нодах группы [traefik]:traefik_listen_port (после деплоя Traefik).
+- hosts: haproxy
+  tasks:
+    - include_vars: "{{playbook_dir}}/vars/config.yml"
+    - import_role:
+        name: haproxy
 
 # После публикации сервисов: ограничить ingress (DOCKER-USER раньше DOCKER-INGRESS) и INPUT.
 - hosts: swarm_managers:swarm_workers:gluster_nodes

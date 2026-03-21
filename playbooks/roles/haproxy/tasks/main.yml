@@ -1,67 +1,155 @@
 ---
+- name: Install rsyslog (лог HAProxy в файл для fail2ban)
+  become: true
+  become_method: sudo
+  ansible.builtin.apt:
+    name: rsyslog
+    state: present
+    update_cache: false
+  when: fail2ban_haproxy_enabled | default(false)
+
+- name: Настроить rsyslog → /var/log/haproxy.log
+  become: true
+  become_method: sudo
+  ansible.builtin.template:
+    src: rsyslog-haproxy.conf.j2
+    dest: /etc/rsyslog.d/49-haproxy-ansible.conf
+    mode: "0644"
+  when: fail2ban_haproxy_enabled | default(false)
+  register: haproxy_rsyslog_conf
+
+- name: Перезапустить rsyslog
+  become: true
+  become_method: sudo
+  ansible.builtin.systemd:
+    name: rsyslog
+    state: restarted
+  when:
+    - fail2ban_haproxy_enabled | default(false)
+    - haproxy_rsyslog_conf is changed
+
 - name: Install HAProxy
   become: true
   become_method: sudo
-  apt:
+  ansible.builtin.apt:
     pkg:
       - haproxy
     state: latest
     force_apt_get: true
-    update_cache: yes
+    update_cache: true
 
 - name: Create HAProxy config file
   become: true
   become_method: sudo
-  template:
+  ansible.builtin.template:
     src: haproxy.j2
     dest: /etc/haproxy/haproxy.cfg
-    backup: yes
+    backup: true
     owner: root
     group: root
-    mode: '0600'
+    mode: "0600"
 
 - name: Validate HAProxy configuration
   become: true
   become_method: sudo
-  command: haproxy -c -f /etc/haproxy/haproxy.cfg
-  register: haproxy_validate
+  ansible.builtin.command: haproxy -c -f /etc/haproxy/haproxy.cfg
+  changed_when: false
 
-- name: Restart HAProxy service
+- name: Restart HAProxy
   become: true
   become_method: sudo
-  systemd:
+  ansible.builtin.systemd:
     name: haproxy
-    enabled: yes
+    enabled: true
     state: restarted
+
+- name: Инициализировать список IP для fail2ban ignoreip
+  ansible.builtin.set_fact:
+    _fail2ban_cluster_ips: []
+  when: fail2ban_haproxy_enabled | default(false)
+
+- name: Добавить IP нод swarm/gluster в fail2ban ignoreip
+  ansible.builtin.set_fact:
+    _fail2ban_cluster_ips: "{{ _fail2ban_cluster_ips + [ hostvars[item].ansible_host | default(item) ] }}"
+  loop: "{{ ((groups['swarm_nodes'] | default([])) + (groups['gluster_nodes'] | default([]))) | unique | list }}"
+  when: fail2ban_haproxy_enabled | default(false)
+
+- name: Install fail2ban
+  become: true
+  become_method: sudo
+  ansible.builtin.apt:
+    name: fail2ban
+    state: present
+    update_cache: false
+  when: fail2ban_haproxy_enabled | default(false)
+
+- name: Filter fail2ban для HAProxy 403
+  become: true
+  become_method: sudo
+  ansible.builtin.template:
+    src: filter-haproxy-forbidden.conf.j2
+    dest: /etc/fail2ban/filter.d/haproxy-forbidden.conf
+    mode: "0644"
+  when: fail2ban_haproxy_enabled | default(false)
+  register: haproxy_f2b_filter
+
+- name: Jail fail2ban для HAProxy
+  become: true
+  become_method: sudo
+  ansible.builtin.template:
+    src: jail-haproxy-forbidden.conf.j2
+    dest: /etc/fail2ban/jail.d/haproxy-forbidden.local
+    mode: "0644"
+  when: fail2ban_haproxy_enabled | default(false)
+  register: haproxy_f2b_jail
+
+- name: Restart fail2ban
+  become: true
+  become_method: sudo
+  ansible.builtin.systemd:
+    name: fail2ban
+    state: restarted
+  when:
+    - fail2ban_haproxy_enabled | default(false)
+    - haproxy_f2b_filter is changed or haproxy_f2b_jail is changed
+
+- name: Ensure fail2ban enabled and running
+  become: true
+  become_method: sudo
+  ansible.builtin.systemd:
+    name: fail2ban
+    enabled: true
+    state: started
+  when: fail2ban_haproxy_enabled | default(false)
 
 - name: Install keepalived (VIP for HAProxy failover)
   become: true
   become_method: sudo
-  apt:
+  ansible.builtin.apt:
     pkg:
       - keepalived
     state: latest
     force_apt_get: true
-    update_cache: yes
+    update_cache: true
   when: keepalived_enabled | default(true)
 
 - name: Create keepalived config
   become: true
   become_method: sudo
-  template:
+  ansible.builtin.template:
     src: keepalived.conf.j2
     dest: /etc/keepalived/keepalived.conf
-    backup: yes
+    backup: true
     owner: root
     group: root
-    mode: '0644'
+    mode: "0644"
   when: keepalived_enabled | default(true)
 
 - name: Restart keepalived service
   become: true
   become_method: sudo
-  systemd:
+  ansible.builtin.systemd:
     name: keepalived
-    enabled: yes
+    enabled: true
     state: restarted
   when: keepalived_enabled | default(true)

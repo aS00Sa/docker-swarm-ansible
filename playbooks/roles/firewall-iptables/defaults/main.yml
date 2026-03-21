@@ -15,5 +15,5 @@ firewall_public_tcp_ports:
   - 80
   - 443
 
-# Дополнительно открыть с интернета (например 8080 для dashboard Traefik): firewall_extra_public_tcp_ports: [8080]
+# С интернета обычно только 80/443 (HAProxy). Порты Traefik 8080/8443/8090 — с нод кластера (правила по IP нод).
 firewall_extra_public_tcp_ports: []

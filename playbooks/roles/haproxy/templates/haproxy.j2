@@ -2,8 +2,8 @@ global
   maxconn 50000
   maxpipes 50000
   tune.maxaccept 500
-  log 127.0.0.1 local0
-  log 127.0.0.1 local1 notice
+  log /dev/log    local0 info
+  log /dev/log    local1 notice
   chroot /var/lib/haproxy
   stats socket /run/haproxy/admin.sock mode 660 level admin expose-fd listeners
   stats timeout 30s
@@ -24,6 +24,7 @@ defaults
   mode http
   option dontlognull
   option forwardfor
+  option httplog
 
   timeout connect 5000
   timeout client  50000
@@ -45,10 +46,42 @@ defaults
   stats realm Haproxy\ Statistics
   stats auth {{haproxy_stats_user}}:{{haproxy_stats_password}}
 
+# Upstream — Traefik на [traefik] (иначе swarm_managers), порт traefik_listen_port.
+{% set _traefik_up = (groups['traefik'] | default([])) %}
+{% set _traefik_up = (_traefik_up | length > 0) | ternary(_traefik_up, groups['swarm_managers'] | default([])) %}
+backend docker_swarm_layer7
+  mode http
+  balance source
+  option tcp-check
+  option log-health-checks
+{% for h in _traefik_up %}
+  server traefik_{{ loop.index }} {{ hostvars[h].ansible_host | default(h) }}:{{ traefik_listen_port | default(8080) }} check port {{ traefik_listen_port | default(8080) }}
+{% endfor %}
+
+{% if haproxy_acl_enabled | default(false) %}
+{% if haproxy_allow_host_regex | default([]) | length > 0 %}
+{% set _host_patterns = haproxy_allow_host_regex %}
+{% else %}
+{% set _host_patterns = [
+  '^([a-zA-Z0-9-]+\\.)*' ~ (app_domain_name | regex_escape) ~ '$',
+  '^' ~ (app_domain_name | regex_escape) ~ '$'
+] %}
+{% endif %}
+{% endif %}
+
 frontend http-in
   bind *:80
   mode http
   http-request add-header X-Forwarded-Proto http
+{% if haproxy_acl_enabled | default(false) %}
+  acl good_host hdr_reg(host) -i{% for r in _host_patterns %} {{ r }}{% endfor %}
+{% if haproxy_allow_uri_regex | default([]) | length > 0 %}
+  acl good_path path_reg -i{% for r in haproxy_allow_uri_regex %} {{ r }}{% endfor %}
+  http-request deny deny_status 403 if !good_host || !good_path
+{% else %}
+  http-request deny deny_status 403 if !good_host
+{% endif %}
+{% endif %}
 
   # uncomment to redirect http connects to https
   #redirect scheme https
@@ -59,13 +92,13 @@ frontend https_in
   bind *:443 ssl crt /etc/ssl/{{app_domain_name}}/{{app_domain_name}}.chained.pem
   mode http
   http-request add-header X-Forwarded-Proto https if { ssl_fc }
+{% if haproxy_acl_enabled | default(false) %}
+  acl good_host_ssl hdr_reg(host) -i{% for r in _host_patterns %} {{ r }}{% endfor %}
+{% if haproxy_allow_uri_regex | default([]) | length > 0 %}
+  acl good_path_ssl path_reg -i{% for r in haproxy_allow_uri_regex %} {{ r }}{% endfor %}
+  http-request deny deny_status 403 if !good_host_ssl || !good_path_ssl
+{% else %}
+  http-request deny deny_status 403 if !good_host_ssl
+{% endif %}
+{% endif %}
   default_backend docker_swarm_layer7
-
-backend docker_swarm_layer7
-  mode http
-  balance source
-  option tcp-check
-  option log-health-checks
-  server host01 {{groups['swarm_managers'][0]}}:80 check port 80
-  server host02 {{groups['swarm_managers'][1]}}:80 check port 80
-  server host03 {{groups['swarm_managers'][2]}}:80 check port 80
