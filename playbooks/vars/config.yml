@@ -29,8 +29,13 @@ portainer_app_name: portainer_app
 portainer_admin_user: admin
 portainer_admin_password: portainer1234
 portainer_agent_secret: portaineragenttocken
-traefik_listen_port: 80
-traefik_admin_port: 8080
+# Порты Traefik на хосте (80/443 заняты HAProxy). HAProxy балансирует на traefik_listen_port.
+traefik_listen_port: 8080
+# Второй HTTP entrypoint (маршруты с entrypoints=websecure); TLS при необходимости — через labels/dynamic.
+traefik_https_port: 8443
+# Dashboard/API: на хосте traefik_admin_port → в контейнере traefik_internal_api_port (не пересекается с web).
+traefik_admin_port: 8090
+traefik_internal_api_port: 9081
 traefik_network_name: traefik_network
 traefik_app_name: traefik_app
 traefik_admin_user: traefik_admin
@@ -54,3 +59,10 @@ firewall_lockdown: false
 # firewall_ssh_allow_sources: ['203.0.113.10/32']
 # firewall_allow_ssh_world: false
 # firewall_extra_public_tcp_ports: [8080]
+
+# HAProxy: ACL по Host (и опц. URI); пустой haproxy_allow_host_regex → *.app_domain_name + app_domain_name
+haproxy_acl_enabled: false
+haproxy_allow_host_regex: []
+haproxy_allow_uri_regex: []
+# fail2ban по 403 в /var/log/haproxy.log (нужен rsyslog)
+fail2ban_haproxy_enabled: false

@@ -1,0 +1,6 @@
+# {{ ansible_managed }}
+# HAProxy шлёт в local0 → файл для fail2ban
+if ($syslogfacility-text == 'local0') and ($programname == 'haproxy') then {
+    action(type="omfile" file="/var/log/haproxy.log" flushOnTXEnd="off")
+    stop
+}

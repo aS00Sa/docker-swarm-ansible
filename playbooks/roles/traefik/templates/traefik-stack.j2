@@ -1,5 +1,8 @@
 version: '3.5'
 
+# Вход HTTP(S) для приложений — не 80/443 на хосте (их занимает HAProxy).
+# Публикация на всех интерфейсах: доступ с нод кластера для балансировки HAProxy по upstream.
+# Внутри контейнера: web → traefik_listen_port, websecure → traefik_https_port, traefik (API) → traefik_internal_api_port.
 services:
   reverse-proxy:
     image: traefik:v2.0
@@ -7,38 +10,42 @@ services:
       - "--api.dashboard=true"
       - "--providers.docker"
       - "--providers.docker.swarmMode=true"
-      - "--entrypoints.web.address=:{{traefik_listen_port}}"
+      - "--entrypoints.web.address=:{{ traefik_listen_port }}"
+      - "--entrypoints.websecure.address=:{{ traefik_https_port }}"
+      - "--entrypoints.traefik.address=:{{ traefik_internal_api_port }}"
       - "--providers.docker.exposedByDefault=false"
     ports:
-      # mode: host -> слушает порт только на ноде с контейнером Traefik,
-      # иначе Swarm routing mesh поднимает публикацию на всех нодах и конфликтует с haproxy.
-      - target: {{traefik_listen_port}}
-        published: {{traefik_listen_port}}
+      - target: {{ traefik_listen_port }}
+        published: {{ traefik_listen_port }}
         protocol: tcp
         mode: host
-      - target: 8080
-        published: {{traefik_admin_port}}
+      - target: {{ traefik_https_port }}
+        published: {{ traefik_https_port }}
+        protocol: tcp
+        mode: host
+      - target: {{ traefik_internal_api_port }}
+        published: {{ traefik_admin_port }}
         protocol: tcp
         mode: host
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     networks:
-      - {{traefik_network_name}}
+      - {{ traefik_network_name }}
     deploy:
       labels:
       - "traefik.enable=true"
       - "traefik.http.routers.api.rule=Host(`{{traefik_app_name}}.{{app_domain_name}}`)"
       - "traefik.http.routers.api.service=api@internal"
       - "traefik.http.routers.api.middlewares=auth"
+      - "traefik.http.routers.api.entrypoints=traefik"
       - "traefik.http.middlewares.auth.basicauth.users={{traefikpassword.stdout}}"
-      # Dummy service for Swarm port detection. The port can be any valid integer value.
       - "traefik.http.services.dummy-svc.loadbalancer.server.port=9999"
       mode: global
       placement:
         constraints: [node.role == manager]
 
 networks:
-  {{traefik_network_name}}:
+  {{ traefik_network_name }}:
     driver: overlay
     attachable: true
-    name: {{traefik_network_name}}
+    name: {{ traefik_network_name }}
