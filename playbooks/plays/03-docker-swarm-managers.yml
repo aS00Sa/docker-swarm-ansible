@@ -3,11 +3,11 @@
 - hosts: swarm_managers
   tags: [docker, swarm-managers]
   roles:
-    - cluster-defaults
+    - role: ../roles/cluster-defaults
   tasks:
     - import_role:
-        name: docker
+        name: ../roles/docker
       tags: [docker]
     - import_role:
-        name: swarm-managers
+        name: ../roles/swarm-managers
       tags: [swarm-managers]

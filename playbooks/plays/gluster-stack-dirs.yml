@@ -1,8 +1,11 @@
 ---
+# Создать подкаталоги стека на смонтированном Gluster (gluster_mount_path/stacks/<stack_name>/…).
+# ansible-playbook -i inventory-prod.ini playbooks/plays/gluster-stack-dirs.yml -e stack_name=myapp
+# Опционально: -e 'stack_dirs=["app-data","db","logs"]'
 - hosts: swarm_managers:swarm_workers
   gather_facts: true
   roles:
-    - cluster-defaults
+    - role: ../roles/cluster-defaults
   tasks:
     - name: Ensure stack_name is provided
       assert:

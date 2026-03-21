@@ -3,8 +3,8 @@
 - hosts: swarm_nodes
   tags: [swarm-labels]
   roles:
-    - cluster-defaults
+    - role: ../roles/cluster-defaults
   tasks:
     - import_role:
-        name: swarm-labels
+        name: ../roles/swarm-labels
       tags: [swarm-labels]

@@ -3,8 +3,8 @@
 - hosts: gluster_nodes
   tags: [gluster]
   roles:
-    - cluster-defaults
+    - role: ../roles/cluster-defaults
   tasks:
     - import_role:
-        name: gluster
+        name: ../roles/gluster
       tags: [gluster]

@@ -12,7 +12,7 @@
 # Произвольная роль по имени (без отдельного файла в plays/):
 #   ansible-playbook -i inventory-prod.ini playbooks/run-role.yml -e target_role=haproxy -e target_hosts=haproxy
 #
-# roles_path задан в ansible.cfg (playbooks/roles), чтобы работали плейбуки из playbooks/plays/.
+# Плейбуки в plays/ указывают роли путём ../roles/… (работает и когда ansible.cfg из-за world-writable cwd не читается).
 - import_playbook: plays/01-host-defaults.yml
 - import_playbook: plays/02-generate-certs.yml
 - import_playbook: plays/03-docker-swarm-managers.yml

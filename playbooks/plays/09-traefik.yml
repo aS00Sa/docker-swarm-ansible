@@ -3,8 +3,8 @@
 - hosts: traefik
   tags: [traefik]
   roles:
-    - cluster-defaults
+    - role: ../roles/cluster-defaults
   tasks:
     - import_role:
-        name: traefik
+        name: ../roles/traefik
       tags: [traefik]

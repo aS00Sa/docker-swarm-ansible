@@ -3,8 +3,8 @@
 - hosts: all
   tags: [generate-certs]
   roles:
-    - cluster-defaults
+    - role: ../roles/cluster-defaults
   tasks:
     - import_role:
-        name: generate-certs
+        name: ../roles/generate-certs
       tags: [generate-certs]

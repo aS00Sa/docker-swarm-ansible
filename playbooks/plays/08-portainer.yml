@@ -3,8 +3,8 @@
 - hosts: swarm_managers
   tags: [portainer]
   roles:
-    - cluster-defaults
+    - role: ../roles/cluster-defaults
   tasks:
     - import_role:
-        name: portainer
+        name: ../roles/portainer
       tags: [portainer]

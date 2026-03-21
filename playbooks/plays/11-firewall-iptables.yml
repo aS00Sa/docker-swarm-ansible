@@ -3,8 +3,8 @@
 - hosts: swarm_managers:swarm_workers:gluster_nodes
   tags: [firewall-iptables]
   roles:
-    - cluster-defaults
+    - role: ../roles/cluster-defaults
   tasks:
     - import_role:
-        name: firewall-iptables
+        name: ../roles/firewall-iptables
       tags: [firewall-iptables]

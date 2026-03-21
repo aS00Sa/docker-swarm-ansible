@@ -3,8 +3,8 @@
 - hosts: swarm_managers:swarm_workers
   tags: [gluster-client]
   roles:
-    - cluster-defaults
+    - role: ../roles/cluster-defaults
   tasks:
     - import_role:
-        name: gluster-client
+        name: ../roles/gluster-client
       tags: [gluster-client]

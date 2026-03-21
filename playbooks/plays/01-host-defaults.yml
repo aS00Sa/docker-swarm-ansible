@@ -3,8 +3,8 @@
 - hosts: all
   tags: [host-defaults]
   roles:
-    - cluster-defaults
+    - role: ../roles/cluster-defaults
   tasks:
     - import_role:
-        name: host-defaults
+        name: ../roles/host-defaults
       tags: [host-defaults]

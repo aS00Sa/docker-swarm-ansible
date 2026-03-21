@@ -3,11 +3,11 @@
 - hosts: swarm_workers
   tags: [docker, swarm-workers]
   roles:
-    - cluster-defaults
+    - role: ../roles/cluster-defaults
   tasks:
     - import_role:
-        name: docker
+        name: ../roles/docker
       tags: [docker]
     - import_role:
-        name: swarm-workers
+        name: ../roles/swarm-workers
       tags: [swarm-workers]

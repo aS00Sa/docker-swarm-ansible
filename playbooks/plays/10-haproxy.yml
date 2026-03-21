@@ -4,8 +4,8 @@
 - hosts: haproxy
   tags: [haproxy]
   roles:
-    - cluster-defaults
+    - role: ../roles/cluster-defaults
   tasks:
     - import_role:
-        name: haproxy
+        name: ../roles/haproxy
       tags: [haproxy]
