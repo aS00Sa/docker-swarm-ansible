@@ -1,0 +1,19 @@
+---
+# Включить жёсткий фаервол (INPUT + первый jump в DOCKER-USER). По умолчанию выключено.
+firewall_lockdown: false
+
+# С каких сетей разрешён SSH на хост (обязательно задать при firewall_lockdown, если не включён мир ниже).
+firewall_ssh_allow_sources: []
+
+# Опасно: SSH с любого IP (оставьте false в проде).
+firewall_allow_ssh_world: false
+
+firewall_ssh_port: 22
+
+# Порты, проброшенные на контейнеры (ingress mesh), доступные с интернета.
+firewall_public_tcp_ports:
+  - 80
+  - 443
+
+# Дополнительно открыть с интернета (например 8080 для dashboard Traefik): firewall_extra_public_tcp_ports: [8080]
+firewall_extra_public_tcp_ports: []

@@ -1,0 +1,61 @@
+---
+- name: Жёсткий iptables lockdown (INPUT + DOCKER-USER)
+  when:
+    - firewall_lockdown | bool
+    - ansible_os_family == 'Debian'
+  block:
+    - name: Проверка переменных lockdown
+      ansible.builtin.assert:
+        that:
+          - firewall_allow_ssh_world | bool or (firewall_ssh_allow_sources | length) > 0
+        fail_msg: >-
+          При firewall_lockdown=true задайте firewall_ssh_allow_sources (офис/VPN CIDR)
+          или осознанно firewall_allow_ssh_world=true.
+
+    - name: Собрать список IP нод кластера (Swarm + Gluster)
+      ansible.builtin.set_fact:
+        firewall_cluster_hosts: "{{ ((groups['swarm_nodes'] | default([])) + (groups['gluster_nodes'] | default([]))) | unique | list }}"
+
+    - name: Порты публикации с интернета (слияние списков)
+      ansible.builtin.set_fact:
+        firewall_public_tcp_merged: >-
+          {{
+            ((firewall_public_tcp_ports | default([80, 443]))
+             + (firewall_extra_public_tcp_ports | default([])))
+            | unique | sort | list
+          }}
+
+    - name: Разрешить IP нод (ansible_host или имя из inventory)
+      ansible.builtin.set_fact:
+        firewall_cluster_ips: "{{ firewall_cluster_ips | default([]) + [ (hostvars[item].ansible_host | default(item)) ] }}"
+      loop: "{{ firewall_cluster_hosts }}"
+      loop_control:
+        label: "{{ item }}"
+
+    - name: Пакеты iptables и сохранение правил
+      ansible.builtin.apt:
+        name:
+          - iptables
+          - iptables-persistent
+        state: present
+        update_cache: false
+
+    - name: Включить netfilter-persistent
+      ansible.builtin.systemd:
+        name: netfilter-persistent
+        enabled: true
+        state: started
+
+    - name: Сгенерировать и выполнить правила lockdown
+      ansible.builtin.template:
+        src: apply-lockdown.sh.j2
+        dest: /root/.ansible-firewall-lockdown.sh
+        mode: "0700"
+
+    - name: Применить lockdown (iptables)
+      ansible.builtin.command: /root/.ansible-firewall-lockdown.sh
+      changed_when: true
+
+    - name: Сохранить iptables для перезагрузки
+      ansible.builtin.command: netfilter-persistent save
+      changed_when: false

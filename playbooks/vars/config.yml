@@ -48,3 +48,9 @@ keepalived_priority_master: 150
 keepalived_priority_backup: 100
 keepalived_garp_delay: 1
 keepalived_haproxy_check_interval: 2
+
+# Роль firewall-iptables (последний play в install.yml). Включайте осознанно.
+firewall_lockdown: false
+# firewall_ssh_allow_sources: ['203.0.113.10/32']
+# firewall_allow_ssh_world: false
+# firewall_extra_public_tcp_ports: [8080]
