@@ -1,5 +1,5 @@
 ---
-# Запуск одной роли с теми же переменными, что и install.yml (cluster-defaults + inventory).
+# Запуск одной роли с теми же переменными, что и install.yml (cluster-defaults + defaults целевой роли + inventory).
 # Удобнее по отдельным файлам: playbooks/plays/10-haproxy.yml и т.д.
 #
 # Примеры:

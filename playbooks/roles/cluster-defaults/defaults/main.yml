@@ -1,49 +1,6 @@
 ---
-# Базовые параметры кластера (приоритет ниже, чем у inventory [all:vars] — см. install.yml).
-#
-# 1.1) Здесь — основные значения (пакеты, порты, учётки).
-# 1.2) Кастомизация — inventory*.ini [all:vars].
-#
-# Порядок по правилам Ansible: сначала role defaults (этот файл), затем переменные из inventory
-# перекрывают совпадающие ключи. include_vars для этого не используем — он был бы «сильнее» inventory.
-#
-# firewall_lockdown — в defaults ролей firewall-iptables и haproxy (не дублируем здесь); true/false можно задать в inventory.
+# Дефолты для всего кластера (перекрытие: inventory [all:vars]).
+# Сервисные переменные — в defaults соответствующих ролей (docker, traefik, haproxy, …).
 
-docker_packages:
-  - docker.io
-  - docker-ce-cli
-  - containerd
-old_docker_packages:
-  - docker-buildx
-  - docker-buildx-plugin
-  - docker-compose-plugin
-  - docker
-  - docker-engine
-  - docker-cli
-  - containerd.io
-  - runc
-
-portainer_admin_port: 9090
-portainer_tunnel_port: 8000
-portainer_gfs_subdir: portainer_gfs
-portainer_network_name: portainer_network
-portainer_volume_name: portainer_data
-portainer_app_name: portainer_app
-portainer_admin_user: admin
-portainer_admin_password: portainer1234
-portainer_agent_secret: portaineragenttocken
-
-traefik_http_port: 8080
-traefik_https_port: 8443
-traefik_admin_port: 9081
-traefik_internal_api_port: 9082
-traefik_network_name: traefik_network
-traefik_app_name: traefik_app
-traefik_admin_user: traefik_admin
-traefik_admin_password: traefik1234
-
-haproxy_stats_user: haproxy_stats
-haproxy_stats_password: haproxy1234
-haproxy_http_port: 80
-haproxy_https_port: 443
-haproxy_stats_port: 8181
+# Порт SSH хостов кластера (Ansible, правила firewall в роли firewall-iptables).
+default_ssh_port: 22

@@ -1,3 +1,6 @@
 ---
-# Пусто — bricks на локальной ФС; непустой путь — формат XFS и mount (см. tasks/xfs.yml)
+# Совпадает с типичным inventory; пустой device2_hdd_dev — bricks на локальной ФС под gluster_volume_path.
 device2_hdd_dev: ""
+gluster_volume_path: /glusterfs/bricks
+gluster_volume_name: gfs
+gluster_mount_path: /mnt/gfs

@@ -25,7 +25,7 @@ iptables -A SWARM-INPUT -s {{ ip }} -j RETURN
 iptables -A SWARM-INPUT -s {{ cidr }} -j RETURN
 {% endfor %}
 {% if not (firewall_allow_ssh_only_admin | default(false) | bool) %}
-iptables -A SWARM-INPUT -p tcp --dport {{ firewall_ssh_port }} -j RETURN
+iptables -A SWARM-INPUT -p tcp --dport {{ default_ssh_port | default(22) }} -j RETURN
 {% endif %}
 iptables -A SWARM-INPUT -p tcp -m multiport --dports {{ firewall_public_tcp_merged | join(',') }} -j RETURN
 {% if (keepalived_vip_cidr | default('') | trim | length) > 0 %}

@@ -1,7 +1,0 @@
-# Переменные кластера перенесены в playbooks/roles/cluster-defaults/defaults/main.yml
-# (role defaults загружаются до применения задач и имеют приоритет НИЖЕ, чем inventory [all:vars]).
-#
-# Раньше использовался include_vars этого файла — он перекрывал inventory; сейчас в playbooks
-# подключается роль cluster-defaults вместо include_vars.
-#
-# Редактируйте: playbooks/roles/cluster-defaults/defaults/main.yml

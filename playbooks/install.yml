@@ -2,7 +2,7 @@
 # Полный деплой кластера (все стадии по порядку):
 #   ansible-playbook -i inventory-prod.ini playbooks/install.yml
 #
-# Одна стадия (быстрее), тот же состав переменных (cluster-defaults + inventory):
+# Одна стадия (быстрее), тот же состав переменных (defaults ролей + cluster-defaults при наличии + inventory):
 #   ansible-playbook -i inventory-prod.ini playbooks/plays/10-haproxy.yml
 #
 # Несколько стадий по тегам (как раньше):

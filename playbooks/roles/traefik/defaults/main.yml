@@ -1,6 +1,9 @@
 ---
-# Дубли при отсутствии ключей в роли cluster-defaults (playbooks/roles/cluster-defaults/defaults/main.yml).
 traefik_http_port: 8080
 traefik_https_port: 8443
-traefik_admin_port: 8090
-traefik_internal_api_port: 9081
+traefik_admin_port: 9081
+traefik_internal_api_port: 9082
+traefik_network_name: traefik_network
+traefik_app_name: traefik_app
+traefik_admin_user: traefik_admin
+traefik_admin_password: traefik1234

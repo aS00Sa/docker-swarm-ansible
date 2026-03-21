@@ -1,0 +1,14 @@
+---
+docker_packages:
+  - docker.io
+  - docker-ce-cli
+  - containerd
+old_docker_packages:
+  - docker-buildx
+  - docker-buildx-plugin
+  - docker-compose-plugin
+  - docker
+  - docker-engine
+  - docker-cli
+  - containerd.io
+  - runc

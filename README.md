@@ -54,7 +54,7 @@
 3. **Настроить инвентори** в файлах:
 
    - `inventory.ini` – список хостов и группы (`[haproxy]`, `[swarm_managers]`, `[swarm_workers]`, `[gluster_nodes]`)
-   - `playbooks/roles/cluster-defaults/defaults/main.yml` – базовые переменные кластера (inventory их перекрывает); `playbooks/vars/config.yml` – указатель
+   - `playbooks/roles/cluster-defaults/defaults/main.yml` – порты, пакеты Docker, учётки Portainer/Traefik/HAProxy; inventory и defaults остальных ролей их дополняют или перекрывают
 
    Минимум нужно:
 
