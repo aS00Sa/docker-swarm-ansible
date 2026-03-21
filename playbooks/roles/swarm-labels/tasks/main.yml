@@ -1,10 +1,10 @@
 ---
-- name: Label Swarm nodes that have GFS mount
+- name: Label Swarm nodes that have GFS mount (by node ID, not hostname)
   when: inventory_hostname == groups['swarm_managers'][0]
   run_once: true
-  become: true
-  become_method: sudo
   vars:
     gfs_nodes: "{{ (groups['swarm_managers'] | default([])) + (groups['swarm_workers'] | default([])) }}"
+  include_tasks: label-one-node.yml
   loop: "{{ gfs_nodes | unique }}"
-  shell: docker node update --label-add gfs=true {{ hostvars[item].ansible_hostname | default(item) }}
+  loop_control:
+    loop_var: gfs_target_host

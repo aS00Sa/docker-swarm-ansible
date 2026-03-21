@@ -1,0 +1,16 @@
+---
+# Имя узла в `docker node ls` часто не совпадает с ansible_hostname (провайдер/VPS);
+# ID из docker info на самой ноде всегда совпадает с записью на менеджере.
+- name: Get Swarm node ID on {{ gfs_target_host }}
+  delegate_to: "{{ gfs_target_host }}"
+  become: true
+  become_method: sudo
+  command: docker info -f '{% raw %}{{.Swarm.NodeID}}{% endraw %}'
+  register: gfs_swarm_node_id
+  changed_when: false
+  failed_when: gfs_swarm_node_id.stdout | trim | length == 0
+
+- name: Apply gfs=true label by node ID (on manager)
+  become: true
+  become_method: sudo
+  shell: docker node update --label-add gfs=true "{{ gfs_swarm_node_id.stdout | trim }}"
