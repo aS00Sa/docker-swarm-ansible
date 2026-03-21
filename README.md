@@ -54,7 +54,7 @@
 3. **Настроить инвентори** в файлах:
 
    - `inventory.ini` – список хостов и группы (`[haproxy]`, `[swarm_managers]`, `[swarm_workers]`, `[gluster_nodes]`)
-   - `playbooks/vars/config.yml` – базовые переменные и домены
+   - `playbooks/roles/cluster-defaults/defaults/main.yml` – базовые переменные кластера (inventory их перекрывает); `playbooks/vars/config.yml` – указатель
 
    Минимум нужно:
 
@@ -93,6 +93,13 @@
    ```
 
    (`--private-key` и `--key-file` — одно и то же.)
+
+   **Только часть стадий** — теги (имена как у ролей):  
+   `ansible-playbook -i inventory-prod.ini playbooks/install.yml --tags haproxy`  
+   или **отдельный плейбук стадии** (каталог `playbooks/plays/`, см. комментарий в файле):  
+   `ansible-playbook -i inventory-prod.ini playbooks/plays/10-haproxy.yml`  
+   или **произвольная роль**:  
+   `ansible-playbook -i inventory-prod.ini playbooks/run-role.yml -e target_role=haproxy -e target_hosts=haproxy`
 
 После выполнения будет настроен Swarm, GlusterFS, Traefik, HAProxy и Portainer.
 

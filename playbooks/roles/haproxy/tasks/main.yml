@@ -38,6 +38,36 @@
     force_apt_get: true
     update_cache: true
 
+- name: CIDR для HAProxy /stats (только при firewall_lockdown и непустом firewall_trusted_admin_cidrs из inventory)
+  become: true
+  become_method: sudo
+  ansible.builtin.template:
+    src: haproxy-stats-trusted.cidr.j2
+    dest: /etc/haproxy/stats-trusted.cidr
+    owner: root
+    group: haproxy
+    mode: "0640"
+  when:
+    - firewall_lockdown | default(false) | bool
+    - >-
+      (
+        (firewall_trusted_admin_cidrs | default([]))
+        | map('trim') | reject('equalto', '') | list | unique | length
+      ) > 0
+
+- name: Удалить stats-trusted.cidr (lockdown выкл. или список CIDR пуст)
+  become: true
+  become_method: sudo
+  ansible.builtin.file:
+    path: /etc/haproxy/stats-trusted.cidr
+    state: absent
+  when: >-
+    not (firewall_lockdown | default(false) | bool)
+    or (
+      (firewall_trusted_admin_cidrs | default([]))
+      | map('trim') | reject('equalto', '') | list | unique | length
+    ) == 0
+
 - name: Create HAProxy config file
   become: true
   become_method: sudo
@@ -131,7 +161,7 @@
     state: latest
     force_apt_get: true
     update_cache: true
-  when: keepalived_enabled | default(true)
+  when: (keepalived_vip_cidr | default('') | trim | length) > 0
 
 - name: Create keepalived config
   become: true
@@ -143,7 +173,7 @@
     owner: root
     group: root
     mode: "0644"
-  when: keepalived_enabled | default(true)
+  when: (keepalived_vip_cidr | default('') | trim | length) > 0
 
 - name: Restart keepalived service
   become: true
@@ -152,4 +182,4 @@
     name: keepalived
     enabled: true
     state: restarted
-  when: keepalived_enabled | default(true)
+  when: (keepalived_vip_cidr | default('') | trim | length) > 0

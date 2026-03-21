@@ -1,0 +1,10 @@
+---
+# ansible-playbook -i inventory-prod.ini playbooks/plays/01-host-defaults.yml
+- hosts: all
+  tags: [host-defaults]
+  roles:
+    - cluster-defaults
+  tasks:
+    - import_role:
+        name: host-defaults
+      tags: [host-defaults]

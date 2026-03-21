@@ -1,19 +1,20 @@
 ---
-# Включить жёсткий фаервол (INPUT + первый jump в DOCKER-USER). По умолчанию выключено.
+# По умолчанию ограничения выключены: firewall_lockdown=false, *_only_admin=false.
+# Включайте по шагам: сначала firewall_lockdown=true и trusted CIDR, затем при необходимости *_only_admin=true.
+#
+# Жёсткий iptables lockdown (INPUT + DOCKER-USER). false — цепочки не применяются; true — правила из inventory.
+# firewall_lockdown дублируется в комментариях роли haproxy (ACL /stats); переопределяйте в inventory.
 firewall_lockdown: false
 
-# С каких сетей разрешён SSH на хост (обязательно задать при firewall_lockdown, если не включён мир ниже).
-firewall_ssh_allow_sources: []
+# CIDR админов (офис, VPN): при lockdown — полный доступ к хосту и к published-портам Docker; тот же список для HAProxy /stats.
+firewall_trusted_admin_cidrs: []
 
-# Опасно: SSH с любого IP (оставьте false в проде).
-firewall_allow_ssh_world: false
+# false — SSH (firewall_ssh_port) с любого IP при lockdown; true — только ноды кластера и firewall_trusted_admin_cidrs.
+firewall_allow_ssh_only_admin: false
 
 firewall_ssh_port: 22
 
-# Порты, проброшенные на контейнеры (ingress mesh), доступные с интернета.
-firewall_public_tcp_ports:
-  - 80
-  - 443
+# Публичные TCP для цепочек: haproxy_* и traefik_* (см. tasks).
 
-# С интернета обычно только 80/443 (HAProxy). Порты Traefik 8080/8443/8090 — с нод кластера (правила по IP нод).
-firewall_extra_public_tcp_ports: []
+# false — ICMP (ping) с любого IP при lockdown; true — только кластер и firewall_trusted_admin_cidrs.
+firewall_allow_icmp_only_admin: false

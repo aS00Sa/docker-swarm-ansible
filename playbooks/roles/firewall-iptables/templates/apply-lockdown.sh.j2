@@ -1,6 +1,9 @@
 #!/bin/bash
 set -euo pipefail
-# Управляемые цепочки: снимаем старый jump, пересоздаём правила (идемпотентно по смыслу).
+# Модель: 1) между IP нод кластера — весь трафик (любые порты/протоколы).
+# 2) firewall_trusted_admin_cidrs — полный доступ к хосту (INPUT) и к published-портам Docker (FORWARD).
+# 3) все остальные — публичные TCP; SSH/ICMP с мира — только если firewall_allow_*_only_admin=false.
+# 4) FORWARD (DOCKER-USER): для «мира» — те же публичные TCP; для админских CIDR — без ограничения по портам.
 
 while iptables -D INPUT -j SWARM-INPUT 2>/dev/null; do :; done
 while iptables -D DOCKER-USER -j SWARM-FORWARD 2>/dev/null; do :; done
@@ -12,35 +15,36 @@ iptables -X SWARM-FORWARD 2>/dev/null || true
 iptables -N SWARM-INPUT
 iptables -N SWARM-FORWARD
 
-# --- INPUT: трафик на сам хост (SSH, ping, HTTP(S) к процессам на хосте) ---
+# --- INPUT ---
 iptables -A SWARM-INPUT -i lo -j RETURN
 iptables -A SWARM-INPUT -m conntrack --ctstate RELATED,ESTABLISHED -j RETURN
 {% for ip in firewall_cluster_ips | unique %}
 iptables -A SWARM-INPUT -s {{ ip }} -j RETURN
 {% endfor %}
-{% if firewall_allow_ssh_world | bool %}
-iptables -A SWARM-INPUT -p tcp --dport {{ firewall_ssh_port }} -j RETURN
-{% else %}
-{% for cidr in firewall_ssh_allow_sources %}
-iptables -A SWARM-INPUT -s {{ cidr }} -p tcp --dport {{ firewall_ssh_port }} -j RETURN
+{% for cidr in firewall_effective_admin_cidrs | unique %}
+iptables -A SWARM-INPUT -s {{ cidr }} -j RETURN
 {% endfor %}
+{% if not (firewall_allow_ssh_only_admin | default(false) | bool) %}
+iptables -A SWARM-INPUT -p tcp --dport {{ firewall_ssh_port }} -j RETURN
 {% endif %}
 iptables -A SWARM-INPUT -p tcp -m multiport --dports {{ firewall_public_tcp_merged | join(',') }} -j RETURN
-{% if keepalived_enabled | default(false) | bool %}
+{% if (keepalived_vip_cidr | default('') | trim | length) > 0 %}
 iptables -A SWARM-INPUT -p 112 -j RETURN
 {% endif %}
+{% if not (firewall_allow_icmp_only_admin | default(false) | bool) %}
 iptables -A SWARM-INPUT -p icmp -j RETURN
+{% endif %}
 iptables -A SWARM-INPUT -m conntrack --ctstate INVALID -j DROP
 iptables -A SWARM-INPUT -j DROP
 
-# --- DOCKER-USER: FORWARD к контейнерам / ingress mesh (раньше DOCKER-INGRESS) ---
-# RETURN — отдать обратно в DOCKER-USER, дальше Docker (в т.ч. DOCKER-INGRESS с 9000/8000).
-# С интернета только разрешённые TCP-порты; с нод кластера — всё (Swarm + Gluster + Portainer по внутренним IP).
+# --- DOCKER-USER (FORWARD к контейнерам) ---
 iptables -A SWARM-FORWARD -m conntrack --ctstate RELATED,ESTABLISHED -j RETURN
 {% for ip in firewall_cluster_ips | unique %}
 iptables -A SWARM-FORWARD -s {{ ip }} -j RETURN
 {% endfor %}
-# SSH идёт в INPUT, не в DOCKER-USER; здесь только доступ к опубликованным портам сервисов.
+{% for cidr in firewall_effective_admin_cidrs | unique %}
+iptables -A SWARM-FORWARD -s {{ cidr }} -j RETURN
+{% endfor %}
 iptables -A SWARM-FORWARD -p tcp -m multiport --dports {{ firewall_public_tcp_merged | join(',') }} -j RETURN
 iptables -A SWARM-FORWARD -m conntrack --ctstate INVALID -j DROP
 iptables -A SWARM-FORWARD -j DROP

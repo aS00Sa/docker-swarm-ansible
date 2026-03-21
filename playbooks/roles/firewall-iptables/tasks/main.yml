@@ -4,26 +4,52 @@
     - firewall_lockdown | bool
     - ansible_os_family == 'Debian'
   block:
+    - name: Эффективные CIDR админов (только firewall_trusted_admin_cidrs)
+      ansible.builtin.set_fact:
+        firewall_effective_admin_cidrs: >-
+          {{
+            (firewall_trusted_admin_cidrs | default([]))
+            | map('trim') | reject('equalto', '') | unique | list
+          }}
+
     - name: Проверка переменных lockdown
       ansible.builtin.assert:
         that:
-          - firewall_allow_ssh_world | bool or (firewall_ssh_allow_sources | length) > 0
+          - (not (firewall_allow_ssh_only_admin | default(false) | bool)) or (firewall_effective_admin_cidrs | length) > 0
         fail_msg: >-
-          При firewall_lockdown=true задайте firewall_ssh_allow_sources (офис/VPN CIDR)
-          или осознанно firewall_allow_ssh_world=true.
+          При firewall_allow_ssh_only_admin=true задайте непустой firewall_trusted_admin_cidrs (или отключите only_admin для SSH).
 
-    - name: Собрать список IP нод кластера (Swarm + Gluster)
+    - name: Собрать IP нод кластера (Swarm + Gluster + HAProxy)
       ansible.builtin.set_fact:
-        firewall_cluster_hosts: "{{ ((groups['swarm_nodes'] | default([])) + (groups['gluster_nodes'] | default([]))) | unique | list }}"
+        firewall_cluster_hosts: >-
+          {{
+            (
+              (groups['swarm_nodes'] | default([]))
+              + (groups['gluster_nodes'] | default([]))
+              + (groups['haproxy'] | default([]))
+            ) | unique | list
+          }}
 
-    - name: Порты публикации с интернета (слияние списков)
+    - name: Публичные TCP (haproxy_*, traefik_* — те же имена, что в стеках; без отдельных firewall_*-портов)
       ansible.builtin.set_fact:
         firewall_public_tcp_merged: >-
           {{
-            ((firewall_public_tcp_ports | default([80, 443]))
-             + (firewall_extra_public_tcp_ports | default([])))
-            | unique | sort | list
+            (
+              [haproxy_http_port | default(80) | int,
+               haproxy_https_port | default(443) | int,
+               haproxy_stats_port | default(80) | int,
+               traefik_http_port | default(8080) | int,
+               traefik_https_port | default(8443) | int]
+            ) | unique | sort | list
           }}
+
+    - name: Проверка лимита iptables multiport для публичных портов (≤15)
+      ansible.builtin.assert:
+        that:
+          - (firewall_public_tcp_merged | length) <= 15
+        fail_msg: >-
+          Слишком много публичных TCP-портов для одного iptables multiport (≤15).
+          Сократите список или разбейте правила вручную.
 
     - name: Разрешить IP нод (ansible_host или имя из inventory)
       ansible.builtin.set_fact:

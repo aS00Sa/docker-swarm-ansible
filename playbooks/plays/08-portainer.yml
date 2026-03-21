@@ -1,0 +1,10 @@
+---
+# ansible-playbook -i inventory-prod.ini playbooks/plays/08-portainer.yml
+- hosts: swarm_managers
+  tags: [portainer]
+  roles:
+    - cluster-defaults
+  tasks:
+    - import_role:
+        name: portainer
+      tags: [portainer]

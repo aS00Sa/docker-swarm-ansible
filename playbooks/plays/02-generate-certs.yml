@@ -1,0 +1,10 @@
+---
+# ansible-playbook -i inventory-prod.ini playbooks/plays/02-generate-certs.yml
+- hosts: all
+  tags: [generate-certs]
+  roles:
+    - cluster-defaults
+  tasks:
+    - import_role:
+        name: generate-certs
+      tags: [generate-certs]

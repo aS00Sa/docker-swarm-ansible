@@ -1,0 +1,4 @@
+# {{ ansible_managed }} — по одному CIDR/адресу на строку (HAProxy src -f)
+{% for c in (firewall_trusted_admin_cidrs | default([])) | map('trim') | reject('equalto', '') | unique %}
+{{ c }}
+{% endfor %}

@@ -1,8 +1,8 @@
 version: '3.5'
 
-# Вход HTTP(S) для приложений — не 80/443 на хосте (их занимает HAProxy).
+# Вход HTTP(S) для приложений — не порты haproxy_http_port / haproxy_https_port на хосте (их занимает HAProxy).
 # Публикация на всех интерфейсах: доступ с нод кластера для балансировки HAProxy по upstream.
-# Внутри контейнера: web → traefik_listen_port, websecure → traefik_https_port, traefik (API) → traefik_internal_api_port.
+# Внутри контейнера: web → traefik_http_port, websecure → traefik_https_port, traefik (API) → traefik_internal_api_port.
 services:
   reverse-proxy:
     image: traefik:v2.0
@@ -10,13 +10,13 @@ services:
       - "--api.dashboard=true"
       - "--providers.docker"
       - "--providers.docker.swarmMode=true"
-      - "--entrypoints.web.address=:{{ traefik_listen_port }}"
+      - "--entrypoints.web.address=:{{ traefik_http_port }}"
       - "--entrypoints.websecure.address=:{{ traefik_https_port }}"
       - "--entrypoints.traefik.address=:{{ traefik_internal_api_port }}"
       - "--providers.docker.exposedByDefault=false"
     ports:
-      - target: {{ traefik_listen_port }}
-        published: {{ traefik_listen_port }}
+      - target: {{ traefik_http_port }}
+        published: {{ traefik_http_port }}
         protocol: tcp
         mode: host
       - target: {{ traefik_https_port }}

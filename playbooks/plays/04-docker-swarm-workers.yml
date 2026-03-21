@@ -1,0 +1,13 @@
+---
+# ansible-playbook -i inventory-prod.ini playbooks/plays/04-docker-swarm-workers.yml
+- hosts: swarm_workers
+  tags: [docker, swarm-workers]
+  roles:
+    - cluster-defaults
+  tasks:
+    - import_role:
+        name: docker
+      tags: [docker]
+    - import_role:
+        name: swarm-workers
+      tags: [swarm-workers]

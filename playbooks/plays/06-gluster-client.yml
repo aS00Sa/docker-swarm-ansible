@@ -1,0 +1,10 @@
+---
+# ansible-playbook -i inventory-prod.ini playbooks/plays/06-gluster-client.yml
+- hosts: swarm_managers:swarm_workers
+  tags: [gluster-client]
+  roles:
+    - cluster-defaults
+  tasks:
+    - import_role:
+        name: gluster-client
+      tags: [gluster-client]

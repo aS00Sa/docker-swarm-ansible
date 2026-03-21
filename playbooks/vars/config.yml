@@ -1,68 +1,7 @@
-docker_packages:
-  - docker.io
-  - docker-ce-cli
-  - containerd
-#  - docker-buildx
-#  - docker-buildx-plugin
-#  - docker-compose-plugin
-#  - docker-ce
-#  - containerd.io
-old_docker_packages:
-#  - docker.io
-#  - docker-ce-cli
-#  - containerd
-  - docker-buildx
-  - docker-buildx-plugin
-  - docker-compose-plugin
-  - docker
-  - docker-engine
-  - docker-cli
-  - containerd.io
-#  - containerd
-  - runc
-portainer_admin_port: 9000
-portainer_tunnel_port: 8000
-portainer_gfs_subdir: portainer_gfs
-portainer_network_name: portainer_network
-portainer_volume_name: portainer_data
-portainer_app_name: portainer_app
-portainer_admin_user: admin
-portainer_admin_password: portainer1234
-portainer_agent_secret: portaineragenttocken
-# Порты Traefik на хосте (80/443 заняты HAProxy). HAProxy балансирует на traefik_listen_port.
-traefik_listen_port: 8080
-# Второй HTTP entrypoint (маршруты с entrypoints=websecure); TLS при необходимости — через labels/dynamic.
-traefik_https_port: 8443
-# Dashboard/API: на хосте traefik_admin_port → в контейнере traefik_internal_api_port (не пересекается с web).
-traefik_admin_port: 8090
-traefik_internal_api_port: 9081
-traefik_network_name: traefik_network
-traefik_app_name: traefik_app
-traefik_admin_user: traefik_admin
-traefik_admin_password: traefik1234
-haproxy_stats_user: haproxy_stats
-haproxy_stats_password: haproxy1234
-
-# Keepalived (VIP) for HAProxy
-# Добавьте в inventory.ini группу [haproxy] с 1-2 (или более) узлами.
-keepalived_enabled: true
-keepalived_interface: eth0
-keepalived_virtual_router_id: 51
-keepalived_auth_pass: keepalivedhaproxy
-keepalived_priority_master: 150
-keepalived_priority_backup: 100
-keepalived_garp_delay: 1
-keepalived_haproxy_check_interval: 2
-
-# Роль firewall-iptables (последний play в install.yml). Включайте осознанно.
-firewall_lockdown: false
-# firewall_ssh_allow_sources: ['203.0.113.10/32']
-# firewall_allow_ssh_world: false
-# firewall_extra_public_tcp_ports: [8080]
-
-# HAProxy: ACL по Host (и опц. URI); пустой haproxy_allow_host_regex → *.app_domain_name + app_domain_name
-haproxy_acl_enabled: false
-haproxy_allow_host_regex: []
-haproxy_allow_uri_regex: []
-# fail2ban по 403 в /var/log/haproxy.log (нужен rsyslog)
-fail2ban_haproxy_enabled: false
+# Переменные кластера перенесены в playbooks/roles/cluster-defaults/defaults/main.yml
+# (role defaults загружаются до применения задач и имеют приоритет НИЖЕ, чем inventory [all:vars]).
+#
+# Раньше использовался include_vars этого файла — он перекрывал inventory; сейчас в playbooks
+# подключается роль cluster-defaults вместо include_vars.
+#
+# Редактируйте: playbooks/roles/cluster-defaults/defaults/main.yml

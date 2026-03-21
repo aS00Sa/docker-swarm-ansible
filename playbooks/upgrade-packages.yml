@@ -1,6 +1,7 @@
 ---
 - hosts: all
+  roles:
+    - cluster-defaults
   tasks:
-    - include_vars: "{{playbook_dir}}/vars/config.yml"
     - import_role:
         name: upgrade-packages

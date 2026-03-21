@@ -1,0 +1,10 @@
+---
+# ansible-playbook -i inventory-prod.ini playbooks/plays/09-traefik.yml
+- hosts: traefik
+  tags: [traefik]
+  roles:
+    - cluster-defaults
+  tasks:
+    - import_role:
+        name: traefik
+      tags: [traefik]

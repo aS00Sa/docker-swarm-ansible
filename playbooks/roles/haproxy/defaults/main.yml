@@ -1,4 +1,22 @@
 ---
+# firewall_lockdown не задаём здесь — см. playbooks/roles/firewall-iptables/defaults/main.yml и inventory; в шаблонах/задачах используется default(false).
+
+# VIP в CIDR; пусто — keepalived не ставится (задаётся в inventory).
+keepalived_vip_cidr: ""
+keepalived_interface: eth0
+keepalived_virtual_router_id: 51
+keepalived_auth_pass: keepalivedhaproxy
+keepalived_priority_master: 150
+keepalived_priority_backup: 100
+keepalived_garp_delay: 1
+keepalived_haproxy_check_interval: 2
+
+# Слушающие порты на хосте (lockdown берёт их же для «публичного» TCP вместе с traefik_http_port / traefik_https_port).
+haproxy_http_port: 80
+haproxy_https_port: 443
+# stats uri /stats на HTTP-frontend (обычно совпадает с haproxy_http_port).
+haproxy_stats_port: 80
+
 # ACL на фронтенде: Host (и опционально path) по regex; иначе 403 (для fail2ban).
 haproxy_acl_enabled: false
 
@@ -17,6 +35,6 @@ fail2ban_findtime: 600
 fail2ban_maxretry: 10
 
 # ignoreip в jail (строка через пробел); к нему добавляются IP нод swarm/gluster из inventory.
-fail2ban_ignoreip: "127.0.0.0/8 ::1"
+fail2ban_ignoreip: []
 # Доп. CIDR/IP (офис, VPN), строка через пробел
-fail2ban_ignoreip_extra: ""
+fail2ban_ignoreip_extra: []

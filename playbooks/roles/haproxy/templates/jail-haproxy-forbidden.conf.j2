@@ -1,4 +1,16 @@
 # {{ ansible_managed }}
+{# fail2ban_ignoreip / fail2ban_ignoreip_extra: [] или список CIDR, или строка; + IP нод кластера #}
+{% if fail2ban_ignoreip is string %}
+{% set _ig_list = (fail2ban_ignoreip | trim | length > 0) | ternary([fail2ban_ignoreip | trim], []) %}
+{% else %}
+{% set _ig_list = fail2ban_ignoreip | default([]) | map('string') | map('trim') | reject('equalto', '') | list %}
+{% endif %}
+{% if fail2ban_ignoreip_extra is string %}
+{% set _ig_extra_list = (fail2ban_ignoreip_extra | trim | length > 0) | ternary([fail2ban_ignoreip_extra | trim], []) %}
+{% else %}
+{% set _ig_extra_list = fail2ban_ignoreip_extra | default([]) | map('string') | map('trim') | reject('equalto', '') | list %}
+{% endif %}
+{% set _ignore_all = (_ig_list + (_fail2ban_cluster_ips | default([])) + _ig_extra_list) | map('string') | map('trim') | reject('equalto', '') | unique | list %}
 [haproxy-forbidden]
 enabled = true
 port = http,https
@@ -8,4 +20,6 @@ logpath = /var/log/haproxy.log
 maxretry = {{ fail2ban_maxretry }}
 findtime = {{ fail2ban_findtime }}
 bantime = {{ fail2ban_bantime }}
-ignoreip = {{ fail2ban_ignoreip }} {{ _fail2ban_cluster_ips | default([]) | join(' ') }}{% if fail2ban_ignoreip_extra | default('') | trim | length > 0 %} {{ fail2ban_ignoreip_extra }}{% endif %}
+{% if _ignore_all | length > 0 %}
+ignoreip = {{ _ignore_all | join(' ') }}
+{% endif %}

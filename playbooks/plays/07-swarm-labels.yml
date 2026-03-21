@@ -1,0 +1,10 @@
+---
+# ansible-playbook -i inventory-prod.ini playbooks/plays/07-swarm-labels.yml
+- hosts: swarm_nodes
+  tags: [swarm-labels]
+  roles:
+    - cluster-defaults
+  tasks:
+    - import_role:
+        name: swarm-labels
+      tags: [swarm-labels]

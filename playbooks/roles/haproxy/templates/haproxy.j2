@@ -46,7 +46,7 @@ defaults
   stats realm Haproxy\ Statistics
   stats auth {{haproxy_stats_user}}:{{haproxy_stats_password}}
 
-# Upstream — Traefik на [traefik] (иначе swarm_managers), порт traefik_listen_port.
+# Upstream — Traefik на [traefik] (иначе swarm_managers), порт traefik_http_port.
 {% set _traefik_up = (groups['traefik'] | default([])) %}
 {% set _traefik_up = (_traefik_up | length > 0) | ternary(_traefik_up, groups['swarm_managers'] | default([])) %}
 backend docker_swarm_layer7
@@ -55,7 +55,7 @@ backend docker_swarm_layer7
   option tcp-check
   option log-health-checks
 {% for h in _traefik_up %}
-  server traefik_{{ loop.index }} {{ hostvars[h].ansible_host | default(h) }}:{{ traefik_listen_port | default(8080) }} check port {{ traefik_listen_port | default(8080) }}
+  server traefik_{{ loop.index }} {{ hostvars[h].ansible_host | default(h) }}:{{ traefik_http_port | default(8080) }} check port {{ traefik_http_port | default(8080) }}
 {% endfor %}
 
 {% if haproxy_acl_enabled | default(false) %}
@@ -69,10 +69,25 @@ backend docker_swarm_layer7
 {% endif %}
 {% endif %}
 
+{# /stats по IP: только при firewall_lockdown=true и списке из inventory; иначе ограничение по src не применяется #}
+{% if firewall_lockdown | default(false) | bool %}
+{% set _stats_cidrs = (firewall_trusted_admin_cidrs | default([])) | map('trim') | reject('equalto', '') | list | unique %}
+{% else %}
+{% set _stats_cidrs = [] %}
+{% endif %}
+
 frontend http-in
-  bind *:80
+  bind *:{{ haproxy_http_port | default(80) }}
   mode http
   http-request add-header X-Forwarded-Proto http
+{% if firewall_lockdown | default(false) | bool %}
+{% if _stats_cidrs | length > 0 %}
+  acl stats_from_trusted src -f /etc/haproxy/stats-trusted.cidr
+  http-request deny deny_status 403 if { path_beg /stats } !stats_from_trusted
+{% else %}
+  http-request deny deny_status 403 if { path_beg /stats }
+{% endif %}
+{% endif %}
 {% if haproxy_acl_enabled | default(false) %}
   acl good_host hdr_reg(host) -i{% for r in _host_patterns %} {{ r }}{% endfor %}
 {% if haproxy_allow_uri_regex | default([]) | length > 0 %}
@@ -89,9 +104,17 @@ frontend http-in
   default_backend docker_swarm_layer7
 
 frontend https_in
-  bind *:443 ssl crt /etc/ssl/{{app_domain_name}}/{{app_domain_name}}.chained.pem
+  bind *:{{ haproxy_https_port | default(443) }} ssl crt /etc/ssl/{{app_domain_name}}/{{app_domain_name}}.chained.pem
   mode http
   http-request add-header X-Forwarded-Proto https if { ssl_fc }
+{% if firewall_lockdown | default(false) | bool %}
+{% if _stats_cidrs | length > 0 %}
+  acl stats_from_trusted_ssl src -f /etc/haproxy/stats-trusted.cidr
+  http-request deny deny_status 403 if { path_beg /stats } !stats_from_trusted_ssl
+{% else %}
+  http-request deny deny_status 403 if { path_beg /stats }
+{% endif %}
+{% endif %}
 {% if haproxy_acl_enabled | default(false) %}
   acl good_host_ssl hdr_reg(host) -i{% for r in _host_patterns %} {{ r }}{% endfor %}
 {% if haproxy_allow_uri_regex | default([]) | length > 0 %}

@@ -1,0 +1,10 @@
+---
+# ansible-playbook -i inventory-prod.ini playbooks/plays/05-gluster.yml
+- hosts: gluster_nodes
+  tags: [gluster]
+  roles:
+    - cluster-defaults
+  tasks:
+    - import_role:
+        name: gluster
+      tags: [gluster]

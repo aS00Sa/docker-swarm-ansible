@@ -1,0 +1,31 @@
+---
+# Запуск одной роли с теми же переменными, что и install.yml (cluster-defaults + inventory).
+# Удобнее по отдельным файлам: playbooks/plays/10-haproxy.yml и т.д.
+#
+# Примеры:
+#   ansible-playbook -i inventory-prod.ini playbooks/run-role.yml -e target_role=haproxy -e target_hosts=haproxy
+#   ansible-playbook -i inventory-prod.ini playbooks/run-role.yml -e target_role=docker -e target_hosts=swarm_managers
+#   ansible-playbook -i inventory-prod.ini playbooks/run-role.yml -e target_role=traefik -e target_hosts=traefik
+#
+# target_hosts — паттерн хостов Ansible (имя группы из inventory, несколько через :).
+#
+- name: Проверка параметров run-role
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - ansible.builtin.assert:
+        that:
+          - target_role is defined
+          - target_role | length > 0
+          - target_hosts is defined
+          - target_hosts | length > 0
+        fail_msg: >-
+          Задайте -e target_role=<имя_роли> -e target_hosts=<группа_или_паттерн>, например target_hosts=haproxy
+
+- name: Выполнить роль {{ target_role }} на {{ target_hosts }}
+  hosts: "{{ target_hosts }}"
+  roles:
+    - cluster-defaults
+  tasks:
+    - ansible.builtin.include_role:
+        name: "{{ target_role }}"

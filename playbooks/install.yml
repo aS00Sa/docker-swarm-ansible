@@ -1,72 +1,26 @@
 ---
-- hosts: all
-  tasks:
-    - include_vars: "{{playbook_dir}}/vars/config.yml"
-    - import_role:
-        name: host-defaults
-
-- hosts: all
-  tasks:
-    - include_vars: "{{playbook_dir}}/vars/config.yml"
-    - import_role:
-        name: generate-certs
-
-- hosts: swarm_managers
-  tasks:
-    - include_vars: "{{playbook_dir}}/vars/config.yml"
-    - import_role:
-        name: docker
-    - import_role:
-        name: swarm-managers
-
-- hosts: swarm_workers
-  tasks:
-    - include_vars: "{{playbook_dir}}/vars/config.yml"
-    - import_role:
-        name: docker
-    - import_role:
-        name: swarm-workers
-
-- hosts: gluster_nodes
-  tasks:
-    - include_vars: "{{playbook_dir}}/vars/config.yml"
-    - import_role:
-        name: gluster
-
-- hosts: swarm_managers:swarm_workers
-  tasks:
-    - include_vars: "{{playbook_dir}}/vars/config.yml"
-    - import_role:
-        name: gluster-client
-
-- hosts: swarm_nodes
-  tasks:
-    - include_vars: "{{playbook_dir}}/vars/config.yml"
-    - import_role:
-        name: swarm-labels
-
-- hosts: swarm_managers
-  tasks:
-    - include_vars: "{{playbook_dir}}/vars/config.yml"
-    - import_role:
-        name: portainer
-
-- hosts: traefik
-  tasks:
-    - include_vars: "{{playbook_dir}}/vars/config.yml"
-    - import_role:
-        name: traefik
-
-# HAProxy → Traefik на нодах группы [traefik]:traefik_listen_port (после деплоя Traefik).
-- hosts: haproxy
-  tasks:
-    - include_vars: "{{playbook_dir}}/vars/config.yml"
-    - import_role:
-        name: haproxy
-
-# После публикации сервисов: ограничить ingress (DOCKER-USER раньше DOCKER-INGRESS) и INPUT.
-- hosts: swarm_managers:swarm_workers:gluster_nodes
-  tasks:
-    - include_vars: "{{playbook_dir}}/vars/config.yml"
-    - import_role:
-        name: firewall-iptables
+# Полный деплой кластера (все стадии по порядку):
+#   ansible-playbook -i inventory-prod.ini playbooks/install.yml
+#
+# Одна стадия (быстрее), тот же состав переменных (cluster-defaults + inventory):
+#   ansible-playbook -i inventory-prod.ini playbooks/plays/10-haproxy.yml
+#
+# Несколько стадий по тегам (как раньше):
+#   ansible-playbook -i inventory-prod.ini playbooks/install.yml --tags haproxy
+#   ansible-playbook -i inventory-prod.ini playbooks/install.yml --tags docker,traefik
+#
+# Произвольная роль по имени (без отдельного файла в plays/):
+#   ansible-playbook -i inventory-prod.ini playbooks/run-role.yml -e target_role=haproxy -e target_hosts=haproxy
+#
+# roles_path задан в ansible.cfg (playbooks/roles), чтобы работали плейбуки из playbooks/plays/.
+- import_playbook: plays/01-host-defaults.yml
+- import_playbook: plays/02-generate-certs.yml
+- import_playbook: plays/03-docker-swarm-managers.yml
+- import_playbook: plays/04-docker-swarm-workers.yml
+- import_playbook: plays/05-gluster.yml
+- import_playbook: plays/06-gluster-client.yml
+- import_playbook: plays/07-swarm-labels.yml
+- import_playbook: plays/08-portainer.yml
+- import_playbook: plays/09-traefik.yml
+- import_playbook: plays/10-haproxy.yml
+- import_playbook: plays/11-firewall-iptables.yml

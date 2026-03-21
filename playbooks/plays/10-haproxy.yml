@@ -1,0 +1,11 @@
+---
+# ansible-playbook -i inventory-prod.ini playbooks/plays/10-haproxy.yml
+# (после Traefik на upstream; см. группу [traefik] и traefik_http_port)
+- hosts: haproxy
+  tags: [haproxy]
+  roles:
+    - cluster-defaults
+  tasks:
+    - import_role:
+        name: haproxy
+      tags: [haproxy]
