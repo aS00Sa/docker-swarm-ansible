@@ -1,6 +1,6 @@
 ---
 - import_tasks: install.yml
 - import_tasks: xfs.yml
-  when: gluster_use_xfs_device | default(true)
+  when: (device2_hdd_dev | default('') | trim | length) > 0
 - import_tasks: init.yml
 - import_tasks: mount.yml
