@@ -3,15 +3,172 @@
   become: true
   become_method: sudo
   file:
-    path: "{{gluster_mount_path}}"
+    path: "{{ gluster_mount_path }}"
     state: directory
 
-- name: Mount Gluster volume {{gluster_volume_name}} to {{gluster_mount_path}}
+# Том мог не получить start, если init пропустил шаг (brick уже был) — без Started mount всегда падает.
+- name: Ensure Gluster volume {{ gluster_volume_name }} is Started (once on first node)
+  run_once: true
+  delegate_to: "{{ groups['gluster_nodes'][0] }}"
   become: true
   become_method: sudo
-  mount:
-    path: "{{gluster_mount_path}}"
-    src: "localhost:/{{gluster_volume_name}}"
-    fstype: glusterfs
-    opts: defaults,_netdev,backupvolfile-server=localhost
-    state: mounted
+  shell: |
+    set -eu
+    if ! gluster volume info "{{ gluster_volume_name }}" >/dev/null 2>&1; then
+      echo "Том {{ gluster_volume_name }} не существует в кластере. Должен создаться в init (volume create)." >&2
+      exit 1
+    fi
+    if gluster volume info "{{ gluster_volume_name }}" | grep -qE '^Status:[[:space:]]+Started'; then
+      exit 0
+    fi
+    gluster volume start "{{ gluster_volume_name }}"
+  args:
+    executable: /bin/bash
+  register: gluster_ensure_started
+  failed_when: gluster_ensure_started.rc != 0
+  changed_when: "'volume start' in (gluster_ensure_started.stdout | default('')) or 'success' in (gluster_ensure_started.stdout | default(''))"
+
+- name: Load FUSE module (нужен клиенту glusterfs)
+  become: true
+  become_method: sudo
+  command: modprobe fuse
+  failed_when: false
+  changed_when: false
+
+# Через другой peer стабильнее; auth.allow — по IP клиента.
+- name: Derive Gluster mount peers (не текущий хост)
+  set_fact:
+    gluster_mount_peer_list: "{{ groups['gluster_nodes_bricks'] | difference([inventory_hostname]) | list }}"
+
+- name: Fail if нет других brick-нод для mount
+  fail:
+    msg: "В gluster_nodes_bricks должен быть хотя бы один узел кроме текущего (replica 3 → три хоста в группе)"
+  when: gluster_mount_peer_list | length < 1
+
+- name: Проверить что точка монтирования пуста (кроме lost+found)
+  become: true
+  become_method: sudo
+  shell: |
+    set -u
+    n=$(find "{{ gluster_mount_path }}" -mindepth 1 -maxdepth 1 ! -name 'lost+found' 2>/dev/null | wc -l)
+    n=$(echo "$n" | tr -d '[:space:]')
+    test "$n" -eq 0
+  args:
+    executable: /bin/bash
+  register: gluster_mountpoint_empty
+  failed_when: gluster_mountpoint_empty.rc != 0
+  changed_when: false
+
+- name: Удалить устаревшие строки fstab для {{ gluster_mount_path }} (часто localhost:/…)
+  become: true
+  become_method: sudo
+  lineinfile:
+    path: /etc/fstab
+    regexp: '^\S+\s+{{ gluster_mount_path | regex_escape }}\s+glusterfs\s'
+    state: absent
+
+- name: Проверить текущий источник монтирования
+  become: true
+  become_method: sudo
+  command: findmnt -n -o SOURCE --target "{{ gluster_mount_path }}"
+  register: gluster_findmnt_src
+  changed_when: false
+  failed_when: false
+
+- name: Снять монтирование если источник localhost
+  become: true
+  become_method: sudo
+  command: umount "{{ gluster_mount_path }}"
+  failed_when: false
+  when:
+    - gluster_findmnt_src.rc == 0
+    - ( 'localhost' in (gluster_findmnt_src.stdout | default('')) ) or ( '127.0.0.1' in (gluster_findmnt_src.stdout | default('')) )
+
+- name: Mount Gluster volume {{ gluster_volume_name }} to {{ gluster_mount_path }}
+  become: true
+  become_method: sudo
+  vars:
+    gluster_mnt_src: "{{ gluster_mount_peer_list[0] }}:/{{ gluster_volume_name }}"
+    gluster_mnt_bak: "{{ gluster_mount_peer_list[1] | default(inventory_hostname) }}"
+    gluster_mnt_o: "defaults,_netdev,transport=tcp,backupvolfile-server={{ gluster_mnt_bak }}"
+  shell: |
+    set -euo pipefail
+    if mountpoint -q "{{ gluster_mount_path }}"; then echo ALREADYMOUNTED; exit 0; fi
+    mount -t glusterfs -o "{{ gluster_mnt_o }}" "{{ gluster_mnt_src }}" "{{ gluster_mount_path }}"
+    mountpoint -q "{{ gluster_mount_path }}"
+  args:
+    executable: /bin/bash
+  register: gluster_mount_try1
+  failed_when: false
+  changed_when: "'ALREADYMOUNTED' not in (gluster_mount_try1.stdout | default(''))"
+
+- name: Mount Gluster volume {{ gluster_volume_name }} (fallback, no backup server)
+  become: true
+  become_method: sudo
+  vars:
+    gluster_mnt_src: "{{ gluster_mount_peer_list[0] }}:/{{ gluster_volume_name }}"
+  shell: |
+    set -euo pipefail
+    if mountpoint -q "{{ gluster_mount_path }}"; then echo ALREADYMOUNTED; exit 0; fi
+    mount -t glusterfs -o "defaults,_netdev,transport=tcp" "{{ gluster_mnt_src }}" "{{ gluster_mount_path }}"
+    mountpoint -q "{{ gluster_mount_path }}"
+  args:
+    executable: /bin/bash
+  register: gluster_mount_try2
+  when: (gluster_mount_try1.rc | default(1)) != 0
+  failed_when: false
+  changed_when: "'ALREADYMOUNTED' not in (gluster_mount_try2.stdout | default(''))"
+
+- name: Mount Gluster volume {{ gluster_volume_name }} (fallback, self IP)
+  become: true
+  become_method: sudo
+  vars:
+    gluster_mnt_src: "{{ inventory_hostname }}:/{{ gluster_volume_name }}"
+    gluster_mnt_bak: "{{ gluster_mount_peer_list[0] }}"
+    gluster_mnt_o: "defaults,_netdev,transport=tcp,backupvolfile-server={{ gluster_mnt_bak }}"
+  shell: |
+    set -euo pipefail
+    if mountpoint -q "{{ gluster_mount_path }}"; then echo ALREADYMOUNTED; exit 0; fi
+    mount -t glusterfs -o "{{ gluster_mnt_o }}" "{{ gluster_mnt_src }}" "{{ gluster_mount_path }}"
+    mountpoint -q "{{ gluster_mount_path }}"
+  args:
+    executable: /bin/bash
+  register: gluster_mount_try3
+  when:
+    - (gluster_mount_try1.rc | default(1)) != 0
+    - (gluster_mount_try2.skipped | default(false)) or ((gluster_mount_try2.rc | default(1)) != 0)
+  failed_when: false
+  changed_when: "'ALREADYMOUNTED' not in (gluster_mount_try3.stdout | default(''))"
+
+- name: Проверка mountpoint
+  become: true
+  become_method: sudo
+  command: mountpoint -q "{{ gluster_mount_path }}"
+  register: gluster_mountpoint_ok
+  changed_when: false
+  failed_when: false
+
+- name: Сообщение при ошибке монтирования
+  fail:
+    msg: |
+      Не удалось смонтировать {{ gluster_volume_name }} на {{ gluster_mount_path }}.
+      Убедитесь: gluster volume status {{ gluster_volume_name }} (все brick Online), том Started, порты 24007/49152+, каталог точки монтирования пуст.
+      Ручная проверка: mount -t glusterfs -o defaults,_netdev,transport=tcp {{ gluster_mount_peer_list[0] }}:/{{ gluster_volume_name }} {{ gluster_mount_path }}
+      try1 rc={{ gluster_mount_try1.rc | default('n/a') }} out={{ gluster_mount_try1.stdout | default('') }} err={{ gluster_mount_try1.stderr | default('') }}
+      try2 rc={{ gluster_mount_try2.rc | default('n/a') }} out={{ gluster_mount_try2.stdout | default('') }} err={{ gluster_mount_try2.stderr | default('') }}
+      try3 rc={{ gluster_mount_try3.rc | default('n/a') }} out={{ gluster_mount_try3.stdout | default('') }} err={{ gluster_mount_try3.stderr | default('') }}
+  when: gluster_mountpoint_ok.rc != 0
+
+- name: Запись в fstab для автомонтирования
+  become: true
+  become_method: sudo
+  vars:
+    gluster_fstab_src: "{{ gluster_mount_peer_list[0] }}:/{{ gluster_volume_name }}"
+    gluster_fstab_bak: "{{ gluster_mount_peer_list[1] | default(inventory_hostname) }}"
+    gluster_fstab_opts: "defaults,_netdev,transport=tcp,backupvolfile-server={{ gluster_fstab_bak }}"
+  lineinfile:
+    path: /etc/fstab
+    regexp: '^\S+\s+{{ gluster_mount_path | regex_escape }}\s+glusterfs\s'
+    line: "{{ gluster_fstab_src }}\t{{ gluster_mount_path }}\tglusterfs\t{{ gluster_fstab_opts }}\t0\t0"
+    create: true
+    mode: "0644"

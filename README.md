@@ -87,6 +87,11 @@
    ANSIBLE_CONFIG="$PWD/ansible.cfg" ansible-playbook -i inventory-prod.ini playbooks/install.yml -u root --private-key /home/ubuntu/.ssh/id_ed25519
    ```
 
+   Если возникают ошибки, то можно включить отладку и запись конфига и лога в файл. 
+   ```bash
+   ANSIBLE_STDOUT_CALLBACK=yaml ANSIBLE_CONFIG="$PWD/ansible.cfg" ansible-playbook -i inventory-prod.ini playbooks/install.yml -u root --private-key ~/.ssh/id_ed25519 -vvv 2>&1 | tee deploy-gluster-$(date +%Y%m%d-%H%M).log
+   ```
+
    (`--private-key` и `--key-file` — одно и то же.)
 
 После выполнения будет настроен Swarm, GlusterFS, Traefik, HAProxy и Portainer.

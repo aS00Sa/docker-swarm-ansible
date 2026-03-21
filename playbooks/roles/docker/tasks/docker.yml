@@ -65,9 +65,7 @@
     path: "{{ item }}"
     state: absent
   loop:
-    - /etc/apt/sources.list.d/download_docker_com_linux_debian.list
-    - /etc/apt/sources.list.d/docker.list
-    - /etc/apt/sources.list.d/docker.list.list
+    - /etc/apt/sources.list.d/*docker*.list
 
 - name: Install Docker apt source (DEB822, как в документации Docker)
   become: true

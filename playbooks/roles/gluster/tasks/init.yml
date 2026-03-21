@@ -11,15 +11,34 @@
     path: "{{gluster_volume_path}}/{{inventory_hostname}}/brick"
     state: directory
 
+# Если каталог brick уже есть, старый when по stat пропускал create — тома в кластере нет (см. лог no_volume).
+- name: Probe Gluster volume in cluster (first node)
+  run_once: true
+  delegate_to: "{{ groups['gluster_nodes'][0] }}"
+  become: true
+  become_method: sudo
+  shell: gluster volume list | grep -qxF '{{ gluster_volume_name }}'
+  register: gluster_cluster_volume_probe
+  failed_when: false
+  changed_when: false
+  args:
+    executable: /bin/bash
+
+- name: Set fact — том отсутствует в кластере (на всех нодах плей)
+  set_fact:
+    gluster_volume_missing_in_cluster: "{{ hostvars[groups['gluster_nodes'][0]]['gluster_cluster_volume_probe'].rc | default(1) != 0 }}"
+
 - name: Initialize Gluster Cluster (on first node)
-  when: glustervolume.stat.exists == false and inventory_hostname == groups['gluster_nodes'][0]
+  when: >-
+    inventory_hostname == groups['gluster_nodes'][0] and
+    ( gluster_volume_missing_in_cluster | default(false) or glustervolume.stat.exists == false )
   become: true
   become_method: sudo
   loop: "{{ groups['gluster_nodes_bricks'] }}"
   shell: gluster peer probe {{ item }}
 
 - name: Create Gluster Volume (on first node)
-  when: glustervolume.stat.exists == false and inventory_hostname == groups['gluster_nodes'][0]
+  when: inventory_hostname == groups['gluster_nodes'][0] and gluster_volume_missing_in_cluster | default(false)
   become: true
   become_method: sudo
   # Без отдельного диска brick на корне — Gluster требует суффикс force
@@ -57,16 +76,16 @@
       }}
   shell: >
     gluster volume set {{gluster_volume_name}} auth.allow  \
-    {{ gluster_auth_allow_ips | join(',') }}
+    {{ gluster_auth_allow_ips | join(',') }},127.0.0.1
 
 - name: Start Gluster Volume (on first node)
-  when: glustervolume.stat.exists == false and inventory_hostname == groups['gluster_nodes'][0]
+  when: inventory_hostname == groups['gluster_nodes'][0] and gluster_volume_missing_in_cluster | default(false)
   become: true
   become_method: sudo
   shell: gluster volume start {{gluster_volume_name}}
 
 - name: Wait 60s for Gluster volume to be replicated
-  when: glustervolume.stat.exists == false and inventory_hostname == groups['gluster_nodes'][0]
+  when: inventory_hostname == groups['gluster_nodes'][0] and gluster_volume_missing_in_cluster | default(false)
   become: true
   become_method: sudo
   shell: sleep 60
