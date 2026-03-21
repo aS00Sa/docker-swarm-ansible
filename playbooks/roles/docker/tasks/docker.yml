@@ -17,47 +17,48 @@
     current_docker_installed: "{{ current_docker_version.stdout is defined and current_docker_version.stdout != '' }}"
     current_version_clean: "{{ current_docker_version.stdout | regex_replace('^Docker version (\\d+\\.\\d+\\.\\d+).*', '\\1') if current_docker_version.stdout is defined else '' }}"
 
+- name: Derive Docker major target and install need
+  set_fact:
+    docker_version_major: "{{ docker_version | regex_replace('^(\\d+).*', '\\1') }}"
+    current_major: "{{ current_version_clean | regex_replace('^(\\d+).*', '\\1') if (current_version_clean | default('') | length) > 0 else '' }}"
+
+- name: Decide if Docker Engine install or major change is needed
+  set_fact:
+    docker_engine_needs_install: "{{ not current_docker_installed or (current_major | length > 0 and current_major != docker_version_major) }}"
+
 - name: Debug version info
   debug:
     msg:
-      - "Target Docker version: {{ docker_version }}"
-      - "Current Docker version: {{ current_version_clean }}"
+      - "Target Docker major (from inventory docker_version): {{ docker_version_major }}"
+      - "Current Docker version: {{ current_version_clean | default('(none)') }}"
       - "Docker installed: {{ current_docker_installed }}"
+      - "Docker engine install/major change needed: {{ docker_engine_needs_install }}"
 
-- name: Update apt package index
-  apt:
-    update_cache: yes
-    cache_valid_time: 3600
-  when: not current_docker_installed or current_version_clean != docker_version
-
-- name: Remove old Docker packages if version mismatch
+- name: Ensure apt keyrings directory exists
   become: true
   become_method: sudo
-  apt:
-    state: absent
-    pkg: "{{ old_docker_packages }}"
-    force_apt_get: true
-    purge: yes
-    autoremove: yes
-  when: current_docker_installed and current_version_clean != docker_version
-  register: docker_removed
+  file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: "0755"
 
-- name: Download Docker GPG key
+- name: Download Docker apt signing key
   become: true
   become_method: sudo
-  shell: |
-    curl -fsSL https://download.docker.com/{{ ansible_distribution | lower }}/{{ ansible_distribution_release }}/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-  args:
-    creates: /etc/apt/keyrings/docker.gpg
-    
-- name: Set correct permissions on GPG key
+  get_url:
+    url: "https://download.docker.com/linux/{{ ansible_distribution | lower }}/gpg"
+    dest: /etc/apt/keyrings/docker.asc
+    mode: "0644"
+    force: true
+
+- name: Remove legacy dearmored key if present (avoids apt confusion)
   become: true
   become_method: sudo
   file:
     path: /etc/apt/keyrings/docker.gpg
-    mode: '0644'
-    
-- name: Remove old Docker repository file
+    state: absent
+
+- name: Remove old Docker repository definitions
   become: true
   become_method: sudo
   file:
@@ -67,40 +68,45 @@
     - /etc/apt/sources.list.d/download_docker_com_linux_debian.list
     - /etc/apt/sources.list.d/docker.list
     - /etc/apt/sources.list.d/docker.list.list
-    
-- name: Add correct Docker repository with GPG key
+
+- name: Install Docker apt source (DEB822, как в документации Docker)
   become: true
   become_method: sudo
-  apt_repository:
-    repo: "deb [arch={{ ansible_architecture }} signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/{{ ansible_distribution | lower }} {{ ansible_distribution_release }} stable"
-    state: present
-    filename: /etc/apt/sources.list.d/docker.list
+  template:
+    src: docker.sources.j2
+    dest: /etc/apt/sources.list.d/docker.sources
+    mode: "0644"
+  register: docker_sources_file
+
+- name: Refresh apt cache after Docker repo
+  become: true
+  become_method: sudo
+  apt:
     update_cache: yes
   register: apt_result
   until: apt_result is succeeded
   retries: 3
   delay: 5
 
-#docker-buildx/stable,now 0.13.1+ds1-3 amd64 [установлен, может быть удалён автоматически]
-#  Docker CLI plugin for extended build capabilities with BuildKit (program)
-#
-#docker-clean/stable 2.0.4-5 all
-#  simple Shell script to clean up the Docker Daemon
-#
-#docker-cli/stable 26.1.5+dfsg1-9+b12 amd64
-#  Linux container runtime -- client
-#
-#docker-compose/stable 2.26.1-4 amd64
-#  Define and run multi-container applications with Docker (program)
-#
-#docker-doc/stable 26.1.5+dfsg1-9 all
-#  Linux container runtime -- documentation
-#
-#docker-registry/stable 2.8.3+ds1-2+b8 amd64
-#  Docker toolset to pack, ship, store, and deliver content
-#
-#docker.io/stable 26.1.5+dfsg1-9+b12 amd64
-#  Linux container runtime
+- name: Update apt package index
+  become: true
+  become_method: sudo
+  apt:
+    update_cache: yes
+    cache_valid_time: 3600
+  when: docker_engine_needs_install
+
+- name: Remove old Docker packages if major change or reinstall
+  become: true
+  become_method: sudo
+  apt:
+    state: absent
+    pkg: "{{ old_docker_packages }}"
+    force_apt_get: true
+    purge: yes
+    autoremove: yes
+  when: current_docker_installed and docker_engine_needs_install
+  register: docker_removed
 
 - name: Update apt package index after removal
   become: true
@@ -109,33 +115,65 @@
     update_cache: yes
   when: docker_removed is defined and docker_removed.changed
 
-- name: Install specific Docker version (with fallback)
-  when: not current_docker_installed or current_version_clean != docker_version
+# Версию с '*' apt-get часто не принимает; madison даёт точную строку. Если 5:MAJOR.* нет в репо — ставим последнюю из madison.
+- name: Install Docker Engine (версия из apt-cache madison по мажору из inventory)
+  when: docker_engine_needs_install
   become: true
   become_method: sudo
-  vars:
-    docker_pinned_packages: "{{ docker_packages | map('regex_replace', '^(.*)$', '\\1=' ~ docker_version ~ '*') | list }}"
   block:
-    - name: Try to install Docker packages pinned to docker_version
-      apt:
-        name: "{{ docker_pinned_packages }}"
-        state: present
-        update_cache: yes
-      register: docker_installed_pinned
-      failed_when: false
+    - name: Install docker-ce / docker-ce-cli / containerd.io
+      shell: |
+        set -euo pipefail
+        export LC_ALL=C
+        apt-get -o Acquire::Retries=3 update
+        MAJOR="{{ docker_version_major }}"
+        VER=""
+        FIRST=""
+        while IFS= read -r line; do
+          [[ "$line" =~ ^[[:space:]]*docker-ce[[:space:]]+\| ]] || continue
+          cand=$(echo "$line" | awk -F'|' '{gsub(/^ +| +$/,"",$2); print $2}')
+          [[ -z "$cand" ]] && continue
+          [[ -z "$FIRST" ]] && FIRST="$cand"
+          if [[ "$cand" =~ ^5:${MAJOR}\. ]]; then
+            VER="$cand"
+            break
+          fi
+        done < <(apt-cache madison docker-ce 2>/dev/null || true)
+        if [[ -z "$VER" ]]; then
+          if [[ -n "$FIRST" ]]; then
+            VER="$FIRST"
+            echo "docker-swarm-ansible: в репозитории нет docker-ce 5:${MAJOR}.*, ставим последнюю доступную: ${VER}" >&2
+          else
+            echo "ERROR: apt-cache madison docker-ce не вернул версий (проверьте docker.sources и ключ GPG)." >&2
+            apt-cache policy docker-ce >&2 || true
+            exit 1
+          fi
+        fi
+        DEBIAN_FRONTEND=noninteractive apt-get install -y \
+          "docker-ce=${VER}" \
+          "docker-ce-cli=${VER}" \
+          containerd.io
+      args:
+        executable: /bin/bash
+      register: docker_installed
+      changed_when: >-
+        "Unpacking docker-ce" in (docker_installed.stdout | default("", true))
+        or "Setting up docker-ce" in (docker_installed.stdout | default("", true))
 
-    - name: Fallback install available Docker package versions
-      apt:
-        name: "{{ docker_packages }}"
-        state: present
-        update_cache: yes
-      register: docker_installed_fallback
-      when: docker_installed_pinned.msg is search("no available installation candidate")
-
-    - name: Set docker_installed fact for later tasks
-      set_fact:
-        docker_installed: "{{ docker_installed_fallback | default(docker_installed_pinned) }}"
-
+  rescue:
+    - name: Fallback install Docker packages without version pin (apt-get)
+      shell: |
+        set -euo pipefail
+        export LC_ALL=C
+        apt-get -o Acquire::Retries=3 update
+        DEBIAN_FRONTEND=noninteractive apt-get install -y \
+          docker-ce docker-ce-cli containerd.io
+      args:
+        executable: /bin/bash
+      register: docker_installed
+      changed_when: >-
+        "Unpacking docker-ce" in (docker_installed.stdout | default("", true))
+        or "Setting up docker-ce" in (docker_installed.stdout | default("", true))
 
 - name: Add current user to docker group
   become: true
@@ -144,7 +182,7 @@
     name: "{{ ansible_user }}"
     groups: docker
     append: yes
-  when: not current_docker_installed or current_version_clean != docker_version or docker_installed.changed
+  when: docker_engine_needs_install or (docker_installed is defined and docker_installed.changed)
 
 - name: Verify Docker installation
   command: docker --version
@@ -188,4 +226,3 @@
     enabled: yes
     daemon_reload: true
 #  when: not current_docker_installed or current_version_clean != docker_version or docker_installed.changed
-

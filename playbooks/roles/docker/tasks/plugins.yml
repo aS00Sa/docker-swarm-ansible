@@ -37,7 +37,7 @@
     - docker-buildx-plugin
     - docker-compose-plugin
   failed_when: false
-  when: not current_docker_installed or current_version_clean != docker_version
+  when: docker_engine_needs_install | default(false)
 
 - name: Install docker Python library
   become: true

@@ -1,6 +1,6 @@
 docker_packages:
   - docker.io
-#  - docker-ce-cli
+  - docker-ce-cli
   - containerd
 #  - docker-buildx
 #  - docker-buildx-plugin
@@ -14,12 +14,12 @@ old_docker_packages:
   - docker-buildx
   - docker-buildx-plugin
   - docker-compose-plugin
-#  - docker
-#  - docker-engine
-#  - docker-cli
-#  - containerd.io
+  - docker
+  - docker-engine
+  - docker-cli
+  - containerd.io
 #  - containerd
-#  - runc
+  - runc
 portainer_admin_port: 9000
 portainer_tunnel_port: 8000
 portainer_gfs_subdir: portainer_gfs

@@ -81,6 +81,14 @@
    ansible-playbook -i inventory.ini playbooks/install.yml  --key-file /mnt/wslg/distro/home/assa/.ssh/id_ed25519 -u root
    ```
 
+   Если Ansible **игнорирует `ansible.cfg` в каталоге репозитория** (часто при клоне на `/mnt/c/...` в WSL: world-writable directory), укажите конфиг через переменную окружения **`ANSIBLE_CONFIG`** — отдельного ключа у `ansible-playbook` для этого нет. Запускайте из корня клона, например:
+
+   ```bash
+   ANSIBLE_CONFIG="$PWD/ansible.cfg" ansible-playbook -i inventory-prod.ini playbooks/install.yml -u root --private-key /home/ubuntu/.ssh/id_ed25519
+   ```
+
+   (`--private-key` и `--key-file` — одно и то же.)
+
 После выполнения будет настроен Swarm, GlusterFS, Traefik, HAProxy и Portainer.
 
 ## Что делает плейбук
