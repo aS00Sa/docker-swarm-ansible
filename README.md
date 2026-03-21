@@ -39,6 +39,9 @@
 2. **Клонировать репозиторий и создать venv**:
 
    ```bash
+   git config --global user.email "x-shura@mail.ru"
+   git config --global user.name "Aleksandr Saglaev"
+
    git clone https://github.com/.../docker-swarm-ansible.git
    cd docker-swarm-ansible
 

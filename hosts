@@ -14,12 +14,14 @@
 device2_hdd_dev="/dev/sdb"
 #
 ansible_connection="ssh"
+# Приватный ключ для SSH (без .pub); парный публичный — в ansible_ssh_rsa ниже
+ansible_ssh_private_key_file=~/.ssh/id_rsa
 # user for ansible
 ansible_user="saglaev_aa"
 # mkpasswd --method=SHA-512
 ansible_ssh_pass="$6$.Vms/PSkEaw1H1If$eh1/lAL1LmLqkgSrgcItNoFA7nnKmYGLo8.vZlQiRpiYNz/MlPkU2ShYmHO7fgeZiGE4HP4CJbqnNfvYF8C/31"
 ansible_become_pass="$6$.Vms/PSkEaw1H1If$eh1/lAL1LmLqkgSrgcItNoFA7nnKmYGLo8.vZlQiRpiYNz/MlPkU2ShYmHO7fgeZiGE4HP4CJbqnNfvYF8C/31"
-# rsa public file
+# Справочно: путь к парному публичному ключу
 ansible_ssh_rsa="~/.ssh/id_rsa.pub"
 # cat ~/.ssh/id_rsa.pub
 ansible_ssh_key="ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQClilD6RZRbKe7z2KFZ1dCkd7Qt4nm59zyTpL7V6jGRIp5aTNXCKwoej8DXHtKxu054nDi4j0gLh6Zd7oIgFqvbCs8ZkfGG4xQzWTUNrsBZyxr+FlTzO5+URnD7gSJrTtuLDEmTHcvxpazFG2di/rsqBQJ9pUwirvT6lCPtH7Qf2hRtxp6RvrxM3o2czn0kDX8d+ua/hhutDbYkbCpKCvWZY0Bcy8hQMdUNhvvnHukzT/myAS1y3Z8KHS879b/hdHrzG4U/OGKYmGd1g2zH3GjBueahWjCFbsCCT6JyiiraFlUkphxLxkpMPCtClvM4dH8IN1IklXvsGNpn3y5xMMztp7MPqwSh7426E+aoL1QvrhzN/7Z/9mqzkholAJ1nXfjju5ubASxJPLbQErIlP+3dCNzV1dtHhELeMa7csTxuHf6ZVfaFkoMWznPiaarwAhn2vkD8Bgyqd/v+8uaZocYCHaPEFnuDz4r9yWeJQd7y5yQ88VQDq01GP102wNVv5kdFPnWJLyrvLCJBa5A0afWaMgXDODdRIHmV6XjH+HTMtVxlCUzMQ5oB72VBTly6r8gaPkZJlfWrjtAzJw2Q/3YP6L2ofpCZetPv6KdUvYzZ93OuR+WRW/9+AAHigpcAqG2TRxOpqNCp5p6+jfJvacA2TEEgWhTN7kg8yJEicj9FCQ== saglaev.aa@betcity.ru"

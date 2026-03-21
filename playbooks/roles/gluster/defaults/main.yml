@@ -1,0 +1,3 @@
+---
+# Пусто — bricks на локальной ФС; непустой путь — формат XFS и mount (см. tasks/xfs.yml)
+device2_hdd_dev: ""
