@@ -22,15 +22,30 @@
   when: glustervolume.stat.exists == false and inventory_hostname == groups['gluster_nodes'][0]
   become: true
   become_method: sudo
-  shell: >
-    gluster volume create {{gluster_volume_name}} \
-    replica 3 \
-    {{groups['gluster_nodes_bricks'][0]}}:{{gluster_volume_path}}/{{groups['gluster_nodes_bricks'][0]}}/brick \
-    {{groups['gluster_nodes_bricks'][1]}}:{{gluster_volume_path}}/{{groups['gluster_nodes_bricks'][1]}}/brick \
-    {{groups['gluster_nodes_bricks'][2]}}:{{gluster_volume_path}}/{{groups['gluster_nodes_bricks'][2]}}/brick
+  # Без отдельного диска brick на корне — Gluster требует суффикс force
+  vars:
+    gluster_volume_create_force: "{{ 'force' if (device2_hdd_dev | default('') | trim | length) == 0 else '' }}"
+  shell: >-
+    gluster volume create {{ gluster_volume_name }} replica 3
+    {{ groups['gluster_nodes_bricks'][0] }}:{{ gluster_volume_path }}/{{ groups['gluster_nodes_bricks'][0] }}/brick
+    {{ groups['gluster_nodes_bricks'][1] }}:{{ gluster_volume_path }}/{{ groups['gluster_nodes_bricks'][1] }}/brick
+    {{ groups['gluster_nodes_bricks'][2] }}:{{ gluster_volume_path }}/{{ groups['gluster_nodes_bricks'][2] }}/brick
+    {{ gluster_volume_create_force }}
+
+# Том может отсутствовать при уже существующем каталоге brick — не вызывать volume set без тома
+- name: Check Gluster volume exists (first node)
+  when: inventory_hostname == groups['gluster_nodes'][0]
+  become: true
+  become_method: sudo
+  shell: gluster volume info {{ gluster_volume_name }}
+  register: gluster_volume_info_check
+  failed_when: false
+  changed_when: false
 
 - name: Secure Gluster Volume (on first node)
-  when: inventory_hostname == groups['gluster_nodes'][0]
+  when:
+    - inventory_hostname == groups['gluster_nodes'][0]
+    - gluster_volume_info_check.rc == 0
   become: true
   become_method: sudo
   vars:
