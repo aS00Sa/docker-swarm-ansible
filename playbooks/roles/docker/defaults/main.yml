@@ -1,4 +1,7 @@
 ---
+# Полный semver для apt (madison); при отсутствии в репо берётся первая 5:MAJOR.* из madison.
+docker_version: "29.3.1"
+
 docker_packages:
   - docker.io
   - docker-ce-cli

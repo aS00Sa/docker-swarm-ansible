@@ -24,12 +24,22 @@
 
 - name: Decide if Docker Engine install or major change is needed
   set_fact:
-    docker_engine_needs_install: "{{ not current_docker_installed or (current_major | length > 0 and current_major != docker_version_major) }}"
+    docker_engine_needs_install: >-
+      {{
+        not current_docker_installed
+        or (current_major | length > 0 and current_major != docker_version_major)
+        or (
+          docker_version is match('^[0-9]+\.[0-9]+\.[0-9]+$')
+          and (current_version_clean | default('') | length) > 0
+          and current_version_clean != docker_version
+        )
+      }}
 
 - name: Debug version info
   debug:
     msg:
-      - "Target Docker major (from inventory docker_version): {{ docker_version_major }}"
+      - "Target Docker version (inventory docker_version): {{ docker_version }}"
+      - "Target Docker major: {{ docker_version_major }}"
       - "Current Docker version: {{ current_version_clean | default('(none)') }}"
       - "Docker installed: {{ current_docker_installed }}"
       - "Docker engine install/major change needed: {{ docker_engine_needs_install }}"
@@ -113,8 +123,9 @@
     update_cache: yes
   when: docker_removed is defined and docker_removed.changed
 
-# Версию с '*' apt-get часто не принимает; madison даёт точную строку. Если 5:MAJOR.* нет в репо — ставим последнюю из madison.
-- name: Install Docker Engine (версия из apt-cache madison по мажору из inventory)
+# Версию с '*' apt-get часто не принимает; madison даёт точную строку.
+# При docker_version X.Y.Z сначала ищем 5:X.Y.Z*, иначе — первую 5:MAJOR.*, затем любую из madison.
+- name: Install Docker Engine (версия из apt-cache madison по inventory)
   when: docker_engine_needs_install
   become: true
   become_method: sudo
@@ -124,19 +135,33 @@
         set -euo pipefail
         export LC_ALL=C
         apt-get -o Acquire::Retries=3 update
+        FULL_VER="{{ docker_version }}"
         MAJOR="{{ docker_version_major }}"
         VER=""
         FIRST=""
+        madison() { apt-cache madison docker-ce 2>/dev/null || true; }
         while IFS= read -r line; do
           [[ "$line" =~ ^[[:space:]]*docker-ce[[:space:]]+\| ]] || continue
           cand=$(echo "$line" | awk -F'|' '{gsub(/^ +| +$/,"",$2); print $2}')
           [[ -z "$cand" ]] && continue
           [[ -z "$FIRST" ]] && FIRST="$cand"
-          if [[ "$cand" =~ ^5:${MAJOR}\. ]]; then
-            VER="$cand"
-            break
+          if [[ "$FULL_VER" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            trip=$(echo "$cand" | sed -n 's/^5:\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\).*/\1/p')
+            [[ -n "$trip" && "$trip" == "$FULL_VER" ]] && { VER="$cand"; break; }
           fi
-        done < <(apt-cache madison docker-ce 2>/dev/null || true)
+        done < <(madison)
+        if [[ -z "$VER" ]]; then
+          while IFS= read -r line; do
+            [[ "$line" =~ ^[[:space:]]*docker-ce[[:space:]]+\| ]] || continue
+            cand=$(echo "$line" | awk -F'|' '{gsub(/^ +| +$/,"",$2); print $2}')
+            [[ -z "$cand" ]] && continue
+            [[ -z "$FIRST" ]] && FIRST="$cand"
+            if [[ "$cand" =~ ^5:${MAJOR}\. ]]; then
+              VER="$cand"
+              break
+            fi
+          done < <(madison)
+        fi
         if [[ -z "$VER" ]]; then
           if [[ -n "$FIRST" ]]; then
             VER="$FIRST"
@@ -146,6 +171,9 @@
             apt-cache policy docker-ce >&2 || true
             exit 1
           fi
+        elif [[ "$FULL_VER" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+          got=$(echo "$VER" | sed -n 's/^5:\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\).*/\1/p')
+          [[ -n "$got" && "$got" != "$FULL_VER" ]] && echo "docker-swarm-ansible: запрошен ${FULL_VER}, точной сборки нет — ставим ${got} (${VER})" >&2
         fi
         DEBIAN_FRONTEND=noninteractive apt-get install -y \
           "docker-ce=${VER}" \
