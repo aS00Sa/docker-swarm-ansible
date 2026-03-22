@@ -1,6 +1,8 @@
 ---
 # Полный деплой кластера (все стадии по порядку):
 #   ansible-playbook -i inventory-prod.ini playbooks/install.yml
+# Итеративная отладка без firewall (см. README):
+#   ansible-playbook ... playbooks/install.yml --skip-tags firewall-iptables
 #
 # Одна стадия (быстрее), тот же состав переменных (defaults ролей + cluster-defaults при наличии + inventory):
 #   ansible-playbook -i inventory-prod.ini playbooks/plays/10-haproxy.yml

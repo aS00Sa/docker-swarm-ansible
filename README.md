@@ -75,36 +75,60 @@
    ansible all -i inventory.ini -m ping
    ```
 
-5. **Запустить плейбук установки**:
+5. **Запустить плейбук установки** — см. ниже **«Деплой и проверка (рабочий цикл)»**. Кратко, без venv и лога:
 
    ```bash
-   ansible-playbook -i inventory.ini playbooks/install.yml  --key-file /mnt/wslg/distro/home/assa/.ssh/id_ed25519 -u root
+   ANSIBLE_CONFIG="$PWD/ansible.cfg" ansible-playbook -i inventory-prod.ini playbooks/install.yml -u root --private-key ~/.ssh/id_ed25519
    ```
 
-   Если Ansible **игнорирует `ansible.cfg` в каталоге репозитория** (часто при клоне на `/mnt/c/...` в WSL: world-writable directory), укажите конфиг через переменную окружения **`ANSIBLE_CONFIG`** — отдельного ключа у `ansible-playbook` для этого нет. Запускайте из корня клона, например:
-
-   ```bash
-   ANSIBLE_CONFIG="$PWD/ansible.cfg" ansible-playbook -i inventory-prod.ini playbooks/install.yml -u root --private-key /home/ubuntu/.ssh/id_ed25519
-   ```
-
-   Если возникают ошибки, то можно включить отладку и запись конфига и лога в файл. 
-   ```bash
-   ANSIBLE_CONFIG="$PWD/ansible.cfg" ansible-playbook -i inventory-prod.ini playbooks/install.yml --syntax-check
-   ANSIBLE_STDOUT_CALLBACK=yaml ANSIBLE_CONFIG="$PWD/ansible.cfg" ansible-playbook -i inventory-prod.ini playbooks/install.yml -u root --private-key ~/.ssh/id_ed25519 -vvv 2>&1 | tee deploy-gluster-$(date +%Y%m%d-%H%M).log
-   ```
-
+   Если Ansible **игнорирует `ansible.cfg`** (часто каталог на `/mnt/c/...` в WSL — world-writable), задайте **`ANSIBLE_CONFIG="$PWD/ansible.cfg"`** (отдельного флага у `ansible-playbook` для этого нет).  
    (`--private-key` и `--key-file` — одно и то же.)
 
-   **Только часть стадий** — теги (имена как у ролей):  
-   `ansible-playbook -i inventory-prod.ini playbooks/install.yml --tags haproxy`  
-   или **отдельный плейбук стадии** (каталог `playbooks/plays/`, см. комментарий в файле):  
-   `ansible-playbook -i inventory-prod.ini playbooks/plays/10-haproxy.yml`  
-   или **произвольная роль**:  
-   `ansible-playbook -i inventory-prod.ini playbooks/run-role.yml -e target_role=haproxy -e target_hosts=haproxy`  
-   **Каталоги стека на Gluster** (под `gluster_mount_path/stacks/<имя>/`):  
-   `ansible-playbook -i inventory-prod.ini playbooks/plays/gluster-stack-dirs.yml -e stack_name=myapp`
+### Деплой и проверка (рабочий цикл)
 
-После выполнения будет настроен Swarm, GlusterFS, Traefik, HAProxy и Portainer.
+Рекомендуемый порядок из корня клона:
+
+1. **Перед запуском деплоя** — виртуальное окружение и зависимости:
+
+   ```bash
+   python3 -m venv .venv
+   source .venv/bin/activate
+   pip install -U pip
+   pip install -r requirements.txt
+   ```
+
+2. **Деплой с подробным логом** в файл в каталоге проекта. В этом цикле **firewall не применяем** (ни роль iptables, ни смысл `firewall_lockdown` на хостах) — используйте **`--skip-tags firewall-iptables`**:
+
+   ```bash
+   ANSIBLE_STDOUT_CALLBACK=yaml ANSIBLE_CONFIG="$PWD/ansible.cfg" ansible-playbook -i inventory-prod.ini playbooks/install.yml -u root --private-key ~/.ssh/id_ed25519 --skip-tags firewall-iptables -vvv 2>&1 | tee deploy-$(date +%Y%m%d-%H%M).log
+   ```
+
+3. **Проверка** — открыть созданный `deploy-ГГГГММДД-ЧЧММ.log` и искать `FAILED`, `fatal:`, `ERROR!`.
+
+4. **Повторять** шаги 1–3, пока в логе не останется ошибок (при необходимости обновить зависимости, инвентори или правки в репозитории).
+
+5. **Firewall и `firewall_lockdown`** в этом сценарии намеренно не трогаем. Включать стадию `firewall-iptables` и ужесточать lockdown имеет смысл **отдельным запуском**, когда кластер уже поднят и проверен.
+
+Проверка синтаксиса плейбука:
+
+```bash
+ANSIBLE_CONFIG="$PWD/ansible.cfg" ansible-playbook -i inventory-prod.ini playbooks/install.yml --syntax-check
+```
+
+### Частичный запуск и утилиты
+
+- **Только часть стадий** — теги (как у ролей):  
+  `ansible-playbook -i inventory-prod.ini playbooks/install.yml --tags haproxy`
+- **Отдельный плейбук стадии** (`playbooks/plays/`, см. комментарий в файле):  
+  `ansible-playbook -i inventory-prod.ini playbooks/plays/10-haproxy.yml`
+- **Произвольная роль**:  
+  `ansible-playbook -i inventory-prod.ini playbooks/run-role.yml -e target_role=haproxy -e target_hosts=haproxy`
+- **Каталоги стека на Gluster** (под `gluster_mount_path/stacks/<имя>/`):  
+  `ansible-playbook -i inventory-prod.ini playbooks/plays/gluster-stack-dirs.yml -e stack_name=myapp`
+- **Включить firewall после отладки** (убрать `--skip-tags` или запустить только стадию):  
+  `ansible-playbook -i inventory-prod.ini playbooks/plays/11-firewall-iptables.yml`
+
+После полного `install.yml` (без `--skip-tags`) будут настроены Swarm, GlusterFS, Traefik, HAProxy, Portainer и стадия iptables. В отладочном цикле из раздела выше стадия firewall пропускается.
 
 ## Что делает плейбук
 
