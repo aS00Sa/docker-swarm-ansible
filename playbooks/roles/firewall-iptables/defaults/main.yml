@@ -6,9 +6,23 @@
 #   3) при необходимости firewall_allow_ssh_only_admin=true и/или firewall_allow_icmp_only_admin=true.
 firewall_lockdown: false
 
-# Пока полный lockdown выключен: закрыть с интернета служебные порты Swarm (2377/TCP, 7946/TCP+UDP, 4789/UDP),
-# разрешая их только между IP нод кластера и firewall_trusted_admin_cidrs. 80/443/22 и прочее не трогает.
+# Пока полный lockdown выключен: отдельные скрипты (шаблоны) для Swarm, Portainer и Gluster — см. ниже.
 firewall_restrict_swarm_ports: true
+
+# Шаблон apply-swarm-ports-restrict.sh.j2 — цепочка SWARM-NODE-PORTS.
+firewall_restrict_swarm_tcp_dports: [2377, 7946]
+firewall_restrict_swarm_udp_dports: [7946, 4789]
+
+# Шаблон apply-portainer-ports-restrict.sh.j2 — цепочка PORTAINER-NODE-PORTS (роль portainer: 8000 tunnel, 9001 agent).
+firewall_restrict_portainer_service_ports: true
+firewall_restrict_portainer_tcp_dports: [8000, 9001]
+
+# Шаблон apply-gluster-ports-restrict.sh.j2 — цепочка GLUSTER-NODE-PORTS (glusterd + brick-порты).
+firewall_restrict_gluster_service_ports: true
+firewall_restrict_gluster_tcp_dports: [24007]
+# Диапазоны в формате iptables «start:end» (типичный пул brick-портов).
+firewall_restrict_gluster_tcp_dport_ranges:
+  - '49152:49664'
 
 firewall_trusted_admin_cidrs: []
 

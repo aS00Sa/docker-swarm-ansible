@@ -1,7 +1,10 @@
 #!/bin/bash
 set -euo pipefail
-# INPUT: TCP 2377, 7946 и UDP 7946, 4789 — только с IP нод кластера и admin CIDR; с остальных DROP.
-# Остальные порты (80, 443, 22, published Docker и т.д.) эта цепочка не меняет.
+# INPUT: служебные порты Docker Swarm — только с IP нод кластера и admin CIDR; с остальных DROP.
+# Цепочка SWARM-NODE-PORTS. Portainer — отдельный шаблон apply-portainer-ports-restrict.sh.j2.
+
+{% set _tcp_blocked = firewall_restrict_swarm_tcp_dports | default([2377, 7946]) | map('int') | list | unique | sort %}
+{% set _udp_blocked = firewall_restrict_swarm_udp_dports | default([7946, 4789]) | map('int') | list | unique | sort %}
 
 while iptables -D INPUT -j SWARM-NODE-PORTS 2>/dev/null; do :; done
 iptables -F SWARM-NODE-PORTS 2>/dev/null || true
@@ -17,8 +20,12 @@ iptables -A SWARM-NODE-PORTS -s {{ ip }} -j RETURN
 {% for cidr in firewall_effective_admin_cidrs | unique %}
 iptables -A SWARM-NODE-PORTS -s {{ cidr }} -j RETURN
 {% endfor %}
-iptables -A SWARM-NODE-PORTS -p tcp -m multiport --dports 2377,7946 -j DROP
-iptables -A SWARM-NODE-PORTS -p udp -m multiport --dports 7946,4789 -j DROP
+{% if _tcp_blocked | length > 0 %}
+iptables -A SWARM-NODE-PORTS -p tcp -m multiport --dports {{ _tcp_blocked | join(',') }} -j DROP
+{% endif %}
+{% if _udp_blocked | length > 0 %}
+iptables -A SWARM-NODE-PORTS -p udp -m multiport --dports {{ _udp_blocked | join(',') }} -j DROP
+{% endif %}
 iptables -A SWARM-NODE-PORTS -j RETURN
 
 iptables -I INPUT 1 -j SWARM-NODE-PORTS

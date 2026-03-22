@@ -1,0 +1,30 @@
+#!/bin/bash
+set -euo pipefail
+# INPUT: служебные TCP Gluster (glusterd + диапазон brick-портов) — только с IP нод кластера и admin CIDR; с остальных DROP.
+# Цепочка GLUSTER-NODE-PORTS. Swarm/Portainer — отдельные шаблоны.
+
+{% set _tcp = firewall_restrict_gluster_tcp_dports | default([24007]) | map('int') | list | unique | sort %}
+
+while iptables -D INPUT -j GLUSTER-NODE-PORTS 2>/dev/null; do :; done
+iptables -F GLUSTER-NODE-PORTS 2>/dev/null || true
+iptables -X GLUSTER-NODE-PORTS 2>/dev/null || true
+
+iptables -N GLUSTER-NODE-PORTS
+
+iptables -A GLUSTER-NODE-PORTS -i lo -j RETURN
+iptables -A GLUSTER-NODE-PORTS -m conntrack --ctstate RELATED,ESTABLISHED -j RETURN
+{% for ip in firewall_cluster_ips | unique %}
+iptables -A GLUSTER-NODE-PORTS -s {{ ip }} -j RETURN
+{% endfor %}
+{% for cidr in firewall_effective_admin_cidrs | unique %}
+iptables -A GLUSTER-NODE-PORTS -s {{ cidr }} -j RETURN
+{% endfor %}
+{% for p in _tcp %}
+iptables -A GLUSTER-NODE-PORTS -p tcp --dport {{ p }} -j DROP
+{% endfor %}
+{% for r in firewall_restrict_gluster_tcp_dport_ranges | default(['49152:49664']) %}
+iptables -A GLUSTER-NODE-PORTS -p tcp --dport {{ r }} -j DROP
+{% endfor %}
+iptables -A GLUSTER-NODE-PORTS -j RETURN
+
+iptables -I INPUT 1 -j GLUSTER-NODE-PORTS
