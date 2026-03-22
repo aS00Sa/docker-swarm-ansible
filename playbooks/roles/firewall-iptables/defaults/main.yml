@@ -23,6 +23,7 @@ firewall_restrict_gluster_tcp_dports: [24007]
 # Диапазоны в формате iptables «start:end» (типичный пул brick-портов).
 firewall_restrict_gluster_tcp_dport_ranges:
   - '49152:49664'
+  - '60000:60100'
 
 firewall_trusted_admin_cidrs: []
 
