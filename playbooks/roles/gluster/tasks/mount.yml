@@ -45,6 +45,24 @@
     msg: "В gluster_nodes_bricks должен быть хотя бы один узел кроме текущего (replica 3 → три хоста в группе)"
   when: gluster_mount_peer_list | length < 1
 
+# Уже смонтированный Gluster — пропускаем проверку «каталог пуст» (повторный запуск, данные стеков в GFS).
+- name: Check if {{ gluster_mount_path }} is already a mount
+  become: true
+  become_method: sudo
+  command: mountpoint -q "{{ gluster_mount_path }}"
+  register: gluster_path_is_mount
+  changed_when: false
+  failed_when: false
+
+- name: FSTYPE for {{ gluster_mount_path }} if mounted
+  become: true
+  become_method: sudo
+  command: findmnt -n -o FSTYPE --target "{{ gluster_mount_path }}"
+  register: gluster_path_fstype
+  when: gluster_path_is_mount.rc == 0
+  changed_when: false
+  failed_when: false
+
 - name: Проверить что точка монтирования пуста (кроме lost+found)
   become: true
   become_method: sudo
@@ -58,6 +76,11 @@
   register: gluster_mountpoint_empty
   failed_when: gluster_mountpoint_empty.rc != 0
   changed_when: false
+  when: >
+    not (
+      gluster_path_is_mount.rc == 0
+      and ('gluster' in (gluster_path_fstype.stdout | default('') | lower))
+    )
 
 - name: Удалить устаревшие строки fstab для {{ gluster_mount_path }} (часто localhost:/…)
   become: true
