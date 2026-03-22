@@ -397,7 +397,7 @@ sudo mount -t glusterfs 10.20.10.5:/gfs /mnt/gfs
 Подготовка узлов: На всех узлах отредактируйте /etc/hosts, добавив IP-адреса и имена хостов:
 
 sudo nano /etc/hosts
-# Добавить: 192.168.10.11 node1, 192.168.10.12 node2 {Link: Cloud.ru https://cloud.ru/docs/evs/ug/topics/use-cases__evs-dedicated-clusterfs}
+# Добавить: 192.168.10.11 node1, 192.168.10.12 node2
 
 Установка GlusterFS:
 sudo apt update
