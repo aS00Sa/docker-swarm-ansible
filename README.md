@@ -136,6 +136,8 @@ ANSIBLE_CONFIG="$PWD/ansible.cfg" ansible-playbook -i inventory-prod.ini playboo
 | `firewall_restrict_gluster_tcp_dports` | Дискретные TCP Gluster (например **24007**) |
 | `firewall_restrict_gluster_tcp_dport_ranges` | Диапазоны TCP для brick-портов (`start:end`) |
 
+Пустой список доверенных CIDR в **INI** лучше не задавать как `firewall_trusted_admin_cidrs=[]` (часто приходит **строка** `[]`, из‑за чего ломается нормализация). Либо **удалите** ключ, либо используйте `group_vars` в YAML, либо оставьте пустое значение без скобок — роль приводит `[]` / пустую строку к пустому списку.
+
 ## Минимальные требования
 
 - **5 хостов** c Debian/Ubuntu (1 для HAProxy, 3 для Swarm, 1 для Traefik).

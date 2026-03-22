@@ -9,12 +9,7 @@
       or (firewall_restrict_gluster_service_ports | bool)
   block:
     - name: Эффективные CIDR админов (whitelist)
-      ansible.builtin.set_fact:
-        firewall_effective_admin_cidrs: >-
-          {{
-            (firewall_trusted_admin_cidrs | default([]))
-            | map('trim') | reject('equalto', '') | unique | list
-          }}
+      ansible.builtin.include_tasks: normalize_trusted_admin_cidrs.yml
 
     - name: Собрать IP нод кластера (как при lockdown)
       ansible.builtin.set_fact:
@@ -95,19 +90,14 @@
       when: firewall_restrict_gluster_service_ports | bool
 
     - name: Проверка формата диапазонов TCP Gluster (iptables start:end)
-      ansible.builtin.assert:
-        that:
-          - >-
-            (
-              firewall_restrict_gluster_tcp_dport_ranges | default([])
-              | select('match', '^[0-9]+:[0-9]+$')
-              | list
-              | length
-            )
-            == (firewall_restrict_gluster_tcp_dport_ranges | default([]) | length)
-        fail_msg: >-
-          Каждый элемент firewall_restrict_gluster_tcp_dport_ranges должен быть «число:число» (например 49152:49664).
-      when: firewall_restrict_gluster_service_ports | bool
+      ansible.builtin.fail:
+        msg: "Элемент '{{ item }}' в firewall_restrict_gluster_tcp_dport_ranges должен быть «число:число» (например 49152:49664)."
+      when:
+        - firewall_restrict_gluster_service_ports | bool
+        - not (item is match('^[0-9]+:[0-9]+$'))
+      loop: "{{ firewall_restrict_gluster_tcp_dport_ranges | default([]) }}"
+      loop_control:
+        label: "{{ item }}"
 
     - name: Сгенерировать скрипт ограничения служебных портов Gluster
       ansible.builtin.template:
@@ -197,12 +187,7 @@
     - ansible_os_family == 'Debian'
   block:
     - name: Эффективные CIDR админов (только firewall_trusted_admin_cidrs)
-      ansible.builtin.set_fact:
-        firewall_effective_admin_cidrs: >-
-          {{
-            (firewall_trusted_admin_cidrs | default([]))
-            | map('trim') | reject('equalto', '') | unique | list
-          }}
+      ansible.builtin.include_tasks: normalize_trusted_admin_cidrs.yml
 
     - name: Проверка переменных lockdown
       ansible.builtin.assert:
