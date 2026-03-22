@@ -1,4 +1,12 @@
 ---
+# Python-модули Ansible на хосте создают файлы в /tmp; без каталога или с неверными правами — FileNotFoundError при apt и др.
+# raw не тянет вспомогательный Python на удалённой стороне (в отличие от file/shell).
+- name: Гарантировать наличие /tmp и /var/tmp (sticky bit как у стандартной ОС)
+  ansible.builtin.raw: mkdir -p /tmp /var/tmp && chmod 1777 /tmp /var/tmp
+  changed_when: false
+  become: true
+  when: ansible_os_family == 'Debian'
+
 # Без полного lockdown: отдельные шаблоны — Swarm, Portainer, Gluster (свои цепочки INPUT).
 - name: Ограничить служебные порты без lockdown (Swarm / Portainer / Gluster)
   when:
