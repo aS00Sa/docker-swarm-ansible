@@ -199,6 +199,8 @@
 #    dest: /etc/docker/config.json
 #    mode: '0640'
 
+# Раскомментируйте только после правки шаблона под свой кластер (DNS, registry-mirrors и т.д.).
+# Иначе логи json-file растут без лимита → заполняется /var/lib/docker/containers и корень диска.
 #- name: Copy daemon.json to host
 #  become: true
 #  become_method: sudo
