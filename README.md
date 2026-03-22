@@ -78,6 +78,64 @@ flowchart LR
 
 Если **`firewall_lockdown=false`**, по отдельным шаблонам роли `firewall-iptables` в **INPUT** вешаются цепочки **`SWARM-NODE-PORTS`** (`apply-swarm-ports-restrict.sh.j2`), **`PORTAINER-NODE-PORTS`** (`apply-portainer-ports-restrict.sh.j2`), **`GLUSTER-NODE-PORTS`** (`apply-gluster-ports-restrict.sh.j2`). С интернета режутся **Swarm** (**2377/TCP**, **7946/TCP+UDP**, **4789/UDP**, флаг **`firewall_restrict_swarm_ports`**), **Portainer** (**8000/TCP**, **9001/TCP**, **`firewall_restrict_portainer_service_ports`**) и **Gluster** (по умолчанию **24007/TCP** и диапазон **49152–49664/TCP** для brick-портов — списки **`firewall_restrict_gluster_tcp_dports`** и **`firewall_restrict_gluster_tcp_dport_ranges`**, флаг **`firewall_restrict_gluster_service_ports`**). Для нод кластера и `firewall_trusted_admin_cidrs` доступ сохраняется. **9090** (Web UI Portainer) не трогается. Выключить по отдельности: `firewall_restrict_swarm_ports=false`, `firewall_restrict_portainer_service_ports=false`, `firewall_restrict_gluster_service_ports=false`.
 
+### Как применить ограничения без lockdown (все три сервиса и диапазоны Gluster)
+
+**1. Переменные** — в **`[all:vars]`** инвентори (например `inventory-prod.ini`) или в `group_vars`. Дефолты роли `firewall-iptables` уже включают `firewall_restrict_* = true`; при необходимости задайте явно и переопределите Gluster:
+
+```ini
+firewall_lockdown=false
+
+firewall_restrict_swarm_ports=true
+firewall_restrict_portainer_service_ports=true
+firewall_restrict_gluster_service_ports=true
+
+firewall_restrict_gluster_tcp_dports=[24007]
+firewall_restrict_gluster_tcp_dport_ranges=['49152:49664']
+```
+
+Сложные списки удобнее вынести в **`group_vars/all.yml`** (YAML):
+
+```yaml
+firewall_restrict_swarm_ports: true
+firewall_restrict_portainer_service_ports: true
+firewall_restrict_gluster_service_ports: true
+firewall_restrict_gluster_tcp_dports: [24007]
+firewall_restrict_gluster_tcp_dport_ranges:
+  - '49152:49664'
+```
+
+Несколько диапазонов brick-портов (каждый элемент — строка **`начало:конец`**, как в iptables):
+
+```yaml
+firewall_restrict_gluster_tcp_dport_ranges:
+  - '49152:49200'
+  - '60000:60100'
+```
+
+**2. Запуск** — правила ставит только роль **`firewall-iptables`**; стадию нельзя пропускать (`--skip-tags firewall-iptables` в отладочном цикле как раз её отключает).
+
+Только firewall на нодах из плейбука (`swarm_managers`, `swarm_workers`, `gluster_nodes`):
+
+```bash
+ANSIBLE_CONFIG="$PWD/ansible.cfg" ansible-playbook -i inventory-prod.ini playbooks/plays/11-firewall-iptables.yml -u root --private-key ~/.ssh/id_ed25519
+```
+
+Полная установка **вместе** с firewall (без `--skip-tags firewall-iptables`):
+
+```bash
+ANSIBLE_CONFIG="$PWD/ansible.cfg" ansible-playbook -i inventory-prod.ini playbooks/install.yml -u root --private-key ~/.ssh/id_ed25519
+```
+
+На целевых хостах создаются цепочки **`SWARM-NODE-PORTS`**, **`PORTAINER-NODE-PORTS`**, **`GLUSTER-NODE-PORTS`** (если соответствующие флаги `true`), выполняется **`netfilter-persistent save`**. Один прогон роли при **`firewall_lockdown=false`** делает общую подготовку (whitelist нод и `firewall_trusted_admin_cidrs`), затем по очереди три скрипта и одно сохранение правил.
+
+| Переменная | Назначение |
+|------------|------------|
+| `firewall_restrict_swarm_ports` | Шаблон `apply-swarm-ports-restrict.sh.j2` |
+| `firewall_restrict_portainer_service_ports` | Шаблон `apply-portainer-ports-restrict.sh.j2` |
+| `firewall_restrict_gluster_service_ports` | Шаблон `apply-gluster-ports-restrict.sh.j2` |
+| `firewall_restrict_gluster_tcp_dports` | Дискретные TCP Gluster (например **24007**) |
+| `firewall_restrict_gluster_tcp_dport_ranges` | Диапазоны TCP для brick-портов (`start:end`) |
+
 ## Минимальные требования
 
 - **5 хостов** c Debian/Ubuntu (1 для HAProxy, 3 для Swarm, 1 для Traefik).
