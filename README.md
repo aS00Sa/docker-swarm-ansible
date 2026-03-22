@@ -76,6 +76,8 @@ flowchart LR
 
 При **`firewall_lockdown=true`** роль `firewall-iptables` открывает «публичный» TCP‑набор из портов HAProxy и опубликованных портов Traefik (те же имена переменных, что в стеках: обычно 80, 443 и 8080, 8443; совпадающие номера схлопываются). Остальное (Swarm, Gluster, SSH) — по правилам lockdown и inventory.
 
+Если **`firewall_lockdown=false`**, по умолчанию включено **`firewall_restrict_swarm_ports=true`**: с интернета режутся только служебные порты Swarm (**2377/TCP**, **7946/TCP+UDP**, **4789/UDP**); для нод кластера (и `firewall_trusted_admin_cidrs`) они остаются доступными. Порты **80, 443, 22** и остальной трафик этим режимом не ограничиваются. Выключить: `firewall_restrict_swarm_ports=false` в inventory.
+
 ## Минимальные требования
 
 - **5 хостов** c Debian/Ubuntu (1 для HAProxy, 3 для Swarm, 1 для Traefik).

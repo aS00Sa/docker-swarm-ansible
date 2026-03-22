@@ -5,6 +5,11 @@ set -euo pipefail
 # 3) все остальные — публичные TCP; SSH/ICMP с мира — только если firewall_allow_*_only_admin=false.
 # 4) FORWARD (DOCKER-USER): для «мира» — те же публичные TCP; для админских CIDR — без ограничения по портам.
 
+# Снять «только Swarm-порты» (ставилась при firewall_lockdown=false), чтобы не дублировать цепочки.
+while iptables -D INPUT -j SWARM-NODE-PORTS 2>/dev/null; do :; done
+iptables -F SWARM-NODE-PORTS 2>/dev/null || true
+iptables -X SWARM-NODE-PORTS 2>/dev/null || true
+
 while iptables -D INPUT -j SWARM-INPUT 2>/dev/null; do :; done
 while iptables -D DOCKER-USER -j SWARM-FORWARD 2>/dev/null; do :; done
 iptables -F SWARM-INPUT 2>/dev/null || true

@@ -1,4 +1,87 @@
 ---
+# --- Только Swarm-порты (без полного lockdown): 2377/TCP, 7946/TCP+UDP, 4789/UDP ---
+- name: Ограничить служебные порты Swarm с интернета
+  when:
+    - firewall_restrict_swarm_ports | bool
+    - not (firewall_lockdown | bool)
+    - ansible_os_family == 'Debian'
+  block:
+    - name: Эффективные CIDR админов (whitelist для Swarm-портов)
+      ansible.builtin.set_fact:
+        firewall_effective_admin_cidrs: >-
+          {{
+            (firewall_trusted_admin_cidrs | default([]))
+            | map('trim') | reject('equalto', '') | unique | list
+          }}
+
+    - name: Собрать IP нод кластера (как при lockdown)
+      ansible.builtin.set_fact:
+        firewall_cluster_hosts: >-
+          {{
+            (
+              (groups['swarm_nodes'] | default([]))
+              + (groups['gluster_nodes'] | default([]))
+              + (groups['haproxy'] | default([]))
+            ) | unique | list
+          }}
+
+    - name: Разрешить IP нод (ansible_host или имя из inventory)
+      ansible.builtin.set_fact:
+        firewall_cluster_ips: "{{ firewall_cluster_ips | default([]) + [ (hostvars[item].ansible_host | default(item)) ] }}"
+      loop: "{{ firewall_cluster_hosts }}"
+      loop_control:
+        label: "{{ item }}"
+
+    - name: Пакеты iptables и сохранение правил
+      ansible.builtin.apt:
+        name:
+          - iptables
+          - iptables-persistent
+        state: present
+        update_cache: false
+
+    - name: Включить netfilter-persistent
+      ansible.builtin.systemd:
+        name: netfilter-persistent
+        enabled: true
+        state: started
+
+    - name: Сгенерировать правила ограничения Swarm-портов
+      ansible.builtin.template:
+        src: apply-swarm-ports-restrict.sh.j2
+        dest: /root/.ansible-firewall-swarm-ports.sh
+        mode: "0700"
+
+    - name: Применить ограничение Swarm-портов
+      ansible.builtin.command: /root/.ansible-firewall-swarm-ports.sh
+      changed_when: true
+
+    - name: Сохранить iptables для перезагрузки
+      ansible.builtin.command: netfilter-persistent save
+      changed_when: false
+
+- name: Снять ограничение Swarm-портов (выключено в inventory)
+  when:
+    - not (firewall_restrict_swarm_ports | bool)
+    - not (firewall_lockdown | bool)
+    - ansible_os_family == 'Debian'
+  block:
+    - name: Удалить цепочку SWARM-NODE-PORTS из INPUT
+      ansible.builtin.shell: |
+        set +e
+        while iptables -D INPUT -j SWARM-NODE-PORTS 2>/dev/null; do :; done
+        iptables -F SWARM-NODE-PORTS 2>/dev/null
+        iptables -X SWARM-NODE-PORTS 2>/dev/null
+        exit 0
+      args:
+        executable: /bin/bash
+      changed_when: true
+
+    - name: Сохранить iptables после снятия Swarm-ограничения
+      ansible.builtin.command: netfilter-persistent save
+      changed_when: false
+      failed_when: false
+
 - name: Жёсткий iptables lockdown (INPUT + DOCKER-USER)
   when:
     - firewall_lockdown | bool

@@ -1,0 +1,24 @@
+#!/bin/bash
+set -euo pipefail
+# INPUT: TCP 2377, 7946 и UDP 7946, 4789 — только с IP нод кластера и admin CIDR; с остальных DROP.
+# Остальные порты (80, 443, 22, published Docker и т.д.) эта цепочка не меняет.
+
+while iptables -D INPUT -j SWARM-NODE-PORTS 2>/dev/null; do :; done
+iptables -F SWARM-NODE-PORTS 2>/dev/null || true
+iptables -X SWARM-NODE-PORTS 2>/dev/null || true
+
+iptables -N SWARM-NODE-PORTS
+
+iptables -A SWARM-NODE-PORTS -i lo -j RETURN
+iptables -A SWARM-NODE-PORTS -m conntrack --ctstate RELATED,ESTABLISHED -j RETURN
+{% for ip in firewall_cluster_ips | unique %}
+iptables -A SWARM-NODE-PORTS -s {{ ip }} -j RETURN
+{% endfor %}
+{% for cidr in firewall_effective_admin_cidrs | unique %}
+iptables -A SWARM-NODE-PORTS -s {{ cidr }} -j RETURN
+{% endfor %}
+iptables -A SWARM-NODE-PORTS -p tcp -m multiport --dports 2377,7946 -j DROP
+iptables -A SWARM-NODE-PORTS -p udp -m multiport --dports 7946,4789 -j DROP
+iptables -A SWARM-NODE-PORTS -j RETURN
+
+iptables -I INPUT 1 -j SWARM-NODE-PORTS

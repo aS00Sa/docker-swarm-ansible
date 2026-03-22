@@ -6,6 +6,10 @@
 #   3) при необходимости firewall_allow_ssh_only_admin=true и/или firewall_allow_icmp_only_admin=true.
 firewall_lockdown: false
 
+# Пока полный lockdown выключен: закрыть с интернета служебные порты Swarm (2377/TCP, 7946/TCP+UDP, 4789/UDP),
+# разрешая их только между IP нод кластера и firewall_trusted_admin_cidrs. 80/443/22 и прочее не трогает.
+firewall_restrict_swarm_ports: true
+
 firewall_trusted_admin_cidrs: []
 
 # true — SSH только кластер + trusted CIDR; false — ещё и с интернета (порт default_ssh_port из cluster-defaults / inventory).
