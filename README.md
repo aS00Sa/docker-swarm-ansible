@@ -18,6 +18,64 @@
 `https://www.portainer.io/blog/monitoring-a-swarm-cluster-with-prometheus-and-grafana`  
 Шаблоны приложений Portainer: `https://github.com/portainer/templates/tree/v3`
 
+## Схема трафика и порты
+
+Вход пользователей — **HAProxy** (часто с **keepalived VIP**), дальше HTTP(S) уходит на **Traefik** на хостовых портах `traefik_http_port` / `traefik_https_port`. Traefik маршрутизирует L7 в сервисы **Docker Swarm** (в т.ч. Portainer). Общие данные — **GlusterFS**, смонтированный в `gluster_mount_path` (по умолчанию `/mnt/gfs`).
+
+```mermaid
+flowchart LR
+  subgraph clients[Клиенты / DNS]
+    U[Пользователи]
+  end
+
+  subgraph edge[HAProxy optional VIP]
+    H[HAProxy :80/:443]
+  end
+
+  subgraph traefik_hosts[Группа traefik или managers]
+    T[Traefik Swarm :8080/:8443]
+  end
+
+  subgraph swarm[Docker Swarm managers + workers]
+    P[Portainer UI :9090]
+    A[Portainer Agent :9001 внутри overlay]
+    S[Сервисы за Traefik]
+  end
+
+  subgraph storage[Gluster brick-ноды]
+    G[Glusterd + bricks]
+  end
+
+  U --> H
+  H -->|"HTTP(S) L7"| T
+  T --> S
+  T --> P
+  P -.->|данные| GF[(GFS /mnt/gfs)]
+  G --> GF
+```
+
+Порты ниже — **дефолты из ролей** (`haproxy`, `traefik`, `portainer`, `cluster-defaults` для SSH); в inventory их можно переопределить.
+
+| Порт | Протокол | Где / назначение |
+|------|-----------|------------------|
+| 80 | TCP | HAProxy HTTP; на том же порту URI `/stats` (статистика HAProxy) |
+| 443 | TCP | HAProxy HTTPS |
+| 8080 | TCP | Traefik entry **web** (сюда смотрит HAProxy по HTTP) |
+| 8443 | TCP | Traefik entry **websecure** |
+| 9090 | TCP | Portainer Web UI (published) |
+| 9081 | TCP | Traefik dashboard/API (published) |
+| 9082 | TCP | Внутренний API entry Traefik в контейнере |
+| 22 | TCP | SSH (`default_ssh_port` в cluster-defaults; учитывается firewall при lockdown) |
+| 9001 | TCP | Portainer Agent (в overlay UI ↔ агенты; не обязательно с интернета) |
+| 8000 | TCP | Portainer — tunnel port (published на хосте) |
+| 2377 | TCP | Docker Swarm — join manager/worker к лидеру |
+| 7946 | TCP, UDP | Swarm node discovery (gossip) |
+| 4789 | UDP | Swarm overlay (VXLAN) |
+| 24007 | TCP | Gluster — `glusterd` |
+| 49152+ | TCP | Gluster — порты brick’ов (диапазон) |
+
+При **`firewall_lockdown=true`** роль `firewall-iptables` открывает «публичный» TCP‑набор из портов HAProxy и опубликованных портов Traefik (те же имена переменных, что в стеках: обычно 80, 443 и 8080, 8443; совпадающие номера схлопываются). Остальное (Swarm, Gluster, SSH) — по правилам lockdown и inventory.
+
 ## Минимальные требования
 
 - **5 хостов** c Debian/Ubuntu (1 для HAProxy, 3 для Swarm, 1 для Traefik).
