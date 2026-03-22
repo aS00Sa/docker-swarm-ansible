@@ -1,8 +1,8 @@
 ---
 # Python-модули Ansible на хосте создают файлы в /tmp; без каталога или с неверными правами — FileNotFoundError при apt и др.
 # raw не тянет вспомогательный Python на удалённой стороне (в отличие от file/shell).
-- name: Гарантировать наличие /tmp и /var/tmp (sticky bit как у стандартной ОС)
-  ansible.builtin.raw: mkdir -p /tmp /var/tmp && chmod 1777 /tmp /var/tmp
+- name: Гарантировать /tmp, /var/tmp и каталог для ansible_remote_tmp (tmpfs /run при переполненном /)
+  ansible.builtin.raw: mkdir -p /tmp /var/tmp "{{ ansible_remote_tmp }}" && chmod 1777 /tmp /var/tmp && chmod 0700 "{{ ansible_remote_tmp }}"
   changed_when: false
   become: true
   when: ansible_os_family == 'Debian'

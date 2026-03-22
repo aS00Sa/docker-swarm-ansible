@@ -138,7 +138,7 @@ ANSIBLE_CONFIG="$PWD/ansible.cfg" ansible-playbook -i inventory-prod.ini playboo
 
 Пустой список доверенных CIDR в **INI** лучше не задавать как `firewall_trusted_admin_cidrs=[]` (часто приходит **строка** `[]`, из‑за чего ломается нормализация). Либо **удалите** ключ, либо используйте `group_vars` в YAML, либо оставьте пустое значение без скобок — роль приводит `[]` / пустую строку к пустому списку.
 
-Если при стадии `firewall-iptables` в логе **FileNotFoundError: No usable temporary directory** в `['/tmp', '/var/tmp', ...]` — на ноде нет нормального **`/tmp`** (или нет прав). Роль в начале выполняет `raw: mkdir -p /tmp /var/tmp && chmod 1777 …`; если ошибка остаётся, проверьте диск, `mount` и переменную окружения **`TMPDIR`** на хосте.
+Если при стадии `firewall-iptables` в логе **FileNotFoundError: No usable temporary directory** или обёртка **MODULE FAILURE** / **Broken pipe** при задаче **apt** — часто переполнен **`/`** (или нет прав на временные каталоги): большой ansiballz модуля `apt` не может создать каталог в `/tmp` / под `~/.ansible`. Роль создаёт **`/tmp`**, **`/var/tmp`** и выставляет **`ansible_remote_tmp`** на **`/run/ansible-remote-tmp`** (tmpfs). Если ошибка остаётся, проверьте **`df -h`**, **`df -i`**, **`mount`**, **`TMPDIR`** на хосте.
 
 ## Минимальные требования
 
@@ -419,6 +419,11 @@ ansible -i inventory.ini all -m shell -a "yes | sudo docker system prune -f" -b
 ansible -i inventory.ini gluster_nodes --key-file /mnt/wslg/distro/home/assa/.ssh/id_ed25519 -u root -m shell -a "yes | sudo apt install -y software-properties-common"
 
 ansible -i inventory.ini all --key-file /mnt/wslg/distro/home/assa/.ssh/id_ed25519 -u root -m shell -a "yes | rm -fv /etc/apt/sources.list.d/docker.*"
+
+ansible -i inventory.ini all --key-file /mnt/wslg/distro/home/assa/.ssh/id_ed25519 -u root -m shell -a "sudo find /var/lib/docker/containers -name '*-json.log' -size +10M -print"
+
+# затем, осознавая кратковременную нагрузку на диск I/O:
+ansible -i inventory.ini all --key-file /mnt/wslg/distro/home/assa/.ssh/id_ed25519 -u root -m shell -a "sudo sh -c 'truncate -s 0 /var/lib/docker/containers/*/*-json.log'"
 
 ```
 
