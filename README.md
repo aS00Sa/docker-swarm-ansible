@@ -89,6 +89,7 @@
 
    Если возникают ошибки, то можно включить отладку и запись конфига и лога в файл. 
    ```bash
+   ANSIBLE_CONFIG="$PWD/ansible.cfg" ansible-playbook -i inventory-prod.ini playbooks/install.yml --syntax-check
    ANSIBLE_STDOUT_CALLBACK=yaml ANSIBLE_CONFIG="$PWD/ansible.cfg" ansible-playbook -i inventory-prod.ini playbooks/install.yml -u root --private-key ~/.ssh/id_ed25519 -vvv 2>&1 | tee deploy-gluster-$(date +%Y%m%d-%H%M).log
    ```
 
@@ -99,7 +100,9 @@
    или **отдельный плейбук стадии** (каталог `playbooks/plays/`, см. комментарий в файле):  
    `ansible-playbook -i inventory-prod.ini playbooks/plays/10-haproxy.yml`  
    или **произвольная роль**:  
-   `ansible-playbook -i inventory-prod.ini playbooks/run-role.yml -e target_role=haproxy -e target_hosts=haproxy`
+   `ansible-playbook -i inventory-prod.ini playbooks/run-role.yml -e target_role=haproxy -e target_hosts=haproxy`  
+   **Каталоги стека на Gluster** (под `gluster_mount_path/stacks/<имя>/`):  
+   `ansible-playbook -i inventory-prod.ini playbooks/plays/gluster-stack-dirs.yml -e stack_name=myapp`
 
 После выполнения будет настроен Swarm, GlusterFS, Traefik, HAProxy и Portainer.
 
