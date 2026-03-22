@@ -10,5 +10,7 @@ portainer_network_name: portainer_network
 portainer_volume_name: portainer_data
 portainer_app_name: portainer_app
 portainer_admin_user: admin
+#portainer_admin_password: portainer1234
+#portainer_agent_secret: portaineragenttocken
 portainer_admin_password: HR8n4H8Y6v3JgFU
 portainer_agent_secret: HR8n4H8Y6v3JgFU
