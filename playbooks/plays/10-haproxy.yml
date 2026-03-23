@@ -9,3 +9,4 @@
     - import_role:
         name: ../roles/haproxy
       tags: [haproxy]
+      when: haproxy_enabled | default(true) | bool

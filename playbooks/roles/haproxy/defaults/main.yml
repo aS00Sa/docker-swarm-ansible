@@ -14,6 +14,8 @@ keepalived_haproxy_check_interval: 2
 # Слушающие порты на хосте (lockdown берёт их же для «публичного» TCP вместе с traefik_http_port / traefik_https_port).
 haproxy_http_port: 80
 haproxy_https_port: 443
+# IP внешнего интерфейса для bind в HAProxy (loopback не используется для frontend bind).
+haproxy_bind_ip: "{{ ansible_default_ipv4.address }}"
 # stats uri /stats на HTTP-frontend (обычно совпадает с haproxy_http_port).
 haproxy_stats_port: 80
 haproxy_stats_user: haproxy_stats
@@ -21,6 +23,10 @@ haproxy_stats_password: haproxy1234
 
 # ACL на фронтенде: Host (и опционально path) по regex; иначе 403 (для fail2ban).
 haproxy_acl_enabled: false
+# Главный переключатель роли HAProxy: false = полностью пропустить обработку роли.
+haproxy_enabled: false
+# Временный переключатель: false = не запускать HAProxy как системный сервис.
+haproxy_service_enabled: false
 
 # Явные regex для Host (одна строка acl hdr_reg — несколько шаблонов через пробел = ИЛИ).
 # Пустой список при haproxy_acl_enabled=true → шаблон из app_domain_name (поддомены + bare domain).

@@ -1,6 +1,6 @@
 ---
-traefik_http_port: 8080
-traefik_https_port: 8443
+traefik_http_port: 80
+traefik_https_port: 443
 traefik_internal_api_port: 9082
 traefik_network_name: traefik_network
 traefik_app_name: traefik_app

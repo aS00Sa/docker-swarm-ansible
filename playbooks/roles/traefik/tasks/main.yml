@@ -106,11 +106,33 @@
 
 - name: Deploy stack from a compose file (on first swarm node)
   when: inventory_hostname == groups['swarm_managers'][0]
-  docker_stack:
-    state: present
-    name: traefik
-    compose:
-      - /home/{{ansible_user}}/stacks/traefik-stack.yml
+  block:
+    - name: Deploy Traefik stack (first attempt)
+      docker_stack:
+        state: present
+        name: traefik
+        compose:
+          - /home/{{ansible_user}}/stacks/traefik-stack.yml
+  rescue:
+    - name: Remove Traefik stack on mode-change conflict
+      docker_stack:
+        state: absent
+        name: traefik
+
+    - name: Wait for Traefik services to be removed
+      command: docker service ls --format '{{ "{{.Name}}" }}'
+      register: traefik_services_after_rm
+      changed_when: false
+      retries: 24
+      delay: 5
+      until: "'traefik_traefik' not in traefik_services_after_rm.stdout"
+
+    - name: Deploy Traefik stack (second attempt after recreate)
+      docker_stack:
+        state: present
+        name: traefik
+        compose:
+          - /home/{{ansible_user}}/stacks/traefik-stack.yml
 
 - name: Force Traefik restart (apply static config)
   when:

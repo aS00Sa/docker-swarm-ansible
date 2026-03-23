@@ -84,6 +84,7 @@
   become_method: sudo
   ansible.builtin.command: haproxy -c -f /etc/haproxy/haproxy.cfg
   changed_when: false
+  when: haproxy_service_enabled | default(true) | bool
 
 - name: Restart HAProxy
   become: true
@@ -92,6 +93,16 @@
     name: haproxy
     enabled: true
     state: restarted
+  when: haproxy_service_enabled | default(true) | bool
+
+- name: Stop and disable HAProxy service (temporary mode)
+  become: true
+  become_method: sudo
+  ansible.builtin.systemd:
+    name: haproxy
+    enabled: false
+    state: stopped
+  when: not (haproxy_service_enabled | default(true) | bool)
 
 - name: Инициализировать список IP для fail2ban ignoreip
   ansible.builtin.set_fact:
