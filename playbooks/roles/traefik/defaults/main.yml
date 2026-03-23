@@ -18,3 +18,6 @@ traefik_dynamic_subdir: dynamic
 
 # Выгружать сгенерированный compose-файл на контроллер (Ansible controller)
 traefik_export_stack_local: true
+
+# Закреплять единственную реплику Traefik за текущим Swarm Leader.
+traefik_pin_to_leader: true

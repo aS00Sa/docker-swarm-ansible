@@ -44,7 +44,11 @@ services:
       mode: replicated
       replicas: 1
       placement:
+{% if traefik_pin_to_leader | default(true) %}
+        constraints: ["node.hostname == {{ traefik_deploy_constraint_hostname }}"]
+{% else %}
         constraints: [node.role == manager]
+{% endif %}
 
 networks:
   {{ traefik_network_name }}:
