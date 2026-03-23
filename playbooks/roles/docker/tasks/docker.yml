@@ -237,6 +237,42 @@
 #    dest: /etc/docker/daemon.json
 #    mode: '0640'
 
+- name: Configure Docker container log rotation
+  become: true
+  become_method: sudo
+  template:
+    src: daemon-log-rotation.json.j2
+    dest: /etc/docker/daemon.json
+    owner: root
+    group: root
+    mode: '0644'
+    backup: yes
+  register: docker_daemon_log_rotation
+  when: docker_enable_log_rotation | default(true)
+
+- name: Restart Docker after daemon log config change
+  become: true
+  become_method: sudo
+  systemd:
+    name: docker
+    state: restarted
+    daemon_reload: true
+  when:
+    - docker_enable_log_rotation | default(true)
+    - docker_daemon_log_rotation.changed
+
+- name: Configure logrotate for Docker container logs
+  become: true
+  become_method: sudo
+  template:
+    src: docker.logrotate.conf.j2
+    dest: /etc/logrotate.d/docker.conf
+    owner: root
+    group: root
+    mode: '0644'
+    backup: yes
+  when: docker_enable_log_rotation | default(true)
+
 #- name: Copy docker.service to host
 #  become: true
 #  become_method: sudo

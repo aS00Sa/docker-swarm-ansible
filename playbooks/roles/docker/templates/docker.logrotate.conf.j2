@@ -1,0 +1,9 @@
+/var/lib/docker/containers/*/*-json.log {
+  rotate {{ docker_log_max_file }}
+  size {{ docker_log_max_size }}
+  missingok
+  notifempty
+  copytruncate
+  compress
+  delaycompress
+}

@@ -80,7 +80,7 @@ flowchart LR
 
 ### Как применить ограничения без lockdown (все три сервиса и диапазоны Gluster)
 
-**1. Переменные** — в **`[all:vars]`** инвентори (например `inventory-prod.ini`) или в `group_vars`. Дефолты роли `firewall-iptables` уже включают `firewall_restrict_* = true`; при необходимости задайте явно и переопределите Gluster:
+**1. Переменные** — в **`[all:vars]`** инвентори (например `inventory.ini`) или в `group_vars`. Дефолты роли `firewall-iptables` уже включают `firewall_restrict_* = true`; при необходимости задайте явно и переопределите Gluster:
 
 ```ini
 firewall_lockdown=false
@@ -117,13 +117,13 @@ firewall_restrict_gluster_tcp_dport_ranges:
 Только firewall на нодах из плейбука (`swarm_managers`, `swarm_workers`, `gluster_nodes`):
 
 ```bash
-ANSIBLE_CONFIG="$PWD/ansible.cfg" ansible-playbook -i inventory-prod.ini playbooks/plays/11-firewall-iptables.yml -u root --private-key ~/.ssh/id_ed25519
+ANSIBLE_CONFIG="$PWD/ansible.cfg" ansible-playbook -i inventory.ini playbooks/plays/11-firewall-iptables.yml -u root --private-key ~/.ssh/id_ed25519
 ```
 
 Полная установка **вместе** с firewall (без `--skip-tags firewall-iptables`):
 
 ```bash
-ANSIBLE_CONFIG="$PWD/ansible.cfg" ansible-playbook -i inventory-prod.ini playbooks/install.yml -u root --private-key ~/.ssh/id_ed25519
+ANSIBLE_CONFIG="$PWD/ansible.cfg" ansible-playbook -i inventory.ini playbooks/install.yml -u root --private-key ~/.ssh/id_ed25519
 ```
 
 На целевых хостах создаются цепочки **`SWARM-NODE-PORTS`**, **`PORTAINER-NODE-PORTS`**, **`GLUSTER-NODE-PORTS`** (если соответствующие флаги `true`), выполняется **`netfilter-persistent save`**. Один прогон роли при **`firewall_lockdown=false`** делает общую подготовку (whitelist нод и `firewall_trusted_admin_cidrs`), затем по очереди три скрипта и одно сохранение правил.
@@ -200,7 +200,7 @@ ANSIBLE_CONFIG="$PWD/ansible.cfg" ansible-playbook -i inventory-prod.ini playboo
 5. **Запустить плейбук установки** — см. ниже **«Деплой и проверка (рабочий цикл)»**. Кратко, без venv и лога:
 
    ```bash
-   ANSIBLE_CONFIG="$PWD/ansible.cfg" ansible-playbook -i inventory-prod.ini playbooks/install.yml -u root --private-key ~/.ssh/id_ed25519
+   ANSIBLE_CONFIG="$PWD/ansible.cfg" ansible-playbook -i inventory.ini playbooks/install.yml -u root --private-key ~/.ssh/id_ed25519
    ```
 
    Если Ansible **игнорирует `ansible.cfg`** (часто каталог на `/mnt/c/...` в WSL — world-writable), задайте **`ANSIBLE_CONFIG="$PWD/ansible.cfg"`** (отдельного флага у `ansible-playbook` для этого нет).  
@@ -222,7 +222,7 @@ ANSIBLE_CONFIG="$PWD/ansible.cfg" ansible-playbook -i inventory-prod.ini playboo
 2. **Деплой с подробным логом** в файл в каталоге проекта. В этом цикле **firewall не применяем** (ни роль iptables, ни смысл `firewall_lockdown` на хостах) — используйте **`--skip-tags firewall-iptables`**:
 
    ```bash
-   ANSIBLE_STDOUT_CALLBACK=yaml ANSIBLE_CONFIG="$PWD/ansible.cfg" ansible-playbook -i inventory-prod.ini playbooks/install.yml -u root --private-key ~/.ssh/id_ed25519 --skip-tags firewall-iptables -vvv 2>&1 | tee deploy-$(date +%Y%m%d-%H%M).log
+   ANSIBLE_STDOUT_CALLBACK=yaml ANSIBLE_CONFIG="$PWD/ansible.cfg" ansible-playbook -i inventory.ini playbooks/install.yml -u root --private-key ~/.ssh/id_ed25519 --skip-tags firewall-iptables -vvv 2>&1 | tee deploy-$(date +%Y%m%d-%H%M).log
    ```
 
 3. **Проверка** — открыть созданный `deploy-ГГГГММДД-ЧЧММ.log` и искать `FAILED`, `fatal:`, `ERROR!`.
@@ -234,21 +234,21 @@ ANSIBLE_CONFIG="$PWD/ansible.cfg" ansible-playbook -i inventory-prod.ini playboo
 Проверка синтаксиса плейбука:
 
 ```bash
-ANSIBLE_CONFIG="$PWD/ansible.cfg" ansible-playbook -i inventory-prod.ini playbooks/install.yml --syntax-check
+ANSIBLE_CONFIG="$PWD/ansible.cfg" ansible-playbook -i inventory.ini playbooks/install.yml --syntax-check
 ```
 
 ### Частичный запуск и утилиты
 
 - **Только часть стадий** — теги (как у ролей):  
-  `ansible-playbook -i inventory-prod.ini playbooks/install.yml --tags haproxy`
+  `ansible-playbook -i inventory.ini playbooks/install.yml --tags haproxy`
 - **Отдельный плейбук стадии** (`playbooks/plays/`, см. комментарий в файле):  
-  `ansible-playbook -i inventory-prod.ini playbooks/plays/10-haproxy.yml`
+  `ansible-playbook -i inventory.ini playbooks/plays/10-haproxy.yml`
 - **Произвольная роль**:  
-  `ansible-playbook -i inventory-prod.ini playbooks/run-role.yml -e target_role=haproxy -e target_hosts=haproxy`
+  `ansible-playbook -i inventory.ini playbooks/run-role.yml -e target_role=haproxy -e target_hosts=haproxy`
 - **Каталоги стека на Gluster** (под `gluster_mount_path/stacks/<имя>/`):  
-  `ansible-playbook -i inventory-prod.ini playbooks/plays/gluster-stack-dirs.yml -e stack_name=myapp`
+  `ansible-playbook -i inventory.ini playbooks/plays/gluster-stack-dirs.yml -e stack_name=myapp`
 - **Включить firewall после отладки** (убрать `--skip-tags` или запустить только стадию):  
-  `ansible-playbook -i inventory-prod.ini playbooks/plays/11-firewall-iptables.yml`
+  `ansible-playbook -i inventory.ini playbooks/plays/11-firewall-iptables.yml`
 
 После полного `install.yml` (без `--skip-tags`) будут настроены Swarm, GlusterFS, Traefik, HAProxy, Portainer и стадия iptables. В отладочном цикле из раздела выше стадия firewall пропускается.
 
@@ -424,78 +424,4 @@ ansible -i inventory.ini all --key-file /mnt/wslg/distro/home/assa/.ssh/id_ed255
 
 # затем, осознавая кратковременную нагрузку на диск I/O:
 ansible -i inventory.ini all --key-file /mnt/wslg/distro/home/assa/.ssh/id_ed25519 -u root -m shell -a "sudo sh -c 'truncate -s 0 /var/lib/docker/containers/*/*-json.log'"
-
 ```
-
-Step-by-Step Deployment GlusterFS (Run on all nodes)
-
-Ubuntu/Debian: sudo apt install glusterfs-server -y.
-Fedora/RHEL: yum install glusterfs-server -y.
-
-Start Service: sudo systemctl start glusterd and sudo systemctl enable glusterd.
-
-Prepare Bricks (Run on all nodes)
-Format and mount the brick storage:
-sudo mkfs.xfs -i size=512 /dev/sdb
-sudo mkdir -p /glusterfs/bricks/10.20.10.5
-echo '/dev/sdb /glusterfs/bricks/10.20.10.5 xfs defaults 0 0' | sudo tee -a /etc/fstab
-sudo mount -a
-
-Create a subdirectory (brick) for the volume: sudo mkdir -p /glusterfs/bricks/10.20.10.5/gfs
-Create the Trusted Storage Pool (Run on Node 1 only)
-Probe the other (ALL) nodes to join the cluster:
-sudo gluster peer probe 10.20.10.6
-sudo gluster peer probe 10.20.10.7
-
-Verify connectivity: sudo gluster peer status.
-
-Create and Start the Volume (Run on Node 1 only)
-Create a replicated volume (high availability):
-sudo gluster volume create gfs replica 3 \
-10.20.10.5:/glusterfs/bricks/10.20.10.5/gfs \
-10.20.10.6:/glusterfs/bricks/10.20.10.6/gfs \
-10.20.10.7:/glusterfs/bricks/10.20.10.7/gfs force
-
-Start the volume: sudo gluster volume start gfs
-Mount the GlusterFS Volume (On Client Nodes)
-sudo mkdir -p /mnt/glusterfs
-sudo mount -t glusterfs 10.20.10.5:/gfs /mnt/gfs
-
-
-Основные шаги настройки GlusterFS (Ubuntu):
-Подготовка узлов: На всех узлах отредактируйте /etc/hosts, добавив IP-адреса и имена хостов:
-
-sudo nano /etc/hosts
-# Добавить: 192.168.10.11 node1, 192.168.10.12 node2
-
-Установка GlusterFS:
-sudo apt update
-sudo apt install glusterfs-server -y
-sudo systemctl start gluster thed && sudo systemctl enable glusterd
-
-Создание пула (на node1):
-sudo gluster peer probe node2
-sudo gluster peer status
-
-Создание и запуск тома (например, реплика 2):
-sudo mkdir -p /data/glusterfs/brick1/gv0
-sudo gluster volume create gv0 replica 2 node1:/data/glusterfs/brick1/gv0 node2:/data/glusterfs/brick1/gv0
-sudo gluster volume start gv0
-
-Монтирование (клиент):
-sudo apt install glusterfs-client
-sudo mount -t glusterfs node1:/gv0 /mnt/glusterfs
-
-Удаление (rm) GlusterFS:
-Для полного удаления (очистки) тома:
-Остановить и удалить том: sudo gluster volume stop gv0 && sudo gluster volume delete gv0
-Удалить данные: rm -rf /data/glusterfs/brick1/gv0
-Удалить пакеты: sudo apt purge glusterfs-server -y && sudo apt autoremove -y
-
-examples/stack-with-gfs/docker-compose.yml
-device: /mnt/gfs/app-data
-device: /mnt/gfs/db-data
-examples/minio-s3/docker-compose.yml
-device: /mnt/gfs/minio-data
-examples/nexus-sonatype-swarm/docker-compose.yml
-device: /mnt/gfs/nexus-data

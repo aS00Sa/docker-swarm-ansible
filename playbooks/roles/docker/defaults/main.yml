@@ -15,3 +15,12 @@ old_docker_packages:
   - docker-cli
   - containerd.io
   - runc
+
+# Docker container log rotation (/var/lib/docker/containers/*/*-json.log)
+docker_enable_log_rotation: true
+docker_log_max_size: "100m"
+docker_log_max_file: "5"
+
+# Raise default file descriptor limits for containers using Docker API heavily
+docker_default_nofile_soft: 262144
+docker_default_nofile_hard: 262144
