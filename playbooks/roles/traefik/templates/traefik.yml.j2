@@ -4,6 +4,11 @@ api:
 entryPoints:
   web:
     address: ":{{ traefik_http_port }}"
+    http:
+      redirections:
+        entryPoint:
+          to: websecure
+          scheme: https  
   websecure:
     address: ":{{ traefik_https_port }}"
   traefik:
@@ -15,15 +20,9 @@ providers:
     watch: true
     exposedByDefault: false
     network: "{{ traefik_network_name }}"
-
   file:
     directory: /etc/traefik/dynamic
     watch: true
-
-log:
-  level: INFO
-
-accessLog: {}
 
 certificatesResolvers:
   letsencrypt:
@@ -33,3 +32,7 @@ certificatesResolvers:
       httpChallenge:
         entryPoint: web
 
+log:
+  level: INFO
+
+accessLog: {}

@@ -35,6 +35,18 @@
     state: directory
     mode: "0775"
 
+- name: Ensure Traefik ACME storage file exists with strict mode (on first swarm node)
+  when: inventory_hostname == groups['swarm_managers'][0]
+  become: true
+  become_method: sudo
+  copy:
+    content: ""
+    dest: "{{ gluster_mount_path }}/{{ traefik_gfs_subdir }}/acme.json"
+    force: false
+    mode: "0600"
+    owner: root
+    group: root
+
 - name: Deploy Traefik dynamic templates to GFS (on first swarm node)
   when: inventory_hostname == groups['swarm_managers'][0]
   become: true
