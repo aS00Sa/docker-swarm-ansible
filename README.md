@@ -245,7 +245,7 @@ ANSIBLE_CONFIG="$PWD/ansible.cfg" ansible-playbook -i inventory.ini playbooks/in
 - **Произвольная роль**:  
   `ansible-playbook -i inventory.ini playbooks/run-role.yml -e target_role=haproxy -e target_hosts=haproxy`
 - **Каталоги стека на Gluster** (под `gluster_mount_path/stacks/<имя>/`):  
-  `ansible-playbook -i inventory.ini playbooks/plays/gluster-stack-dirs.yml -e stack_name=myapp`
+  `ansible-playbook -i inventory.ini playbooks/plays/manual-create-gfs-dirs-for-new-myapps.yml -e stack_name=myapp`
 - **Включить firewall после отладки** (убрать `--skip-tags` или запустить только стадию):  
   `ansible-playbook -i inventory.ini playbooks/plays/11-firewall-iptables.yml`
 

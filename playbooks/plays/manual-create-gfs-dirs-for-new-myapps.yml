@@ -1,6 +1,6 @@
 ---
 # Создать подкаталоги стека на смонтированном Gluster (gluster_mount_path/stacks/<stack_name>/…).
-# ansible-playbook -i inventory-prod.ini playbooks/plays/gluster-stack-dirs.yml -e stack_name=myapp
+# ansible-playbook -i inventory-prod.ini playbooks/plays/manual-create-gfs-dirs-for-new-myapps.yml -e stack_name=myapp
 # Опционально: -e 'stack_dirs=["app-data","db","logs"]'
 - hosts: swarm_managers:swarm_workers
   gather_facts: true
