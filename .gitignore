@@ -4,4 +4,5 @@
 hosts*
 inventory.ini
 *.htpasswd
-playbooks\generated
+playbooks\generated\*
+playbooks/generated/*
