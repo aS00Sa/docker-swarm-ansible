@@ -1,9 +1,20 @@
 ---
 traefik_http_port: 8080
 traefik_https_port: 8443
-traefik_admin_port: 9081
 traefik_internal_api_port: 9082
 traefik_network_name: traefik_network
 traefik_app_name: traefik_app
 traefik_admin_user: traefik_admin
 traefik_admin_password: traefik1234
+
+# Version tag for the Traefik image (per-inventory override is supported)
+traefik_version: v3.6.10
+
+# Каталог на общем хранилище GFS под данные Traefik
+traefik_gfs_subdir: traefik_gfs
+
+# Подкаталог на GFS с динамическими конфигами Traefik
+traefik_dynamic_subdir: dynamic
+
+# Выгружать сгенерированный compose-файл на контроллер (Ansible controller)
+traefik_export_stack_local: true

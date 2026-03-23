@@ -1,5 +1,5 @@
 ---
-- hosts: all
+- hosts: all:!test_backend
   roles:
     - cluster-defaults
   tasks:

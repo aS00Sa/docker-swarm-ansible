@@ -1,0 +1,99 @@
+{% set traefik_backend_hosts = groups.get('swarm_workers', []) %}
+{% if traefik_backend_hosts | length == 0 %}
+{% set traefik_backend_hosts = groups.get('test_backend', []) %}
+{% endif %}
+http:
+  middlewares:
+    allow-cors:
+      headers:
+        accessControlAllowOriginListRegex:
+          - ".*" 
+        accessControlAllowMethods:
+            - GET
+            - POST
+            - PUT
+            - DELETE
+            - OPTIONS
+            - PATCH 
+        accessControlAllowHeaders:
+            - Content-Type
+            - Authorization
+            - Accept
+            - X-Requested-With
+            - captcha
+            - x-idempotency-key
+        accessControlAllowCredentials: true
+        addVaryHeader: true
+        accessControlMaxAge: 3600
+  routers:
+    bethome-server:
+      rule: "Host(`bthm.server.{{ app_domain_name }}`)"
+      service: bethome-server
+      entryPoints: [websecure]
+      tls: { certResolver: letsencrypt }
+      middlewares: [allow-cors]
+    bethome-cdn:
+      rule: "Host(`bthm.cdn.{{ app_domain_name }}`)"
+      service: bethome-cdn
+      entryPoints: [websecure]
+      tls: { certResolver: letsencrypt }
+      middlewares: [allow-cors]
+    bethome-stream:
+      rule: "Host(`bthm.stream.{{ app_domain_name }}`)"
+      service: bethome-stream
+      entryPoints: [websecure]
+      tls: { certResolver: letsencrypt }
+      middlewares: [allow-cors]
+    bethome-admin:
+      rule: "Host(`bthm.admin.{{ app_domain_name }}`)"
+      service: bethome-admin
+      entryPoints: [websecure]
+      tls: { certResolver: letsencrypt }
+      middlewares: [allow-cors]
+
+  services:
+    bethome-server:
+      loadBalancer:
+        servers:
+{% for backend_host in traefik_backend_hosts %}
+          - { url: "http://{{ hostvars[backend_host].ansible_host | default(backend_host) }}:5000" }
+{% endfor %}
+        passHostHeader: true
+        healthCheck:
+          path: "/ping"
+          interval: "10s"
+          timeout: "5s"
+    bethome-cdn:
+      loadBalancer:
+        servers:
+{% for backend_host in traefik_backend_hosts %}
+          - { url: "http://{{ hostvars[backend_host].ansible_host | default(backend_host) }}:5010" }
+{% endfor %}
+        passHostHeader: true
+        healthCheck:
+          path: "/ping"
+          interval: "10s"
+          timeout: "5s"
+    bethome-stream:
+      loadBalancer:
+        servers:
+{% for backend_host in traefik_backend_hosts %}
+          - { url: "http://{{ hostvars[backend_host].ansible_host | default(backend_host) }}:5020" }
+{% endfor %}
+        passHostHeader: true
+        healthCheck:
+          path: "/ping"
+          interval: "10s"
+          timeout: "5s"
+    bethome-admin:
+      loadBalancer:
+        servers:
+{% for backend_host in traefik_backend_hosts %}
+          - { url: "http://{{ hostvars[backend_host].ansible_host | default(backend_host) }}:5030" }
+{% endfor %}
+        passHostHeader: true
+        healthCheck:
+          path: "/ping"
+          interval: "10s"
+          timeout: "5s"
+    

@@ -1,0 +1,36 @@
+{% set traefik_backend_hosts = groups.get('swarm_workers', []) %}
+{% if traefik_backend_hosts | length == 0 %}
+{% set traefik_backend_hosts = groups.get('test_backend', []) %}
+{% endif %}
+http:
+  middlewares:
+    frontend-basicauth:
+      basicAuth:
+        usersFile: "/etc/traefik/dynamic/.htpasswd"
+  routers:
+    # Без Basic Auth: manifest, favicon, статика (запросы без credentials)
+    frontend-root-public:
+      rule: "(Host(`{{ app_domain_name }}`) || Host(`www.{{ app_domain_name }}`)) && (Path(`/manifest.webmanifest`) || Path(`/favicon.ico`) || PathPrefix(`/sw.js`) || PathPrefix(`/workbox-`) || PathPrefix(`/assets/`) || PathPrefix(`/static/`))"
+      service: frontend-main
+      entryPoints: [websecure]
+      tls: { certResolver: letsencrypt }
+      priority: 100
+    frontend-root:
+      rule: "Host(`{{ app_domain_name }}`) || Host(`www.{{ app_domain_name }}`)"
+      service: frontend-main
+      entryPoints: [websecure]
+      tls: { certResolver: letsencrypt }
+      middlewares: [frontend-basicauth]
+
+  services:
+    frontend-main:
+      loadBalancer:
+        servers:
+{% for backend_host in traefik_backend_hosts %}
+          - { url: "http://{{ hostvars[backend_host].ansible_host | default(backend_host) }}:4000" }
+{% endfor %}
+        passHostHeader: true
+        healthCheck:
+          path: "/"
+          interval: "10s"
+          timeout: "5s"

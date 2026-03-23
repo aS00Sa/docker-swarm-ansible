@@ -63,8 +63,7 @@ flowchart LR
 | 8080 | TCP | Traefik entry **web** (сюда смотрит HAProxy по HTTP) |
 | 8443 | TCP | Traefik entry **websecure** |
 | 9090 | TCP | Portainer Web UI (published) |
-| 9081 | TCP | Traefik dashboard/API (published) |
-| 9082 | TCP | Внутренний API entry Traefik в контейнере |
+| 9082 | TCP | Traefik dashboard/API (published) и internal entrypoint |
 | 22 | TCP | SSH (`default_ssh_port` в cluster-defaults; учитывается firewall при lockdown) |
 | 9001 | TCP | Portainer Agent (в overlay UI ↔ агенты; не обязательно с интернета) |
 | 8000 | TCP | Portainer — tunnel port (published на хосте) |

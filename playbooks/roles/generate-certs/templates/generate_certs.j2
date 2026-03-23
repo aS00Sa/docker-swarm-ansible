@@ -6,24 +6,56 @@ IP={{ ansible_default_ipv4['address'] }}
 DOMAIN={{ app_domain_name }}
 HOST={{ ansible_nodename }}
 FQDN={{ ansible_hostname }}.{{ app_domain_name }}
-WORKING_DIR=/home/{{ ansible_user }}/ssl
 DEFAULT_SSL_DIR=/etc/ssl/{{ app_domain_name }}
+CERTS_GEN_DIR={{ generate_certs_remote_ssl_dir }}
+ROOT_CA_CERT=${CERTS_GEN_DIR}/root-ca.crt
+ROOT_CA_KEY=${CERTS_GEN_DIR}/root-ca.key
+INTERMEDIATE_CA_NAME={{ app_domain_name }}-ca
+INTERMEDIATE_CA_CERT=${CERTS_GEN_DIR}/${INTERMEDIATE_CA_NAME}.crt
+INTERMEDIATE_CA_KEY=${CERTS_GEN_DIR}/${INTERMEDIATE_CA_NAME}.key
+SERVER_KEY=${CERTS_GEN_DIR}/$FQDN.key
+SERVER_CERT=${CERTS_GEN_DIR}/$FQDN.crt
 
-rm ${WORKING_DIR} -rf
-if [ ! -d ${WORKING_DIR} ]; then
-  mkdir -p ${WORKING_DIR}
+if [ ! -f "${ROOT_CA_CERT}" ] || [ ! -f "${ROOT_CA_KEY}" ]; then
+  echo "Root CA files are missing: ${ROOT_CA_CERT} or ${ROOT_CA_KEY}" >&2
+  exit 1
 fi
 
-echo "Create Certificate Authority";
-#/bin/openssl genrsa -out ca.key 2048
-#/bin/openssl req -x509 -new -nodes -sha256 -days 3650 -subj "/C=RU/ST=RO/L=RND/O=upZERO" -key root-ca.key -out root-ca.crt
-/usr/bin/mv ${HOME}/root-ca.crt ${HOME}/root-ca.key ${HOME}/{{ app_domain_name }}.crt ${HOME}/{{ app_domain_name }}.key ${WORKING_DIR}
+echo "Create intermediate CA key"
+/bin/openssl genrsa -out "${INTERMEDIATE_CA_KEY}" 4096
+
+echo "Create intermediate CA CSR"
+cat >${CERTS_GEN_DIR}/${INTERMEDIATE_CA_NAME}-csr.conf<< EOF
+prompt = no
+default_md = sha256
+distinguished_name = dn
+[ dn ]
+C = RU
+ST = {{ app_domain_name }}
+L = Moscow
+O = Certificate Authority Local Center
+CN = ${INTERMEDIATE_CA_NAME}
+EOF
+
+/bin/openssl req -new -key "${INTERMEDIATE_CA_KEY}" -out ${CERTS_GEN_DIR}/${INTERMEDIATE_CA_NAME}.csr -config ${CERTS_GEN_DIR}/${INTERMEDIATE_CA_NAME}-csr.conf
+
+echo "Sign intermediate CA with root CA"
+cat >${CERTS_GEN_DIR}/${INTERMEDIATE_CA_NAME}-cert.conf<< EOF
+basicConstraints=critical,CA:TRUE,pathlen:0
+keyUsage=critical,keyCertSign,cRLSign,digitalSignature
+subjectKeyIdentifier=hash
+authorityKeyIdentifier=keyid,issuer
+EOF
+
+/bin/openssl x509 -req -in ${CERTS_GEN_DIR}/${INTERMEDIATE_CA_NAME}.csr -CA ${CERTS_GEN_DIR}/root-ca.crt -CAkey \
+${CERTS_GEN_DIR}/root-ca.key -CAcreateserial -out "${INTERMEDIATE_CA_CERT}" -days 1825 -sha256 -extfile \
+${CERTS_GEN_DIR}/${INTERMEDIATE_CA_NAME}-cert.conf
 
 echo "1. Create the Server Private Key";
-/bin/openssl genrsa -out ${WORKING_DIR}/$FQDN.key 4096
+/bin/openssl genrsa -out ${SERVER_KEY} 4096
 
 echo "2. Create Certificate Signing Request Configuration";
-cat >${WORKING_DIR}/$FQDN-csr.conf<< EOF
+cat >${CERTS_GEN_DIR}/$FQDN-csr.conf<< EOF
 prompt = no
 default_md = sha256
 req_extensions = req_ext
@@ -45,10 +77,10 @@ IP.1 = $IP
 EOF
 
 echo "3. Generate Certificate Signing Request (CSR) Using Server Private Key";
-/bin/openssl req -new -key ${WORKING_DIR}/$FQDN.key -out ${WORKING_DIR}/$FQDN.csr -config ${WORKING_DIR}/$FQDN-csr.conf
+/bin/openssl req -new -key ${SERVER_KEY} -out ${CERTS_GEN_DIR}/$FQDN.csr -config ${CERTS_GEN_DIR}/$FQDN-csr.conf
 
 echo "4. Create a external file";
-cat >${WORKING_DIR}/$FQDN-cert.conf<< EOF
+cat >${CERTS_GEN_DIR}/$FQDN-cert.conf<< EOF
 authorityKeyIdentifier=keyid,issuer
 basicConstraints=CA:FALSE
 keyUsage = digitalSignature, nonRepudiation, keyEncipherment, dataEncipherment
@@ -60,10 +92,10 @@ DNS.3 = $HOST
 IP.1 = $IP
 EOF
 
-echo "5. Generate SSL certificate With self signed CA";
-/bin/openssl x509 -req -in ${WORKING_DIR}/$FQDN.csr -CA ${WORKING_DIR}/{{ app_domain_name }}.crt -CAkey \
-${WORKING_DIR}/{{ app_domain_name }}.key -CAcreateserial -out ${WORKING_DIR}/$FQDN.crt -days 365 -sha256 -extfile \
-${WORKING_DIR}/$FQDN-cert.conf
+echo "5. Generate SSL certificate with intermediate CA";
+/bin/openssl x509 -req -in ${CERTS_GEN_DIR}/$FQDN.csr -CA "${INTERMEDIATE_CA_CERT}" -CAkey \
+"${INTERMEDIATE_CA_KEY}" -CAcreateserial -out ${SERVER_CERT} -days 365 -sha256 -extfile \
+${CERTS_GEN_DIR}/$FQDN-cert.conf
 
 #echo "Verify ip SAN";
 #/bin/openssl x509 -in $FQDN.crt -noout -text|grep -A1 "Subject Alternative Name"
@@ -73,9 +105,11 @@ if [ ! -d ${DEFAULT_SSL_DIR} ]; then
   mkdir -p ${DEFAULT_SSL_DIR}
 fi
 
-/usr/bin/cp ${WORKING_DIR}/root-ca.crt ${WORKING_DIR}/root-ca.key /etc/ssl/
-/usr/bin/cp ${WORKING_DIR}/$FQDN.key ${WORKING_DIR}/$FQDN.crt ${DEFAULT_SSL_DIR}
-/usr/bin/cp ${WORKING_DIR}/{{ app_domain_name }}.crt ${WORKING_DIR}/{{ app_domain_name }}.key ${DEFAULT_SSL_DIR}
+/usr/bin/cp ${CERTS_GEN_DIR}/root-ca.crt ${CERTS_GEN_DIR}/root-ca.key /etc/ssl/
+/usr/bin/cp "${SERVER_KEY}" "${SERVER_CERT}" "${DEFAULT_SSL_DIR}"
+/usr/bin/cp "${INTERMEDIATE_CA_CERT}" "${DEFAULT_SSL_DIR}/{{ app_domain_name }}.crt"
+/usr/bin/cp "${INTERMEDIATE_CA_KEY}" "${DEFAULT_SSL_DIR}/{{ app_domain_name }}.key"
 
-/usr/bin/cat ${WORKING_DIR}/{{ app_domain_name }}.crt ${WORKING_DIR}/root-ca.crt \
-${WORKING_DIR}/{{ app_domain_name }}.key > ${DEFAULT_SSL_DIR}/{{ app_domain_name }}.chained.pem
+/usr/bin/cat "${SERVER_CERT}" "${INTERMEDIATE_CA_CERT}" ${CERTS_GEN_DIR}/root-ca.crt > "${DEFAULT_SSL_DIR}/fullchain.pem"
+/usr/bin/cp "${SERVER_KEY}" "${DEFAULT_SSL_DIR}/privkey.pem"
+/usr/bin/cat "${INTERMEDIATE_CA_CERT}" ${CERTS_GEN_DIR}/root-ca.crt > "${DEFAULT_SSL_DIR}/{{ app_domain_name }}.chained.pem"

@@ -6,7 +6,7 @@
     name: rsyslog
     state: present
     update_cache: false
-  when: fail2ban_haproxy_enabled | default(false)
+  when: fail2ban_haproxy_enabled | default(false) | bool
 
 - name: Настроить rsyslog → /var/log/haproxy.log
   become: true
@@ -15,7 +15,7 @@
     src: rsyslog-haproxy.conf.j2
     dest: /etc/rsyslog.d/49-haproxy-ansible.conf
     mode: "0644"
-  when: fail2ban_haproxy_enabled | default(false)
+  when: fail2ban_haproxy_enabled | default(false) | bool
   register: haproxy_rsyslog_conf
 
 - name: Перезапустить rsyslog
@@ -25,7 +25,7 @@
     name: rsyslog
     state: restarted
   when:
-    - fail2ban_haproxy_enabled | default(false)
+    - fail2ban_haproxy_enabled | default(false) | bool
     - haproxy_rsyslog_conf is changed
 
 - name: Install HAProxy
@@ -96,13 +96,13 @@
 - name: Инициализировать список IP для fail2ban ignoreip
   ansible.builtin.set_fact:
     _fail2ban_cluster_ips: []
-  when: fail2ban_haproxy_enabled | default(false)
+  when: fail2ban_haproxy_enabled | default(false) | bool
 
 - name: Добавить IP нод swarm/gluster в fail2ban ignoreip
   ansible.builtin.set_fact:
     _fail2ban_cluster_ips: "{{ _fail2ban_cluster_ips + [ hostvars[item].ansible_host | default(item) ] }}"
   loop: "{{ ((groups['swarm_nodes'] | default([])) + (groups['gluster_nodes'] | default([]))) | unique | list }}"
-  when: fail2ban_haproxy_enabled | default(false)
+  when: fail2ban_haproxy_enabled | default(false) | bool
 
 - name: Install fail2ban
   become: true
@@ -111,7 +111,7 @@
     name: fail2ban
     state: present
     update_cache: false
-  when: fail2ban_haproxy_enabled | default(false)
+  when: fail2ban_haproxy_enabled | default(false) | bool
 
 - name: Filter fail2ban для HAProxy 403
   become: true
@@ -120,7 +120,7 @@
     src: filter-haproxy-forbidden.conf.j2
     dest: /etc/fail2ban/filter.d/haproxy-forbidden.conf
     mode: "0644"
-  when: fail2ban_haproxy_enabled | default(false)
+  when: fail2ban_haproxy_enabled | default(false) | bool
   register: haproxy_f2b_filter
 
 - name: Jail fail2ban для HAProxy
@@ -130,7 +130,7 @@
     src: jail-haproxy-forbidden.conf.j2
     dest: /etc/fail2ban/jail.d/haproxy-forbidden.local
     mode: "0644"
-  when: fail2ban_haproxy_enabled | default(false)
+  when: fail2ban_haproxy_enabled | default(false) | bool
   register: haproxy_f2b_jail
 
 - name: Restart fail2ban
@@ -140,7 +140,7 @@
     name: fail2ban
     state: restarted
   when:
-    - fail2ban_haproxy_enabled | default(false)
+    - fail2ban_haproxy_enabled | default(false) | bool
     - haproxy_f2b_filter is changed or haproxy_f2b_jail is changed
 
 - name: Ensure fail2ban enabled and running
@@ -150,7 +150,7 @@
     name: fail2ban
     enabled: true
     state: started
-  when: fail2ban_haproxy_enabled | default(false)
+  when: fail2ban_haproxy_enabled | default(false) | bool
 
 - name: Install keepalived (VIP for HAProxy failover)
   become: true

@@ -17,6 +17,59 @@
     dest: /home/{{ansible_user}}/stacks/traefik-stack.yml
     mode: 0775
 
+- name: Ensure Traefik data dir exists on GFS (on first swarm node)
+  when: inventory_hostname == groups['swarm_managers'][0]
+  become: true
+  become_method: sudo
+  file:
+    path: "{{ gluster_mount_path }}/{{ traefik_gfs_subdir }}"
+    state: directory
+    mode: "0775"
+
+- name: Ensure Traefik dynamic dir exists on GFS (on first swarm node)
+  when: inventory_hostname == groups['swarm_managers'][0]
+  become: true
+  become_method: sudo
+  file:
+    path: "{{ gluster_mount_path }}/{{ traefik_gfs_subdir }}/{{ traefik_dynamic_subdir }}"
+    state: directory
+    mode: "0775"
+
+- name: Deploy Traefik dynamic templates to GFS (on first swarm node)
+  when: inventory_hostname == groups['swarm_managers'][0]
+  become: true
+  become_method: sudo
+  template:
+    src: "{{ item }}"
+    dest: "{{ gluster_mount_path }}/{{ traefik_gfs_subdir }}/{{ traefik_dynamic_subdir }}/{{ (item | basename) | regex_replace('\\.j2$', '') }}"
+    mode: "0644"
+    owner: root
+    group: root
+  loop: "{{ lookup('fileglob', role_path ~ '/templates/dynamic/*.j2', wantlist=True) }}"
+
+- name: Create Traefik static configuration on GFS
+  when: inventory_hostname == groups['swarm_managers'][0]
+  become: true
+  become_method: sudo
+  template:
+    src: traefik.yml.j2
+    dest: "{{ gluster_mount_path }}/{{ traefik_gfs_subdir }}/traefik.yml"
+    mode: "0644"
+    owner: root
+    group: root
+  register: traefik_static_config
+
+- name: Export traefik stack deploy compose to GFS (docker-compose.yml)
+  when: inventory_hostname == groups['swarm_managers'][0]
+  become: true
+  become_method: sudo
+  template:
+    src: traefik-stack.j2
+    dest: "{{ gluster_mount_path }}/{{ traefik_gfs_subdir }}/docker-compose.yml"
+    mode: "0644"
+    owner: root
+    group: root
+
 - name: Install jsondiff Python library
   when: inventory_hostname == groups['swarm_managers'][0]
   become: true
@@ -46,3 +99,34 @@
     name: traefik
     compose:
       - /home/{{ansible_user}}/stacks/traefik-stack.yml
+
+- name: Force Traefik restart (apply static config)
+  when:
+    - inventory_hostname == groups['swarm_managers'][0]
+    - traefik_static_config.changed
+  become: true
+  become_method: sudo
+  shell: docker service update --force traefik_traefik
+
+- name: Ensure local generated directory exists
+  when: inventory_hostname == groups['swarm_managers'][0] and traefik_export_stack_local | default(true)
+  delegate_to: localhost
+  run_once: true
+  file:
+    path: "{{ playbook_dir }}/../generated"
+    state: directory
+    mode: "0755"
+
+- name: Export traefik-stack.yml to controller
+  when: inventory_hostname == groups['swarm_managers'][0] and traefik_export_stack_local | default(true)
+  fetch:
+    src: /home/{{ansible_user}}/stacks/traefik-stack.yml
+    dest: "{{ playbook_dir }}/../generated/"
+    flat: true
+
+- name: Export resulting traefik.yml to controller
+  when: inventory_hostname == groups['swarm_managers'][0] and traefik_export_stack_local | default(true)
+  fetch:
+    src: "{{ gluster_mount_path }}/{{ traefik_gfs_subdir }}/traefik.yml"
+    dest: "{{ playbook_dir }}/../generated/traefik.yml"
+    flat: true

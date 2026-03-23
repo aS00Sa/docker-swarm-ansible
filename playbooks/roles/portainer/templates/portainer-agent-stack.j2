@@ -9,6 +9,7 @@ services:
     networks:
       - {{portainer_network_name}}
     environment:
+      TZ: Europe/Moscow
       AGENT_SECRET: {{portainer_agent_secret}}
     deploy:
       mode: global
@@ -26,6 +27,7 @@ services:
     networks:
       - {{portainer_network_name}}
     environment:
+      TZ: Europe/Moscow
       AGENT_SECRET: {{portainer_agent_secret}}
     deploy:
       mode: replicated
@@ -41,3 +43,8 @@ networks:
 
 volumes:
   {{portainer_volume_name}}:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: {{ gluster_mount_path }}/{{ portainer_gfs_subdir }}

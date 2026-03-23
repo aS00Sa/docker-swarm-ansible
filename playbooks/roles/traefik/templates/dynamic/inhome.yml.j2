@@ -1,0 +1,183 @@
+{% set traefik_backend_hosts = groups.get('swarm_workers', []) %}
+{% if traefik_backend_hosts | length == 0 %}
+{% set traefik_backend_hosts = groups.get('test_backend', []) %}
+{% endif %}
+http:
+  middlewares:
+    allow-cors:
+      headers:
+        accessControlAllowOriginListRegex:
+          - ".*" 
+        accessControlAllowMethods:
+            - GET
+            - POST
+            - PUT
+            - DELETE
+            - OPTIONS
+            - PATCH 
+        accessControlAllowHeaders:
+            - Content-Type
+            - Authorization
+            - Accept
+            - X-Requested-With
+            - captcha
+            - x-idempotency-key
+        accessControlAllowCredentials: true
+        addVaryHeader: true
+        accessControlMaxAge: 3600
+  routers:
+    inhome-account:
+      rule: "Host(`nhm.account.{{ app_domain_name }}`)"
+      service: inhome-account
+      entryPoints: [websecure]
+      tls: { certResolver: letsencrypt }
+      middlewares: [allow-cors]
+    inhome-admin:
+      rule: "Host(`nhm.admin.{{ app_domain_name }}`)"
+      service: inhome-admin
+      entryPoints: [websecure]
+      tls: { certResolver: letsencrypt }
+      middlewares: [allow-cors]
+    inhome-nard:
+      rule: "Host(`nhm.nard.{{ app_domain_name }}`)"
+      service: inhome-nard
+      entryPoints: [websecure]
+      tls: { certResolver: letsencrypt }
+      middlewares: [allow-cors]
+    inhome-cupis:
+      rule: "Host(`nhm.cupis.{{ app_domain_name }}`)"
+      service: inhome-cupis
+      entryPoints: [websecure]
+      tls: { certResolver: letsencrypt }
+      middlewares: [allow-cors]
+    inhome-bridge:
+      rule: "Host(`nhm.bridge.{{ app_domain_name }}`)"
+      service: inhome-bridge
+      entryPoints: [websecure]
+      tls: { certResolver: letsencrypt }
+      middlewares: [allow-cors]
+    inhome-boxing:
+      rule: "Host(`nhm.boxing.{{ app_domain_name }}`)"
+      service: inhome-boxing
+      entryPoints: [websecure]
+      tls: { certResolver: letsencrypt }
+      middlewares: [allow-cors]
+    inhome-pps:
+      rule: "Host(`nhm.pps.{{ app_domain_name }}`)"
+      service: inhome-pps
+      entryPoints: [websecure]
+      tls: { certResolver: letsencrypt }
+      middlewares: [allow-cors]
+    inhome-erai:
+      rule: "Host(`nhm.erai.{{ app_domain_name }}`)"
+      service: inhome-erai
+      entryPoints: [websecure]
+      tls: { certResolver: letsencrypt }
+      middlewares: [allow-cors]
+    inhome-worker:
+      rule: "Host(`nhm.worker.{{ app_domain_name }}`)"
+      service: inhome-worker
+      entryPoints: [websecure]
+      tls: { certResolver: letsencrypt }
+      middlewares: [allow-cors]
+
+  services:
+    inhome-account:
+      loadBalancer:
+        servers:
+{% for backend_host in traefik_backend_hosts %}
+          - { url: "http://{{ hostvars[backend_host].ansible_host | default(backend_host) }}:6000" }
+{% endfor %}
+        passHostHeader: true
+        healthCheck:
+          path: "/ping"
+          interval: "10s"
+          timeout: "5s"
+    inhome-admin:
+      loadBalancer:
+        servers:
+{% for backend_host in traefik_backend_hosts %}
+          - { url: "http://{{ hostvars[backend_host].ansible_host | default(backend_host) }}:6010" }
+{% endfor %}
+        passHostHeader: true
+        healthCheck:
+          path: "/"
+          interval: "10s"
+          timeout: "5s"
+    inhome-nard:
+      loadBalancer:
+        servers:
+{% for backend_host in traefik_backend_hosts %}
+          - { url: "http://{{ hostvars[backend_host].ansible_host | default(backend_host) }}:6020" }
+{% endfor %}
+        passHostHeader: true
+        healthCheck:
+          path: "/ping"
+          interval: "10s"
+          timeout: "5s"
+    inhome-cupis:
+      loadBalancer:
+        servers:
+{% for backend_host in traefik_backend_hosts %}
+          - { url: "http://{{ hostvars[backend_host].ansible_host | default(backend_host) }}:6030" }
+{% endfor %}
+        passHostHeader: true
+        healthCheck:
+          path: "/ping"
+          interval: "10s"
+          timeout: "5s"
+    inhome-bridge:
+      loadBalancer:
+        servers:
+{% for backend_host in traefik_backend_hosts %}
+          - { url: "http://{{ hostvars[backend_host].ansible_host | default(backend_host) }}:6040" }
+{% endfor %}
+        passHostHeader: true
+        healthCheck:
+          path: "/ping"
+          interval: "10s"
+          timeout: "5s"
+    inhome-boxing:
+      loadBalancer:
+        servers:
+{% for backend_host in traefik_backend_hosts %}
+          - { url: "http://{{ hostvars[backend_host].ansible_host | default(backend_host) }}:6050" }
+{% endfor %}
+        passHostHeader: true
+        healthCheck:
+          path: "/ping"
+          interval: "10s"
+          timeout: "5s"
+    inhome-pps:
+      loadBalancer:
+        servers:
+{% for backend_host in traefik_backend_hosts %}
+          - { url: "http://{{ hostvars[backend_host].ansible_host | default(backend_host) }}:6060" }
+{% endfor %}
+        passHostHeader: true
+        healthCheck:
+          path: "/ping"
+          interval: "10s"
+          timeout: "5s"
+    inhome-erai:
+      loadBalancer:
+        servers:
+{% for backend_host in traefik_backend_hosts %}
+          - { url: "http://{{ hostvars[backend_host].ansible_host | default(backend_host) }}:6080" }
+{% endfor %}
+        passHostHeader: true
+        healthCheck:
+          path: "/ping"
+          interval: "10s"
+          timeout: "5s"
+    inhome-worker:
+      loadBalancer:
+        servers:
+{% for backend_host in traefik_backend_hosts %}
+          - { url: "http://{{ hostvars[backend_host].ansible_host | default(backend_host) }}:6090" }
+{% endfor %}
+        passHostHeader: true
+        healthCheck:
+          path: "/ping"
+          interval: "10s"
+          timeout: "5s"

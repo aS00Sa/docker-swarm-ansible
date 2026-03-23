@@ -1,0 +1,41 @@
+{% set traefik_backend_hosts = groups.get('swarm_workers', []) %}
+{% if traefik_backend_hosts | length == 0 %}
+{% set traefik_backend_hosts = groups.get('test_backend', []) %}
+{% endif %}
+# Админки без Basic Auth (frt.admin.panel, frt.crisis)
+http:
+  routers:
+    frontend-admin-panel:
+      rule: "Host(`frt.admin.panel.{{ app_domain_name }}`)"
+      service: frontend-admin-panel
+      entryPoints: [websecure]
+      tls: { certResolver: letsencrypt }
+    frontend-crisis:
+      rule: "Host(`frt.crisis.{{ app_domain_name }}`)"
+      service: frontend-crisis
+      entryPoints: [websecure]
+      tls: { certResolver: letsencrypt }
+
+  services:
+    frontend-admin-panel:
+      loadBalancer:
+        servers:
+{% for backend_host in traefik_backend_hosts %}
+          - { url: "http://{{ hostvars[backend_host].ansible_host | default(backend_host) }}:4010" }
+{% endfor %}
+        passHostHeader: true
+        healthCheck:
+          path: "/"
+          interval: "10s"
+          timeout: "5s"
+    frontend-crisis:
+      loadBalancer:
+        servers:
+{% for backend_host in traefik_backend_hosts %}
+          - { url: "http://{{ hostvars[backend_host].ansible_host | default(backend_host) }}:4020" }
+{% endfor %}
+        passHostHeader: true
+        healthCheck:
+          path: "/"
+          interval: "10s"
+          timeout: "5s"

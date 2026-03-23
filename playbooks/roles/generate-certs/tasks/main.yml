@@ -6,13 +6,22 @@
     generate_certs_controller_files_dir: >-
       {{ playbook_dir ~ ('/../roles/generate-certs/files' if (playbook_dir | basename) == 'plays'
       else '/roles/generate-certs/files') }}
+    generate_certs_remote_ssl_dir: "{{ ansible_user_dir }}/ssl"
+
+- name: Ensure cert generation directory exists
+  become: true
+  become_method: sudo
+  file:
+    path: "{{ generate_certs_remote_ssl_dir }}"
+    state: directory
+    mode: "0755"
 
 - name: Copy root-ca.crt on the remote machine
   become: true
   become_method: sudo
   copy:
     src: "{{ generate_certs_controller_files_dir }}/root-ca.crt"
-    dest: "${HOME}/root-ca.crt"
+    dest: "{{ generate_certs_remote_ssl_dir }}/root-ca.crt"
 
 - name: Copy root-ca.crt to /usr/share/ca-certificates/root-ca.crt
   become: true
@@ -26,26 +35,12 @@
   become_method: sudo
   copy:
     src: "{{ generate_certs_controller_files_dir }}/root-ca.key"
-    dest: "${HOME}/root-ca.key"
+    dest: "{{ generate_certs_remote_ssl_dir }}/root-ca.key"
 
 - name: update trusted ca debian/ubuntu
   become: true
   become_method: sudo
   shell: /usr/sbin/update-ca-certificates
-
-- name: Copy {{ app_domain_name }}.crt on the remote machine
-  become: true
-  become_method: sudo
-  copy:
-    src: "{{ generate_certs_controller_files_dir }}/{{ app_domain_name }}.crt"
-    dest: "${HOME}/{{ app_domain_name }}.crt"
-
-- name: Copy {{ app_domain_name }}.key on the remote machine
-  become: true
-  become_method: sudo
-  copy:
-    src: "{{ generate_certs_controller_files_dir }}/{{ app_domain_name }}.key"
-    dest: "${HOME}/{{ app_domain_name }}.key"
 
 - name: Copy cert generation script to host
   become: true

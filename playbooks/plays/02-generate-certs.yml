@@ -1,6 +1,6 @@
 ---
 # ansible-playbook -i inventory-prod.ini playbooks/plays/02-generate-certs.yml
-- hosts: all
+- hosts: all:!test_backend
   tags: [generate-certs]
   roles:
     - role: ../roles/cluster-defaults

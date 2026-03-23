@@ -5,6 +5,8 @@ services:
     image: nginx:alpine
     ports:
       - "8080:80"
+    environment:
+      TZ: Europe/Moscow
     volumes:
       - app_data:/usr/share/nginx/html
     deploy:
@@ -16,6 +18,7 @@ services:
   db:
     image: postgres:16-alpine
     environment:
+      TZ: Europe/Moscow
       POSTGRES_PASSWORD: example
       POSTGRES_DB: example
     volumes:
