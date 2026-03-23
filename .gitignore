@@ -2,7 +2,7 @@
 .vagrant
 *.log
 hosts*
-inventory.ini
+inventory*.ini
 *.htpasswd
 playbooks\generated\*
 playbooks/generated/*
