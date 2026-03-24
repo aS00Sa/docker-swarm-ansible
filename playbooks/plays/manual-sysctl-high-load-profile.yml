@@ -1,0 +1,53 @@
+---
+# Apply:
+# ansible-playbook -i inventory-prod.ini playbooks/plays/manual-sysctl-high-load-profile.yml
+# Rollback:
+# ansible-playbook -i inventory-prod.ini playbooks/plays/manual-sysctl-high-load-profile.yml -e sysctl_high_load_state=absent
+- hosts: swarm_managers:swarm_workers
+  become: true
+  become_method: sudo
+  gather_facts: true
+  tags: [sysctl, high-load]
+  roles:
+    - role: ../roles/cluster-defaults
+  vars:
+    sysctl_high_load_state: present
+    sysctl_high_load_file: /etc/sysctl.d/99-swarm-high-load.conf
+    sysctl_high_load_values:
+      fs.file-max: 2097152
+      net.core.somaxconn: 65535
+      net.ipv4.tcp_max_syn_backlog: 262144
+      net.ipv4.ip_local_port_range: "1024 65535"
+      net.netfilter.nf_conntrack_max: 1048576
+      net.netfilter.nf_conntrack_tcp_timeout_established: 600
+      net.ipv4.tcp_fin_timeout: 15
+      net.ipv4.tcp_tw_reuse: 1
+  tasks:
+    - name: Validate sysctl profile state
+      ansible.builtin.assert:
+        that:
+          - sysctl_high_load_state in ['present', 'absent']
+        fail_msg: "sysctl_high_load_state must be 'present' or 'absent'"
+
+    - name: Render high-load sysctl profile
+      when: sysctl_high_load_state == 'present'
+      ansible.builtin.copy:
+        dest: "{{ sysctl_high_load_file }}"
+        owner: root
+        group: root
+        mode: "0644"
+        content: |
+          # Managed by Ansible: high-load profile for swarm nodes.
+          {% for key, value in sysctl_high_load_values.items() %}
+          {{ key }} = {{ value }}
+          {% endfor %}
+
+    - name: Remove high-load sysctl profile (rollback)
+      when: sysctl_high_load_state == 'absent'
+      ansible.builtin.file:
+        path: "{{ sysctl_high_load_file }}"
+        state: absent
+
+    - name: Reload kernel sysctl settings
+      ansible.builtin.command: sysctl --system
+      changed_when: true
