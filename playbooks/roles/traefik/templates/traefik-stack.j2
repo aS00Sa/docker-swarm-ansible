@@ -41,10 +41,12 @@ services:
       - "traefik.http.routers.api.entrypoints=traefik"
       - "traefik.http.middlewares.auth.basicauth.users={{traefikpassword.stdout}}"
       - "traefik.http.services.dummy-svc.loadbalancer.server.port=9999"
-      mode: replicated
-      replicas: 1
+      mode: {{ traefik_deploy_mode | default('global') }}
+{% if (traefik_deploy_mode | default('global')) == 'replicated' %}
+      replicas: {{ traefik_replicas | default(1) | int }}
+{% endif %}
       placement:
-{% if traefik_pin_to_leader | default(true) %}
+{% if (traefik_deploy_mode | default('global')) == 'replicated' and (traefik_replicas | default(1) | int) == 1 and (traefik_pin_to_leader | default(true)) %}
         constraints: ["node.hostname == {{ traefik_deploy_constraint_hostname }}"]
 {% else %}
         constraints: [node.role == manager]

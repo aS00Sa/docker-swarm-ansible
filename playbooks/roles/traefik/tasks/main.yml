@@ -10,31 +10,33 @@
   shell: echo $(htpasswd -nb {{traefik_admin_user}} {{traefik_admin_password}}) | sed -e s/\\$/\\$\\$/g
   register: traefikpassword
 
-- name: Read Swarm manager statuses (on first swarm node)
+- name: Read Swarm manager statuses (leader-aware placement)
   when:
     - inventory_hostname == groups['swarm_managers'][0]
+    - (traefik_deploy_mode | default('global')) == 'replicated'
+    - (traefik_replicas | default(1) | int) == 1
     - traefik_pin_to_leader | default(true) | bool
   command: docker node ls --format '{{ "{{.Hostname}} {{.ManagerStatus}}" }}'
   register: traefik_swarm_managers_status
   changed_when: false
 
 - name: Resolve Traefik placement hostname (leader-aware)
-  when: inventory_hostname == groups['swarm_managers'][0]
+  when:
+    - inventory_hostname == groups['swarm_managers'][0]
+    - (traefik_deploy_mode | default('global')) == 'replicated'
+    - (traefik_replicas | default(1) | int) == 1
+    - traefik_pin_to_leader | default(true) | bool
   ansible.builtin.set_fact:
     traefik_deploy_constraint_hostname: >-
       {{
         (
-          (
-            traefik_swarm_managers_status.stdout_lines
-            | default([])
-            | select('search', ' Leader')
-            | list
-            | first
-            | default('')
-          ).split(' ')[0]
-        )
-        if (traefik_pin_to_leader | default(true) | bool)
-        else ansible_hostname
+          traefik_swarm_managers_status.stdout_lines
+          | default([])
+          | select('search', ' Leader')
+          | list
+          | first
+          | default('')
+        ).split(' ')[0]
       }}
 
 - name: Create docker-compose stack file (on first swarm node)

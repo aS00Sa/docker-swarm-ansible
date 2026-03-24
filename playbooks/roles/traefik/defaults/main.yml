@@ -19,5 +19,10 @@ traefik_dynamic_subdir: dynamic
 # Выгружать сгенерированный compose-файл на контроллер (Ansible controller)
 traefik_export_stack_local: true
 
-# Закреплять единственную реплику Traefik за текущим Swarm Leader.
+# Режим деплоя Traefik в Swarm: global или replicated.
+traefik_deploy_mode: global
+# Количество реплик используется только при traefik_deploy_mode=replicated.
+traefik_replicas: 1
+# Привязка к leader применяется только при replicated и replicas=1.
 traefik_pin_to_leader: true
+
