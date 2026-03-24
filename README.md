@@ -248,6 +248,10 @@ ANSIBLE_CONFIG="$PWD/ansible.cfg" ansible-playbook -i inventory.ini playbooks/in
   `ansible-playbook -i inventory.ini playbooks/plays/manual-create-gfs-dirs-for-new-myapps.yml -e stack_name=myapp`
 - **Включить firewall после отладки** (убрать `--skip-tags` или запустить только стадию):  
   `ansible-playbook -i inventory.ini playbooks/plays/11-firewall-iptables.yml`
+- **Включить sysctl-high-load-profile** 
+  `ansible-playbook -i inventory-prod.ini playbooks/plays/manual-sysctl-high-load-profile.yml`
+- **Отключить sysctl-high-load-profile** 
+  `ansible-playbook -i inventory-prod.ini playbooks/plays/manual-sysctl-high-load-profile.yml -e sysctl_high_load_state=absent`
 
 После полного `install.yml` (без `--skip-tags`) будут настроены Swarm, GlusterFS, Traefik, HAProxy, Portainer и стадия iptables. В отладочном цикле из раздела выше стадия firewall пропускается.
 
