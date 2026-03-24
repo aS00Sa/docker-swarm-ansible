@@ -144,7 +144,7 @@ ANSIBLE_CONFIG="$PWD/ansible.cfg" ansible-playbook -i inventory.ini playbooks/in
 - **5 хостов** c Debian/Ubuntu (1 для HAProxy, 3 для Swarm, 1 для Traefik).
 - Доступ по SSH (один пользователь с `sudo` без пароля).
 - На Swarm‑нодах:
-  - 2 CPU, 4 ГБ RAM, диск 30 ГБ+ для ОС
+  - 4 CPU, 8 ГБ RAM, диск 60 ГБ+ для ОС
   - Дополнительный диск 10 ГБ+ под GlusterFS
 - Рабочая машина с установленным **Ansible**.
 
