@@ -20,7 +20,7 @@ http:
       service: frontend-main
       entryPoints: [websecure]
       tls: { certResolver: letsencrypt }
-      middlewares: [frontend-basicauth]
+#      middlewares: [frontend-basicauth]
 
   services:
     frontend-main:
