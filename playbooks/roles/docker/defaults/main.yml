@@ -1,20 +1,5 @@
 ---
-# Полный semver для apt (madison); при отсутствии в репо берётся первая 5:MAJOR.* из madison.
-docker_version: "29.3.1"
-
-docker_packages:
-  - docker.io
-  - docker-ce-cli
-  - containerd
-old_docker_packages:
-  - docker-buildx
-  - docker-buildx-plugin
-  - docker-compose-plugin
-  - docker
-  - docker-engine
-  - docker-cli
-  - containerd.io
-  - runc
+# Docker is installed via get.docker.com convenience script (no version pinning).
 
 # Docker container log rotation (/var/lib/docker/containers/*/*-json.log)
 docker_enable_log_rotation: true

@@ -1,0 +1,13 @@
+---
+- name: Reboot host
+  when:
+    - reboot_enabled | bool
+    - inventory_hostname not in ["127.0.0.1", "localhost"]
+  ansible.builtin.reboot:
+    msg: "{{ reboot_msg }}"
+    reboot_timeout: "{{ reboot_timeout }}"
+    connect_timeout: "{{ reboot_connect_timeout }}"
+    pre_reboot_delay: "{{ reboot_pre_reboot_delay }}"
+    post_reboot_delay: "{{ reboot_post_reboot_delay }}"
+    test_command: "{{ reboot_test_command }}"
+

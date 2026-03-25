@@ -8,3 +8,14 @@
   loop: "{{ gfs_nodes | unique }}"
   loop_control:
     loop_var: gfs_target_host
+
+- name: Label Traefik nodes (by node ID, not hostname)
+  when: inventory_hostname == groups['swarm_managers'][0]
+  run_once: true
+  vars:
+    traefik_nodes: "{{ groups['traefik'] | default([]) }}"
+    swarm_label_kv: "traefik=true"
+  include_tasks: label-one-node.yml
+  loop: "{{ traefik_nodes | unique }}"
+  loop_control:
+    loop_var: gfs_target_host

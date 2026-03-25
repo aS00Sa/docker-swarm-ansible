@@ -1,10 +1,32 @@
 ---
-- name: Verify Gluster mount path
+- name: Stat Gluster mount path
   become: true
   become_method: sudo
-  file:
+  ansible.builtin.stat:
+    path: "{{ gluster_mount_path }}"
+    follow: false
+  register: gluster_mount_path_stat
+
+- name: Fail if {{ gluster_mount_path }} exists but is not a directory
+  when:
+    - gluster_mount_path_stat.stat.exists | default(false)
+    - not (gluster_mount_path_stat.stat.isdir | default(false))
+  ansible.builtin.fail:
+    msg: >-
+      {{ gluster_mount_path }} exists but is not a directory
+      (isreg={{ gluster_mount_path_stat.stat.isreg | default(false) }},
+      islnk={{ gluster_mount_path_stat.stat.islnk | default(false) }},
+      mode={{ gluster_mount_path_stat.stat.mode | default('n/a') }}).
+      Fix this path on the host, then rerun.
+
+- name: Ensure Gluster mount path directory exists
+  become: true
+  become_method: sudo
+  when: not (gluster_mount_path_stat.stat.exists | default(false))
+  ansible.builtin.file:
     path: "{{ gluster_mount_path }}"
     state: directory
+    mode: "0755"
 
 # Том мог не получить start, если init пропустил шаг (brick уже был) — без Started mount всегда падает.
 - name: Ensure Gluster volume {{ gluster_volume_name }} is Started (once on first node)

@@ -1,0 +1,159 @@
+---
+# DANGEROUS: wipes Docker + Gluster + firewall rules on target hosts.
+#
+# Run (EXPLICIT CONFIRMATION REQUIRED):
+# ansible-playbook -i inventory-dev.ini playbooks/plays/manual-nuke-node-reset.yml -l <host_or_group> -e nuke_confirm=YES
+#
+# Example:
+# ansible-playbook -i inventory-dev.ini playbooks/plays/manual-nuke-node-reset.yml -l 192.168.25.137 -e nuke_confirm=YES
+#
+# Notes:
+# - Removes Docker/Gluster packages, data dirs, and resets iptables/nftables rules.
+# - Intended for lab/dev recovery when node state is broken.
+- hosts: all:!test_backend
+  become: true
+  become_method: sudo
+  gather_facts: true
+  tags: [manual, nuke, reset]
+  vars:
+    nuke_confirm: "NO"
+    nuke_docker: true
+    nuke_gluster: true
+    nuke_firewall: true
+    nuke_reboot: true
+    nuke_paths:
+      - /var/lib/docker
+      - /etc/docker
+      - /var/lib/containerd
+      - /var/lib/glusterd
+      - /var/log/glusterfs
+      - /etc/glusterfs
+      - /mnt/gfs
+  tasks:
+    - name: Require explicit confirmation
+      ansible.builtin.assert:
+        that:
+          - nuke_confirm == "YES"
+        fail_msg: >-
+          Refusing to run destructive reset. Re-run with -e nuke_confirm=YES and preferably -l <host>.
+
+    - name: Stop Traefik/Portainer stacks if present (best-effort)
+      ansible.builtin.shell: |
+        set -e
+        docker stack rm traefik || true
+        docker stack rm portainer || true
+      args:
+        executable: /bin/bash
+      failed_when: false
+      changed_when: false
+
+    - name: Stop Docker service (best-effort)
+      when: nuke_docker | bool
+      ansible.builtin.systemd:
+        name: docker
+        state: stopped
+        enabled: false
+      failed_when: false
+
+    - name: Stop containerd service (best-effort)
+      when: nuke_docker | bool
+      ansible.builtin.systemd:
+        name: containerd
+        state: stopped
+        enabled: false
+      failed_when: false
+
+    - name: Unmount Gluster mount path (best-effort)
+      when: nuke_gluster | bool
+      ansible.builtin.shell: |
+        set -e
+        if mountpoint -q "{{ gluster_mount_path | default('/mnt/gfs') }}"; then
+          umount -f "{{ gluster_mount_path | default('/mnt/gfs') }}" || umount -l "{{ gluster_mount_path | default('/mnt/gfs') }}"
+        fi
+      args:
+        executable: /bin/bash
+      failed_when: false
+      changed_when: false
+
+    - name: Remove Docker packages
+      when: nuke_docker | bool
+      ansible.builtin.apt:
+        state: absent
+        purge: yes
+        autoremove: yes
+        force_apt_get: true
+        pkg:
+          - docker-ce
+          - docker-ce-cli
+          - docker.io
+          - containerd
+          - containerd.io
+          - docker-buildx-plugin
+          - docker-compose-plugin
+          - runc
+      failed_when: false
+
+    - name: Remove Gluster packages
+      when: nuke_gluster | bool
+      ansible.builtin.apt:
+        state: absent
+        purge: yes
+        autoremove: yes
+        force_apt_get: true
+        pkg:
+          - glusterfs-server
+          - glusterfs-client
+          - glusterfs-common
+      failed_when: false
+
+    - name: Remove known data/config paths (best-effort)
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop: "{{ nuke_paths }}"
+      failed_when: false
+
+    - name: Reset nftables ruleset (best-effort)
+      when: nuke_firewall | bool
+      ansible.builtin.command: nft flush ruleset
+      failed_when: false
+      changed_when: false
+
+    - name: Reset iptables rules (best-effort)
+      when: nuke_firewall | bool
+      ansible.builtin.shell: |
+        set -e
+        iptables -F || true
+        iptables -X || true
+        iptables -t nat -F || true
+        iptables -t nat -X || true
+        iptables -t mangle -F || true
+        iptables -t mangle -X || true
+        iptables -P INPUT ACCEPT || true
+        iptables -P FORWARD ACCEPT || true
+        iptables -P OUTPUT ACCEPT || true
+        ip6tables -F || true
+        ip6tables -X || true
+        ip6tables -t nat -F || true
+        ip6tables -t nat -X || true
+        ip6tables -t mangle -F || true
+        ip6tables -t mangle -X || true
+        ip6tables -P INPUT ACCEPT || true
+        ip6tables -P FORWARD ACCEPT || true
+        ip6tables -P OUTPUT ACCEPT || true
+      args:
+        executable: /bin/bash
+      failed_when: false
+      changed_when: false
+
+    - name: Done
+      ansible.builtin.debug:
+        msg:
+          - "Node reset completed (best-effort)."
+          - "Reboot recommended to fully clear state."
+
+    - name: Reboot host after reset
+      when: nuke_reboot | bool
+      ansible.builtin.import_role:
+        name: reboot
+      tags: [reboot]

@@ -28,6 +28,20 @@
   set_fact:
     gluster_client_nodes: "{{ groups['gluster_nodes_fs'] | default(groups['gluster_nodes']) }}"
 
+- name: Resolve Gluster peer addresses for client mount
+  ansible.builtin.set_fact:
+    gluster_client_peers: "{{ (gluster_client_peers | default([])) + [ gluster_peer_addr_resolved ] }}"
+  vars:
+    gluster_peer_addr_resolved: >-
+      {{
+        hostvars[item].gluster_peer_addr
+          | default(hostvars[item].gluster_client_addr)
+          | default(hostvars[item].ansible_default_ipv4.address)
+          | default(hostvars[item].ansible_host)
+          | default(item)
+      }}
+  loop: "{{ gluster_client_nodes }}"
+
 - name: Check if {{ gluster_mount_path }} already mounted
   become: true
   become_method: sudo
@@ -41,12 +55,22 @@
   become_method: sudo
   shell: >
     mount -t glusterfs
-    "{{ gluster_client_nodes[0] }}:/{{ gluster_volume_name }}"
+    "{{ gluster_client_peers[0] }}:/{{ gluster_volume_name }}"
     "{{ gluster_mount_path }}"
-    -o "defaults,_netdev,transport=tcp,backupvolfile-server={{ gluster_client_nodes[1] | default(gluster_client_nodes[0]) }}"
+    -o "defaults,_netdev,transport=tcp,backupvolfile-server={{ gluster_client_peers[1] | default(gluster_client_peers[0]) }}"
   register: mount_try1
   failed_when: false
   when: (gfs_already_mounted.rc | default(1)) != 0
+
+- name: Debug gluster mount try1 failure (if any)
+  when:
+    - (gfs_already_mounted.rc | default(1)) != 0
+    - (mount_try1.rc | default(0)) != 0
+  ansible.builtin.debug:
+    msg:
+      - "gluster-client mount_try1 rc={{ mount_try1.rc | default('n/a') }}"
+      - "gluster-client mount_try1 stderr={{ mount_try1.stderr | default('') }}"
+      - "gluster-client mount_try1 stdout={{ mount_try1.stdout | default('') }}"
 
 - name: Fallback mount without backupvolfile-server
   become: true
@@ -64,11 +88,44 @@
     - name: Fallback mount without backupvolfile-server (actual mount)
       ansible.builtin.shell: >
         mount -t glusterfs
-        "{{ gluster_client_nodes[0] }}:/{{ gluster_volume_name }}"
+        "{{ gluster_client_peers[0] }}:/{{ gluster_volume_name }}"
         "{{ gluster_mount_path }}"
         -o "defaults,_netdev,transport=tcp"
       register: mount_try2
       failed_when: (mount_try2.rc | default(1)) != 0
+
+    - name: Collect glusterfs client logs after mount failure (best-effort)
+      when: (mount_try2.rc | default(0)) != 0
+      ansible.builtin.shell: |
+        set -o pipefail
+        echo "=== mount command ==="
+        echo 'mount -t glusterfs "{{ gluster_client_peers[0] }}:/{{ gluster_volume_name }}" "{{ gluster_mount_path }}" -o "defaults,_netdev,transport=tcp"'
+        echo
+        echo "=== /var/log/glusterfs (ls) ==="
+        ls -la /var/log/glusterfs 2>&1 || true
+        echo
+        echo "=== /var/log/glusterfs/* (tail-like) ==="
+        for f in /var/log/glusterfs/*.log /var/log/glusterfs/*.txt; do
+          [ -e "$f" ] || continue
+          echo "--- $f (last 200 lines) ---"
+          tail -n 200 "$f" 2>&1 || true
+          echo
+        done
+      register: gluster_client_logs
+      changed_when: false
+      failed_when: false
+
+- name: Debug gluster mount try2 failure (if any)
+  when:
+    - (gfs_already_mounted.rc | default(1)) != 0
+    - mount_try2 is defined
+    - (mount_try2.rc | default(0)) != 0
+  ansible.builtin.debug:
+    msg:
+      - "gluster-client mount_try2 rc={{ mount_try2.rc | default('n/a') }}"
+      - "gluster-client mount_try2 stderr={{ mount_try2.stderr | default('') }}"
+      - "gluster-client mount_try2 stdout={{ mount_try2.stdout | default('') }}"
+      - "gluster-client logs (truncated)=\n{{ gluster_client_logs.stdout | default('') }}"
 
 - name: Verify {{ gluster_mount_path }} is a mountpoint
   become: true

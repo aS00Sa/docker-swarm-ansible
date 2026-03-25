@@ -8,9 +8,16 @@
   command: docker info -f '{% raw %}{{.Swarm.NodeID}}{% endraw %}'
   register: gfs_swarm_node_id
   changed_when: false
-  failed_when: gfs_swarm_node_id.stdout | trim | length == 0
+  failed_when: false
 
 - name: Apply gfs=true label by node ID (on manager)
   become: true
   become_method: sudo
   shell: docker node update --label-add gfs=true "{{ gfs_swarm_node_id.stdout | trim }}"
+  when: gfs_swarm_node_id.stdout | trim | length > 0
+
+- name: "Warn skip labeling for nodes not in Swarm"
+  ansible.builtin.debug:
+    msg: >-
+      Skip label for {{ gfs_target_host }}: Swarm.NodeID is empty (node is probably not joined to the swarm yet).
+  when: gfs_swarm_node_id.stdout | trim | length == 0

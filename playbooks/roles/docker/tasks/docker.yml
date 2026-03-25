@@ -15,191 +15,47 @@
 - name: Parse current Docker version
   set_fact:
     current_docker_installed: "{{ current_docker_version.stdout is defined and current_docker_version.stdout != '' }}"
-    current_version_clean: "{{ current_docker_version.stdout | regex_replace('^Docker version (\\d+\\.\\d+\\.\\d+).*', '\\1') if current_docker_version.stdout is defined else '' }}"
 
-- name: Derive Docker major target and install need
-  set_fact:
-    docker_version_major: "{{ docker_version | regex_replace('^(\\d+).*', '\\1') }}"
-    current_major: "{{ current_version_clean | regex_replace('^(\\d+).*', '\\1') if (current_version_clean | default('') | length) > 0 else '' }}"
-
-- name: Decide if Docker Engine install or major change is needed
-  set_fact:
-    docker_engine_needs_install: >-
+- name: Compute if Docker install is needed (convenience script)
+  ansible.builtin.set_fact:
+    docker_force_reinstall: "{{ docker_force_reinstall | default(false) | bool }}"
+    docker_install_needed: >-
       {{
-        not current_docker_installed
-        or (current_major | length > 0 and current_major != docker_version_major)
-        or (
-          docker_version is match('^[0-9]+\.[0-9]+\.[0-9]+$')
-          and (current_version_clean | default('') | length) > 0
-          and current_version_clean != docker_version
-        )
+        (not current_docker_installed)
+        or (docker_force_reinstall | default(false) | bool)
       }}
 
-- name: Debug version info
-  debug:
-    msg:
-      - "Target Docker version (inventory docker_version): {{ docker_version }}"
-      - "Target Docker major: {{ docker_version_major }}"
-      - "Current Docker version: {{ current_version_clean | default('(none)') }}"
-      - "Docker installed: {{ current_docker_installed }}"
-      - "Docker engine install/major change needed: {{ docker_engine_needs_install }}"
-
-- name: Ensure apt keyrings directory exists
-  become: true
-  become_method: sudo
-  file:
-    path: /etc/apt/keyrings
-    state: directory
-    mode: "0755"
-
-- name: Download Docker apt signing key
-  become: true
-  become_method: sudo
-  get_url:
-    url: "https://download.docker.com/linux/{{ ansible_distribution | lower }}/gpg"
-    dest: /etc/apt/keyrings/docker.asc
-    mode: "0644"
-    force: true
-
-- name: Remove legacy dearmored key if present (avoids apt confusion)
-  become: true
-  become_method: sudo
-  file:
-    path: /etc/apt/keyrings/docker.gpg
-    state: absent
-
-- name: Remove old Docker repository definitions
-  become: true
-  become_method: sudo
-  file:
-    path: "{{ item }}"
-    state: absent
-  loop:
-    - /etc/apt/sources.list.d/*docker*.list
-
-- name: Install Docker apt source (DEB822, как в документации Docker)
-  become: true
-  become_method: sudo
-  template:
-    src: docker.sources.j2
-    dest: /etc/apt/sources.list.d/docker.sources
-    mode: "0644"
-  register: docker_sources_file
-
-- name: Refresh apt cache after Docker repo
-  become: true
-  become_method: sudo
-  apt:
-    update_cache: yes
-  register: apt_result
-  until: apt_result is succeeded
-  retries: 3
-  delay: 5
-
-- name: Update apt package index
-  become: true
-  become_method: sudo
-  apt:
-    update_cache: yes
-    cache_valid_time: 3600
-  when: docker_engine_needs_install
-
-- name: Remove old Docker packages if major change or reinstall
-  become: true
-  become_method: sudo
-  apt:
-    state: absent
-    pkg: "{{ old_docker_packages }}"
-    force_apt_get: true
-    purge: yes
-    autoremove: yes
-  when: current_docker_installed and docker_engine_needs_install
-  register: docker_removed
-
-- name: Update apt package index after removal
-  become: true
-  become_method: sudo
-  apt:
-    update_cache: yes
-  when: docker_removed is defined and docker_removed.changed
-
-# Версию с '*' apt-get часто не принимает; madison даёт точную строку.
-# При docker_version X.Y.Z сначала ищем 5:X.Y.Z*, иначе — первую 5:MAJOR.*, затем любую из madison.
-- name: Install Docker Engine (версия из apt-cache madison по inventory)
-  when: docker_engine_needs_install
+- name: Install Docker using get.docker.com convenience script
+  when: docker_install_needed
   become: true
   become_method: sudo
   block:
-    - name: Install docker-ce / docker-ce-cli / containerd.io
-      shell: |
-        set -euo pipefail
-        export LC_ALL=C
-        apt-get -o Acquire::Retries=3 update
-        FULL_VER="{{ docker_version }}"
-        MAJOR="{{ docker_version_major }}"
-        VER=""
-        FIRST=""
-        madison() { apt-cache madison docker-ce 2>/dev/null || true; }
-        while IFS= read -r line; do
-          [[ "$line" =~ ^[[:space:]]*docker-ce[[:space:]]+\| ]] || continue
-          cand=$(echo "$line" | awk -F'|' '{gsub(/^ +| +$/,"",$2); print $2}')
-          [[ -z "$cand" ]] && continue
-          [[ -z "$FIRST" ]] && FIRST="$cand"
-          if [[ "$FULL_VER" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            trip=$(echo "$cand" | sed -n 's/^5:\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\).*/\1/p')
-            [[ -n "$trip" && "$trip" == "$FULL_VER" ]] && { VER="$cand"; break; }
-          fi
-        done < <(madison)
-        if [[ -z "$VER" ]]; then
-          while IFS= read -r line; do
-            [[ "$line" =~ ^[[:space:]]*docker-ce[[:space:]]+\| ]] || continue
-            cand=$(echo "$line" | awk -F'|' '{gsub(/^ +| +$/,"",$2); print $2}')
-            [[ -z "$cand" ]] && continue
-            [[ -z "$FIRST" ]] && FIRST="$cand"
-            if [[ "$cand" =~ ^5:${MAJOR}\. ]]; then
-              VER="$cand"
-              break
-            fi
-          done < <(madison)
-        fi
-        if [[ -z "$VER" ]]; then
-          if [[ -n "$FIRST" ]]; then
-            VER="$FIRST"
-            echo "docker-swarm-ansible: в репозитории нет docker-ce 5:${MAJOR}.*, ставим последнюю доступную: ${VER}" >&2
-          else
-            echo "ERROR: apt-cache madison docker-ce не вернул версий (проверьте docker.sources и ключ GPG)." >&2
-            apt-cache policy docker-ce >&2 || true
-            exit 1
-          fi
-        elif [[ "$FULL_VER" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-          got=$(echo "$VER" | sed -n 's/^5:\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\).*/\1/p')
-          [[ -n "$got" && "$got" != "$FULL_VER" ]] && echo "docker-swarm-ansible: запрошен ${FULL_VER}, точной сборки нет — ставим ${got} (${VER})" >&2
-        fi
-        DEBIAN_FRONTEND=noninteractive apt-get install -y \
-          "docker-ce=${VER}" \
-          "docker-ce-cli=${VER}" \
-          containerd.io
-      args:
-        executable: /bin/bash
-      register: docker_installed
-      changed_when: >-
-        "Unpacking docker-ce" in (docker_installed.stdout | default("", true))
-        or "Setting up docker-ce" in (docker_installed.stdout | default("", true))
+    - name: Ensure curl and CA certs are present
+      ansible.builtin.apt:
+        name:
+          - ca-certificates
+          - curl
+        state: present
+        update_cache: yes
+        lock_timeout: 180
 
-  rescue:
-    - name: Fallback install Docker packages without version pin (apt-get)
-      shell: |
-        set -euo pipefail
-        export LC_ALL=C
-        apt-get -o Acquire::Retries=3 update
-        DEBIAN_FRONTEND=noninteractive apt-get install -y \
-          docker-ce docker-ce-cli containerd.io
-      args:
-        executable: /bin/bash
+    - name: Download get.docker.com installer script
+      ansible.builtin.get_url:
+        url: https://get.docker.com
+        dest: /tmp/get-docker.sh
+        mode: "0700"
+        force: true
+
+    - name: Run get.docker.com installer
+      ansible.builtin.command: /bin/sh /tmp/get-docker.sh
       register: docker_installed
-      changed_when: >-
-        "Unpacking docker-ce" in (docker_installed.stdout | default("", true))
-        or "Setting up docker-ce" in (docker_installed.stdout | default("", true))
+      changed_when: true
+
+  always:
+    - name: Remove get.docker.com installer script
+      ansible.builtin.file:
+        path: /tmp/get-docker.sh
+        state: absent
 
 - name: Add current user to docker group
   become: true
@@ -208,7 +64,7 @@
     name: "{{ ansible_user }}"
     groups: docker
     append: yes
-  when: docker_engine_needs_install or (docker_installed is defined and docker_installed.changed)
+  when: docker_install_needed
 
 - name: Verify Docker installation
   command: docker --version
@@ -289,4 +145,3 @@
     state: started
     enabled: yes
     daemon_reload: true
-#  when: not current_docker_installed or current_version_clean != docker_version or docker_installed.changed

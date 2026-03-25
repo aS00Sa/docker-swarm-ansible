@@ -428,3 +428,6 @@ ansible -i inventory.ini all --key-file /mnt/wslg/distro/home/assa/.ssh/id_ed255
 # затем, осознавая кратковременную нагрузку на диск I/O:
 ansible -i inventory.ini all --key-file /mnt/wslg/distro/home/assa/.ssh/id_ed25519 -u root -m shell -a "sudo sh -c 'truncate -s 0 /var/lib/docker/containers/*/*-json.log'"
 ```
+
+- **Удалить весь кластер** 
+ANSIBLE_CONFIG="$PWD/ansible.cfg" ANSIBLE_STDOUT_CALLBACK=default ansible-playbook -i inventory-dev-test.ini playbooks/plays/manual-nuke-node-reset.yml -e nuke_confirm=YES -e nuke-reboot=YES -u root --private-key ~/.ssh/id_ed25519 -vvv 2>&1 | tee reset-$(date +%Y%m%d-%H%M).log

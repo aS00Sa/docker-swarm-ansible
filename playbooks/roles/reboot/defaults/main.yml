@@ -1,0 +1,9 @@
+---
+reboot_enabled: true
+reboot_timeout: 900
+reboot_connect_timeout: 10
+reboot_pre_reboot_delay: 2
+reboot_post_reboot_delay: 15
+reboot_test_command: whoami
+reboot_msg: "ansible reboot request"
+

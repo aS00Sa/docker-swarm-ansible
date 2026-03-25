@@ -1,29 +1,4 @@
 ---
-- name: Verify system dependencies
-  become: true
-  become_method: sudo
-  apt:
-    pkg:
-      - apt-transport-https
-      - ca-certificates
-      - curl
-      - gnupg-agent
-#      - gnupg
-##      - software-properties-common
-      - virtualenv
-      - python3-venv
-      - python3-pip
-      - apache2-utils
-    state: present
-    force_apt_get: true
-    update_cache: yes
-
-##- name: Install Docker Python library
-##  become: true
-##  become_method: sudo
-##  pip:
-##    name: docker
-
 - name: Check if auto update is enabled
   stat:
     path: /etc/apt/apt.conf.d/20auto-upgrades
@@ -58,6 +33,68 @@
   ignore_errors: true
   when: autoupdate.stat.exists and inventory_hostname != "127.0.0.1" and inventory_hostname != "localhost"
 
+- name: Remove legacy Docker apt repo files (list)
+  become: true
+  become_method: sudo
+  ansible.builtin.find:
+    paths: /etc/apt/sources.list.d
+    patterns: "docker*.list"
+    file_type: file
+  register: docker_repo_list_files
+
+- name: Remove legacy Docker apt repo files (sources)
+  become: true
+  become_method: sudo
+  ansible.builtin.find:
+    paths: /etc/apt/sources.list.d
+    patterns: "docker*.sources"
+    file_type: file
+  register: docker_repo_sources_files
+
+- name: Delete legacy Docker apt repo files
+  become: true
+  become_method: sudo
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: absent
+  loop: >-
+    {{
+      (docker_repo_list_files.files | default([]))
+      + (docker_repo_sources_files.files | default([]))
+    }}
+  loop_control:
+    label: "{{ item.path | default('unknown') }}"
+
+- name: Verify system dependencies
+  become: true
+  become_method: sudo
+  apt:
+    pkg:
+      - apt-transport-https
+      - ca-certificates
+      - curl
+      - gnupg-agent
+#      - gnupg
+##      - software-properties-common
+      - virtualenv
+      - python3-venv
+      - python3-pip
+      - apache2-utils
+    state: present
+    force_apt_get: true
+    update_cache: yes
+    lock_timeout: 180
+  register: verify_system_dependencies_apt
+  until: verify_system_dependencies_apt is succeeded
+  retries: 4
+  delay: 10
+
+##- name: Install Docker Python library
+##  become: true
+##  become_method: sudo
+##  pip:
+##    name: docker
+
 - name: Upgrade all packages to the latest version
   become: true
   become_method: sudo
@@ -66,3 +103,8 @@
     state: latest
     force_apt_get: true
     update_cache: yes
+    lock_timeout: 180
+  register: upgrade_all_packages_apt
+  until: upgrade_all_packages_apt is succeeded
+  retries: 3
+  delay: 15

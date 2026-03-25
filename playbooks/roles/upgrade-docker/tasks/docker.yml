@@ -1,15 +1,36 @@
 ---
-- name: Update Docker
+- name: Check Docker presence
   become: true
   become_method: sudo
-  apt:
-    pkg:
-      - docker-ce
-      - docker-ce-cli
-      - containerd.io
-    state: latest
-    force_apt_get: true
-    update_cache: yes
+  command: docker --version
+  register: docker_version_check
+  ignore_errors: true
+  changed_when: false
+
+- name: Decide if we should run get.docker.com installer
+  ansible.builtin.set_fact:
+    docker_upgrade_needed: "{{ (docker_force_reinstall | default(false) | bool) or (docker_version_check.rc != 0) }}"
+
+- name: Upgrade Docker (run get.docker.com installer)
+  when: docker_upgrade_needed
+  become: true
+  become_method: sudo
+  block:
+    - name: Ensure curl and CA certs exist (for https)
+      ansible.builtin.apt:
+        name:
+          - ca-certificates
+          - curl
+        state: present
+        update_cache: yes
+        lock_timeout: 180
+
+    - name: Run get.docker.com installer (upgrade/force)
+      ansible.builtin.shell: |
+        set -euo pipefail
+        curl -sSL https://get.docker.com | sh
+      args:
+        executable: /bin/bash
 
 - name: Reboot host(s) after Docker install
   shell: sleep 2 && /sbin/shutdown -r now "ansible reboot request"
