@@ -17,6 +17,13 @@
     path: "{{ gluster_mount_path }}"
     state: directory
 
+- name: Ensure Gluster mount path directory exists (redundant safety)
+  become: true
+  become_method: sudo
+  ansible.builtin.file:
+    path: "{{ gluster_mount_path }}"
+    state: directory
+
 - name: Pick Gluster peer IPs for client mount
   set_fact:
     gluster_client_nodes: "{{ groups['gluster_nodes_fs'] | default(groups['gluster_nodes']) }}"
@@ -44,17 +51,24 @@
 - name: Fallback mount without backupvolfile-server
   become: true
   become_method: sudo
-  shell: >
-    mount -t glusterfs
-    "{{ gluster_client_nodes[0] }}:/{{ gluster_volume_name }}"
-    "{{ gluster_mount_path }}"
-    -o "defaults,_netdev,transport=tcp"
-  register: mount_try2
   when:
     - (gfs_already_mounted.rc | default(1)) != 0
     - mount_try1 is defined
     - (mount_try1.rc | default(1)) != 0
-  failed_when: (mount_try2.rc | default(1)) != 0
+  block:
+    - name: Ensure Gluster mount path exists before fallback mount
+      ansible.builtin.file:
+        path: "{{ gluster_mount_path }}"
+        state: directory
+
+    - name: Fallback mount without backupvolfile-server (actual mount)
+      ansible.builtin.shell: >
+        mount -t glusterfs
+        "{{ gluster_client_nodes[0] }}:/{{ gluster_volume_name }}"
+        "{{ gluster_mount_path }}"
+        -o "defaults,_netdev,transport=tcp"
+      register: mount_try2
+      failed_when: (mount_try2.rc | default(1)) != 0
 
 - name: Verify {{ gluster_mount_path }} is a mountpoint
   become: true

@@ -44,11 +44,20 @@
   # Без отдельного диска brick на корне — Gluster требует суффикс force
   vars:
     gluster_volume_create_force: "{{ 'force' if (device2_hdd_dev | default('') | trim | length) == 0 else '' }}"
+    gluster_nodes_bricks_effective: "{{ (groups['gluster_nodes_bricks'] | default([])) }}"
+    # Replica в Gluster должен соответствовать количеству brick-ов в команде.
+    # Если в inventory меньше 3 нод — создаём с replica=1..2.
+    gluster_replica_count: "{{ [ (groups['gluster_nodes_bricks'] | default([]) | length), 3 ] | min }}"
+    gluster_bricks_for_create: "{{ (groups['gluster_nodes_bricks'] | default([]))[:gluster_replica_count] }}"
   shell: >-
-    gluster volume create {{ gluster_volume_name }} replica 3
-    {{ groups['gluster_nodes_bricks'][0] }}:{{ gluster_volume_path }}/{{ groups['gluster_nodes_bricks'][0] }}/brick
-    {{ groups['gluster_nodes_bricks'][1] }}:{{ gluster_volume_path }}/{{ groups['gluster_nodes_bricks'][1] }}/brick
-    {{ groups['gluster_nodes_bricks'][2] }}:{{ gluster_volume_path }}/{{ groups['gluster_nodes_bricks'][2] }}/brick
+    gluster volume create {{ gluster_volume_name }} replica {{ gluster_replica_count }}
+    {{ gluster_bricks_for_create[0] }}:{{ gluster_volume_path }}/{{ gluster_bricks_for_create[0] }}/brick
+    {% if gluster_replica_count | int >= 2 %}
+    {{ gluster_bricks_for_create[1] }}:{{ gluster_volume_path }}/{{ gluster_bricks_for_create[1] }}/brick
+    {% endif %}
+    {% if gluster_replica_count | int >= 3 %}
+    {{ gluster_bricks_for_create[2] }}:{{ gluster_volume_path }}/{{ gluster_bricks_for_create[2] }}/brick
+    {% endif %}
     {{ gluster_volume_create_force }}
 
 # Том может отсутствовать при уже существующем каталоге brick — не вызывать volume set без тома
