@@ -25,13 +25,23 @@
   ignore_errors: true
   become: true
   become_method: sudo
-  when: autoupdate.stat.exists and inventory_hostname != "127.0.0.1" and inventory_hostname != "localhost"
+  when:
+    - autoupdate.stat.exists
+    - host_defaults_reboot_after_autoupdate_disable | default(false) | bool or ('reboot' in ansible_run_tags | default([]))
+    - inventory_hostname != "127.0.0.1"
+    - inventory_hostname != "localhost"
+  tags: [reboot]
 
 - name: Waiting for host(s) to reboot
   local_action: "wait_for host={{inventory_hostname}} port=22 state=started delay=60"
   become: false
   ignore_errors: true
-  when: autoupdate.stat.exists and inventory_hostname != "127.0.0.1" and inventory_hostname != "localhost"
+  when:
+    - autoupdate.stat.exists
+    - host_defaults_reboot_after_autoupdate_disable | default(false) | bool or ('reboot' in ansible_run_tags | default([]))
+    - inventory_hostname != "127.0.0.1"
+    - inventory_hostname != "localhost"
+  tags: [reboot]
 
 - name: Remove legacy Docker apt repo files (list)
   become: true
