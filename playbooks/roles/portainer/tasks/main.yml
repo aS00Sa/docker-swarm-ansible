@@ -1,12 +1,12 @@
 ---
 - name: Verify stacks directory exists (on first swarm node)
-  when: inventory_hostname == groups['swarm_managers'][0]
+  when: inventory_hostname == ((groups['swarm_managers'] | default([])) | first | default(''))
   file:
     path: "/home/{{ansible_user}}/stacks"
     state: directory
 
 - name: Verify Portainer volume path (on first swarm node)
-  when: inventory_hostname == groups['swarm_managers'][0]
+  when: inventory_hostname == ((groups['swarm_managers'] | default([])) | first | default(''))
   become: true
   become_method: sudo
   file:
@@ -14,19 +14,19 @@
     state: directory
 
 - name: Generate admin password hash
-  when: inventory_hostname == groups['swarm_managers'][0]
+  when: inventory_hostname == ((groups['swarm_managers'] | default([])) | first | default(''))
   shell: echo $(htpasswd -nBb {{ portainer_admin_user }} {{ portainer_admin_password }}) | cut -d ":" -f 2 | sed -e s/\\$/\\$\\$/g
   register: portainerpassword
 
 - name: Create docker-compose stack file (on first swarm node)
-  when: inventory_hostname == groups['swarm_managers'][0]
+  when: inventory_hostname == ((groups['swarm_managers'] | default([])) | first | default(''))
   template:
     src: portainer-agent-stack.j2
     dest: /home/{{ansible_user}}/stacks/portainer-agent-stack.yml
     mode: 0775
 
 - name: Install jsondiff Python library
-  when: inventory_hostname == groups['swarm_managers'][0]
+  when: inventory_hostname == ((groups['swarm_managers'] | default([])) | first | default(''))
   become: true
   become_method: sudo
 #  pip:
@@ -37,7 +37,7 @@
     update_cache: yes
 
 - name: Install pyyaml Python library
-  when: inventory_hostname == groups['swarm_managers'][0]
+  when: inventory_hostname == ((groups['swarm_managers'] | default([])) | first | default(''))
   become: true
   become_method: sudo
 #  pip:
@@ -48,7 +48,7 @@
     update_cache: yes
 
 - name: Deploy stack from a compose file (on first swarm node)
-  when: inventory_hostname == groups['swarm_managers'][0]
+  when: inventory_hostname == ((groups['swarm_managers'] | default([])) | first | default(''))
   docker_stack:
     state: present
     name: portainer

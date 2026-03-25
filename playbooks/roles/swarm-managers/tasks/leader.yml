@@ -11,20 +11,22 @@
   become: true
   become_method: sudo
   shell: docker swarm init --dispatcher-heartbeat 1s --advertise-addr={{ inventory_hostname }}
-  when: swarm_status.rc != 0 and inventory_hostname == groups['swarm_managers'][0]
+  when:
+    - swarm_status.rc != 0
+    - inventory_hostname == ((groups['swarm_managers'] | default([])) | first | default(''))
   run_once: true
 
 - name: Get the Manager join-token
   become: true
   become_method: sudo
   shell: docker swarm join-token --quiet manager
-  when: inventory_hostname == groups['swarm_managers'][0]
+  when: inventory_hostname == ((groups['swarm_managers'] | default([])) | first | default(''))
   register: manager_token
 
 - name: Get the worker join-token
   become: true
   become_method: sudo
-  when: inventory_hostname == groups['swarm_managers'][0]
+  when: inventory_hostname == ((groups['swarm_managers'] | default([])) | first | default(''))
   shell: docker swarm join-token --quiet worker
   register: worker_token
 

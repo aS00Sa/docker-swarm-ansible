@@ -9,5 +9,13 @@
 - name: Add Docker node to existing Swarm as manager
   become: true
   become_method: sudo
-  shell: docker swarm join --token {{hostvars[groups['swarm_managers'][0]]['manager_token']['stdout']}} {{groups['swarm_managers'][0]}}:2377
-  when: swarm_status.rc != 0 and inventory_hostname != groups['swarm_managers'][0]
+  vars:
+    swarm_manager_first: "{{ (groups['swarm_managers'] | default([])) | first | default('') }}"
+  shell: >-
+    docker swarm join
+    --token {{ hostvars[swarm_manager_first]['manager_token']['stdout'] }}
+    {{ swarm_manager_first }}:2377
+  when:
+    - swarm_status.rc != 0
+    - swarm_manager_first | length > 0
+    - inventory_hostname != swarm_manager_first

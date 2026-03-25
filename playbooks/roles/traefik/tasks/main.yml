@@ -1,18 +1,18 @@
 ---
 - name: Verify stacks directory exists (on first swarm node)
-  when: inventory_hostname == groups['swarm_managers'][0]
+  when: inventory_hostname == ((groups['swarm_managers'] | default([])) | first | default(''))
   file:
     path: "/home/{{ansible_user}}/stacks"
     state: directory
 
 - name: Generate admin password hash
-  when: inventory_hostname == groups['swarm_managers'][0]
+  when: inventory_hostname == ((groups['swarm_managers'] | default([])) | first | default(''))
   shell: echo $(htpasswd -nb {{traefik_admin_user}} {{traefik_admin_password}}) | sed -e s/\\$/\\$\\$/g
   register: traefikpassword
 
 - name: Read Swarm manager statuses (leader-aware placement)
   when:
-    - inventory_hostname == groups['swarm_managers'][0]
+    - inventory_hostname == ((groups['swarm_managers'] | default([])) | first | default(''))
     - (traefik_deploy_mode | default('global')) == 'replicated'
     - (traefik_replicas | default(1) | int) == 1
     - traefik_pin_to_leader | default(true) | bool
@@ -22,7 +22,7 @@
 
 - name: Resolve Traefik placement hostname (leader-aware)
   when:
-    - inventory_hostname == groups['swarm_managers'][0]
+    - inventory_hostname == ((groups['swarm_managers'] | default([])) | first | default(''))
     - (traefik_deploy_mode | default('global')) == 'replicated'
     - (traefik_replicas | default(1) | int) == 1
     - traefik_pin_to_leader | default(true) | bool
@@ -40,14 +40,14 @@
       }}
 
 - name: Create docker-compose stack file (on first swarm node)
-  when: inventory_hostname == groups['swarm_managers'][0]
+  when: inventory_hostname == ((groups['swarm_managers'] | default([])) | first | default(''))
   template:
     src: traefik-stack.j2
     dest: /home/{{ansible_user}}/stacks/traefik-stack.yml
     mode: 0775
 
 - name: Ensure Traefik data dir exists on GFS (on first swarm node)
-  when: inventory_hostname == groups['swarm_managers'][0]
+  when: inventory_hostname == ((groups['swarm_managers'] | default([])) | first | default(''))
   become: true
   become_method: sudo
   file:
@@ -56,7 +56,7 @@
     mode: "0775"
 
 - name: Ensure Traefik dynamic dir exists on GFS (on first swarm node)
-  when: inventory_hostname == groups['swarm_managers'][0]
+  when: inventory_hostname == ((groups['swarm_managers'] | default([])) | first | default(''))
   become: true
   become_method: sudo
   file:
@@ -65,7 +65,7 @@
     mode: "0775"
 
 - name: Ensure Traefik ACME storage file exists with strict mode (on first swarm node)
-  when: inventory_hostname == groups['swarm_managers'][0]
+  when: inventory_hostname == ((groups['swarm_managers'] | default([])) | first | default(''))
   become: true
   become_method: sudo
   copy:
@@ -77,7 +77,7 @@
     group: root
 
 - name: Deploy Traefik dynamic templates to GFS (on first swarm node)
-  when: inventory_hostname == groups['swarm_managers'][0]
+  when: inventory_hostname == ((groups['swarm_managers'] | default([])) | first | default(''))
   become: true
   become_method: sudo
   template:
@@ -89,7 +89,7 @@
   loop: "{{ lookup('fileglob', role_path ~ '/templates/dynamic/*.j2', wantlist=True) }}"
 
 - name: Create Traefik static configuration on GFS
-  when: inventory_hostname == groups['swarm_managers'][0]
+  when: inventory_hostname == ((groups['swarm_managers'] | default([])) | first | default(''))
   become: true
   become_method: sudo
   template:
@@ -101,7 +101,7 @@
   register: traefik_static_config
 
 - name: Export traefik stack deploy compose to GFS (docker-compose.yml)
-  when: inventory_hostname == groups['swarm_managers'][0]
+  when: inventory_hostname == ((groups['swarm_managers'] | default([])) | first | default(''))
   become: true
   become_method: sudo
   template:
@@ -112,7 +112,7 @@
     group: root
 
 - name: Install jsondiff Python library
-  when: inventory_hostname == groups['swarm_managers'][0]
+  when: inventory_hostname == ((groups['swarm_managers'] | default([])) | first | default(''))
   become: true
   become_method: sudo
 #  pip:
@@ -123,7 +123,7 @@
     update_cache: yes
 
 - name: Install pyyaml Python library
-  when: inventory_hostname == groups['swarm_managers'][0]
+  when: inventory_hostname == ((groups['swarm_managers'] | default([])) | first | default(''))
   become: true
   become_method: sudo
 #  pip:
@@ -134,7 +134,7 @@
     update_cache: yes
 
 - name: Deploy stack from a compose file (on first swarm node)
-  when: inventory_hostname == groups['swarm_managers'][0]
+  when: inventory_hostname == ((groups['swarm_managers'] | default([])) | first | default(''))
   block:
     - name: Deploy Traefik stack (first attempt)
       docker_stack:
@@ -165,14 +165,14 @@
 
 - name: Force Traefik restart (apply static config)
   when:
-    - inventory_hostname == groups['swarm_managers'][0]
+    - inventory_hostname == ((groups['swarm_managers'] | default([])) | first | default(''))
     - traefik_static_config.changed
   become: true
   become_method: sudo
   shell: docker service update --force traefik_traefik
 
 - name: Ensure local generated directory exists
-  when: inventory_hostname == groups['swarm_managers'][0] and traefik_export_stack_local | default(true)
+  when: inventory_hostname == ((groups['swarm_managers'] | default([])) | first | default('')) and traefik_export_stack_local | default(true)
   delegate_to: localhost
   run_once: true
   file:
@@ -181,14 +181,14 @@
     mode: "0755"
 
 - name: Export traefik-stack.yml to controller
-  when: inventory_hostname == groups['swarm_managers'][0] and traefik_export_stack_local | default(true)
+  when: inventory_hostname == ((groups['swarm_managers'] | default([])) | first | default('')) and traefik_export_stack_local | default(true)
   fetch:
     src: /home/{{ansible_user}}/stacks/traefik-stack.yml
     dest: "{{ playbook_dir }}/../generated/"
     flat: true
 
 - name: Export resulting traefik.yml to controller
-  when: inventory_hostname == groups['swarm_managers'][0] and traefik_export_stack_local | default(true)
+  when: inventory_hostname == ((groups['swarm_managers'] | default([])) | first | default('')) and traefik_export_stack_local | default(true)
   fetch:
     src: "{{ gluster_mount_path }}/{{ traefik_gfs_subdir }}/traefik.yml"
     dest: "{{ playbook_dir }}/../generated/traefik.yml"
