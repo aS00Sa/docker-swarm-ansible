@@ -1,6 +1,6 @@
 ---
 - name: Label Swarm nodes that have GFS mount (by node ID, not hostname)
-  when: inventory_hostname == groups['swarm_managers'][0]
+  when: inventory_hostname in (groups['swarm_managers'] | default([]))
   run_once: true
   vars:
     gfs_nodes: "{{ (groups['swarm_managers'] | default([])) + (groups['swarm_workers'] | default([])) }}"
@@ -10,7 +10,7 @@
     loop_var: gfs_target_host
 
 - name: Label Traefik nodes (by node ID, not hostname)
-  when: inventory_hostname == groups['swarm_managers'][0]
+  when: inventory_hostname in (groups['swarm_managers'] | default([]))
   run_once: true
   vars:
     traefik_nodes: "{{ groups['traefik'] | default([]) }}"
