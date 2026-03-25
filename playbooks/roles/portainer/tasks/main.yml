@@ -25,33 +25,18 @@
     dest: /home/{{ansible_user}}/stacks/portainer-agent-stack.yml
     mode: 0775
 
-- name: Install jsondiff Python library
-  when: inventory_hostname == ((groups['swarm_managers'] | default([])) | first | default(''))
-  become: true
-  become_method: sudo
-#  pip:
-#    name: jsondiff
-  apt:
-    name: "python3-jsondiff"
-    state: present
-    update_cache: yes
-
-- name: Install pyyaml Python library
-  when: inventory_hostname == ((groups['swarm_managers'] | default([])) | first | default(''))
-  become: true
-  become_method: sudo
-#  pip:
-#    name: pyyaml
-  apt:
-    name: "python3-pretty-yaml"
-    state: present
-    update_cache: yes
-
+# См. traefik: docker stack deploy --detach вместо community.docker.docker_stack (без ожидания сходимости).
 - name: Deploy stack from a compose file (on first swarm node)
   when: inventory_hostname == ((groups['swarm_managers'] | default([])) | first | default(''))
-  community.docker.docker_stack:
-    state: present
-    name: portainer
-    detach: "{{ portainer_stack_deploy_detach | bool }}"
-    compose:
-      - /home/{{ansible_user}}/stacks/portainer-agent-stack.yml
+  ansible.builtin.command:
+    argv:
+      - docker
+      - stack
+      - deploy
+      - --detach
+      - -c
+      - /home/{{ ansible_user }}/stacks/portainer-agent-stack.yml
+      - portainer
+  register: portainer_stack_deploy
+  changed_when: false
+  failed_when: portainer_stack_deploy.rc != 0

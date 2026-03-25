@@ -111,46 +111,44 @@
     owner: root
     group: root
 
-- name: Install jsondiff Python library
-  when: inventory_hostname == ((groups['swarm_managers'] | default([])) | first | default(''))
-  become: true
-  become_method: sudo
-#  pip:
-#    name: jsondiff
-  apt:
-    name: "python3-jsondiff"
-    state: present
-    update_cache: yes
-
-- name: Install pyyaml Python library
-  when: inventory_hostname == ((groups['swarm_managers'] | default([])) | first | default(''))
-  become: true
-  become_method: sudo
-#  pip:
-#    name: pyyaml
-  apt:
-    name: "python3-pretty-yaml"
-    state: present
-    update_cache: yes
-
+# Деплой через CLI с --detach: не ждём сходимости задач Swarm (в отличие от docker_stack без detach в старых community.docker).
+# Идемпотентность/diff spec как у модуля — нет; нужен Docker CLI с поддержкой stack deploy --detach (типично 19.03+).
 - name: Deploy stack from a compose file (on first swarm node)
   when: inventory_hostname == ((groups['swarm_managers'] | default([])) | first | default(''))
   block:
     - name: Deploy Traefik stack (first attempt)
-      community.docker.docker_stack:
-        state: present
-        name: traefik
-        detach: "{{ traefik_stack_deploy_detach | bool }}"
-        compose:
-          - /home/{{ansible_user}}/stacks/traefik-stack.yml
+      ansible.builtin.command:
+        argv:
+          - docker
+          - stack
+          - deploy
+          - --detach
+          - -c
+          - /home/{{ ansible_user }}/stacks/traefik-stack.yml
+          - traefik
+      register: traefik_stack_deploy_attempt1
+      changed_when: false
+      failed_when: traefik_stack_deploy_attempt1.rc != 0
   rescue:
     - name: Remove Traefik stack on mode-change conflict
-      community.docker.docker_stack:
-        state: absent
-        name: traefik
+      ansible.builtin.command:
+        argv:
+          - docker
+          - stack
+          - rm
+          - traefik
+      register: traefik_stack_rm
+      failed_when: false
+      changed_when: traefik_stack_rm.rc == 0
 
     - name: Wait for Traefik services to be removed
-      command: docker service ls --format '{{ "{{.Name}}" }}'
+      ansible.builtin.command:
+        argv:
+          - docker
+          - service
+          - ls
+          - --format
+          - '{{ "{{.Name}}" }}'
       register: traefik_services_after_rm
       changed_when: false
       retries: 24
@@ -158,12 +156,18 @@
       until: "'traefik_traefik' not in traefik_services_after_rm.stdout"
 
     - name: Deploy Traefik stack (second attempt after recreate)
-      community.docker.docker_stack:
-        state: present
-        name: traefik
-        detach: "{{ traefik_stack_deploy_detach | bool }}"
-        compose:
-          - /home/{{ansible_user}}/stacks/traefik-stack.yml
+      ansible.builtin.command:
+        argv:
+          - docker
+          - stack
+          - deploy
+          - --detach
+          - -c
+          - /home/{{ ansible_user }}/stacks/traefik-stack.yml
+          - traefik
+      register: traefik_stack_deploy_attempt2
+      changed_when: false
+      failed_when: traefik_stack_deploy_attempt2.rc != 0
 
 - name: Force Traefik restart (apply static config)
   when:

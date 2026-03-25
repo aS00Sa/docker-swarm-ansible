@@ -14,6 +14,3 @@ portainer_admin_user: admin
 #portainer_agent_secret: portaineragenttocken
 portainer_admin_password: HR8n4H8Y6v3JgFU
 portainer_agent_secret: HR8n4H8Y6v3JgFU
-
-# См. traefik_stack_deploy_detach в роли traefik (community.docker >= 4.1.0).
-portainer_stack_deploy_detach: true

@@ -26,7 +26,3 @@ traefik_replicas: 1
 # Привязка к leader применяется только при replicated и replicas=1.
 traefik_pin_to_leader: true
 
-# community.docker.docker_stack: detach=true — не ждать сходимости задач (нет «Updating service …» до таймаута).
-# Требуется community.docker >= 4.1.0. false — ждать готовности сервисов (дольше, зато сбой виден в этой задаче).
-traefik_stack_deploy_detach: true
-

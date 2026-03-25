@@ -244,6 +244,8 @@ ANSIBLE_CONFIG="$PWD/ansible.cfg" ansible-playbook -i inventory.ini playbooks/in
    source .venv/bin/activate
    pip install -U pip
    pip install -r requirements.txt
+   pip install -U ansible
+   pip install -U ansible-core
    ```
 
 2. **Деплой с подробным логом** в файл в каталоге проекта. В этом цикле **firewall не применяем** (ни роль iptables, ни смысл `firewall_lockdown` на хостах) — используйте **`--skip-tags firewall-iptables`**:
