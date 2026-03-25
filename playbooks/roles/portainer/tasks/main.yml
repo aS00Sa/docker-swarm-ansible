@@ -49,8 +49,9 @@
 
 - name: Deploy stack from a compose file (on first swarm node)
   when: inventory_hostname == ((groups['swarm_managers'] | default([])) | first | default(''))
-  docker_stack:
+  community.docker.docker_stack:
     state: present
     name: portainer
+    detach: "{{ portainer_stack_deploy_detach | bool }}"
     compose:
       - /home/{{ansible_user}}/stacks/portainer-agent-stack.yml

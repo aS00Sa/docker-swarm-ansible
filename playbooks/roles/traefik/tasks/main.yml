@@ -137,14 +137,15 @@
   when: inventory_hostname == ((groups['swarm_managers'] | default([])) | first | default(''))
   block:
     - name: Deploy Traefik stack (first attempt)
-      docker_stack:
+      community.docker.docker_stack:
         state: present
         name: traefik
+        detach: "{{ traefik_stack_deploy_detach | bool }}"
         compose:
           - /home/{{ansible_user}}/stacks/traefik-stack.yml
   rescue:
     - name: Remove Traefik stack on mode-change conflict
-      docker_stack:
+      community.docker.docker_stack:
         state: absent
         name: traefik
 
@@ -157,9 +158,10 @@
       until: "'traefik_traefik' not in traefik_services_after_rm.stdout"
 
     - name: Deploy Traefik stack (second attempt after recreate)
-      docker_stack:
+      community.docker.docker_stack:
         state: present
         name: traefik
+        detach: "{{ traefik_stack_deploy_detach | bool }}"
         compose:
           - /home/{{ansible_user}}/stacks/traefik-stack.yml
 
