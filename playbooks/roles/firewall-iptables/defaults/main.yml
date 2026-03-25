@@ -1,6 +1,8 @@
 ---
-# Временный каталог модулей на ноде: задаётся в ansible.cfg ([defaults] remote_tmp), не дублировать здесь —
-# иначе перекрывается cfg и снова ломается запись под пользователем SSH (исторически был /run + chmod 0700).
+# Каталог временных файлов модулей на ноде. Должен совпадать по смыслу с ansible.cfg [defaults] remote_tmp.
+# (В шаблонах задач имя ansible_remote_tmp обязательно — из cfg оно само в переменные не подставляется.)
+# Права на каталог выставляет первая задача роли (1777), не 0700 только для root.
+ansible_remote_tmp: "/tmp/.ansible-{{ ansible_user | default('root') }}/tmp"
 
 # По умолчанию: firewall_lockdown=false, *_only_admin=false (без жёстких ограничений).
 # Поэтапное ужесточение (не наоборот: без lockdown не работают iptables и ACL /stats по CIDR в роли haproxy):
