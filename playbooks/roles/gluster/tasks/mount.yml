@@ -62,10 +62,10 @@
   set_fact:
     gluster_mount_peer_list: "{{ groups['gluster_nodes_bricks'] | difference([inventory_hostname]) | list }}"
 
-- name: Fail if нет других brick-нод для mount
-  fail:
-    msg: "В gluster_nodes_bricks должен быть хотя бы один узел кроме текущего (replica 3 → три хоста в группе)"
+- name: Fallback mount peer to self (single-node Gluster)
   when: gluster_mount_peer_list | length < 1
+  set_fact:
+    gluster_mount_peer_list: ["{{ inventory_hostname }}"]
 
 # Уже смонтированный Gluster — пропускаем проверку «каталог пуст» (повторный запуск, данные стеков в GFS).
 - name: Check if {{ gluster_mount_path }} is already a mount
