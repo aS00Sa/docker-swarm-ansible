@@ -4,6 +4,16 @@ api:
 entryPoints:
   web:
     address: ":{{ traefik_http_port }}"
+    transport:
+      forwardingTimeouts:
+        # Долгие аплоады (GitLab runner -> GitLab) не должны обрываться прокси из-за таймаутов.
+        dialTimeout: 600s
+        responseHeaderTimeout: 0s
+        idleTimeout: 0s
+        responseForwardingTimeout: 0s
+      respondingTimeouts:
+        readTimeout: 0s
+        writeTimeout: 0s
     http:
       redirections:
         entryPoint:
@@ -11,6 +21,15 @@ entryPoints:
           scheme: https  
   websecure:
     address: ":{{ traefik_https_port }}"
+    transport:
+      forwardingTimeouts:
+        dialTimeout: 600s
+        responseHeaderTimeout: 0s
+        idleTimeout: 0s
+        responseForwardingTimeout: 0s
+      respondingTimeouts:
+        readTimeout: 0s
+        writeTimeout: 0s
   traefik:
     address: ":{{ traefik_internal_api_port }}"
 
