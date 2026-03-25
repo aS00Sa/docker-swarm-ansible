@@ -1,7 +1,6 @@
 ---
-# Ansiballz при SSH pipelining пишет во временный каталог на ноде (по умолчанию под ~/.ansible/tmp на /).
-# Если корень переполнен, модуль apt (большой payload) падает с No usable temporary directory, хотя mkdir /tmp в raw уже прошёл.
-ansible_remote_tmp: /run/ansible-remote-tmp
+# Временный каталог модулей на ноде: задаётся в ansible.cfg ([defaults] remote_tmp), не дублировать здесь —
+# иначе перекрывается cfg и снова ломается запись под пользователем SSH (исторически был /run + chmod 0700).
 
 # По умолчанию: firewall_lockdown=false, *_only_admin=false (без жёстких ограничений).
 # Поэтапное ужесточение (не наоборот: без lockdown не работают iptables и ACL /stats по CIDR в роли haproxy):
