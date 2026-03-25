@@ -1,12 +1,22 @@
 ---
-- hosts: swarm_managers
-  roles:
-    - cluster-defaults
-  tasks:
-    - import_role:
-        name: upgrade-docker
-
-- hosts: swarm_workers
+# Обновление/переустановка Docker через get.docker.com (роль upgrade-docker).
+# Хосты: все машины кластера из inventory, кроме группы test_backend (как в plays/01-host-defaults.yml):
+# HAProxy, Traefik, менеджеры и воркеры Swarm — везде, где в этом репозитории предполагается Docker.
+#
+# Полный прогон (по умолчанию все хосты кроме test_backend) + принудительный прогон установщика:
+#   ANSIBLE_CONFIG="$PWD/ansible.cfg" ansible-playbook -i inventory-localdomain.ini playbooks/upgrade-docker.yml -e docker_force_reinstall=true
+#
+# Только выбранная группа (или несколько через «:», как в паттернах Ansible):
+#   ansible-playbook -i inventory-localdomain.ini playbooks/upgrade-docker.yml -e docker_upgrade_hosts=swarm_managers -e docker_force_reinstall=true
+#   ansible-playbook -i inventory-localdomain.ini playbooks/upgrade-docker.yml -e 'docker_upgrade_hosts=swarm_managers:swarm_workers'
+#
+# Только обновить, если Docker отсутствует (без полного reinstall):
+#   ansible-playbook -i inventory-prod.ini playbooks/upgrade-docker.yml
+#
+# Альтернатива группе — стандартный --limit:
+#   ansible-playbook -i inventory-prod.ini playbooks/upgrade-docker.yml -e docker_force_reinstall=true --limit swarm_managers
+#
+- hosts: "{{ docker_upgrade_hosts | default('all:!test_backend') }}"
   roles:
     - cluster-defaults
   tasks:

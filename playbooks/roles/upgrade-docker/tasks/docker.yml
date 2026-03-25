@@ -25,6 +25,90 @@
         update_cache: yes
         lock_timeout: 180
 
+    - name: Recent dpkg activity (tail /var/log/dpkg.log, diagnostic)
+      ansible.builtin.command: tail -n 80 /var/log/dpkg.log
+      register: upgrade_docker_dpkg_log_tail
+      changed_when: false
+      failed_when: false
+
+    - name: Print dpkg.log tail (only with ansible-playbook -v or higher)
+      ansible.builtin.debug:
+        msg:
+          tail_rc: "{{ upgrade_docker_dpkg_log_tail.rc }}"
+          tail_stdout_lines: "{{ upgrade_docker_dpkg_log_tail.stdout_lines | default([]) }}"
+      when: ansible_verbosity | default(0) | int >= 1
+
+    - name: Complete interrupted dpkg package configuration
+      ansible.builtin.command: dpkg --configure -a
+      environment:
+        DEBIAN_FRONTEND: noninteractive
+      register: upgrade_docker_dpkg_configure
+      changed_when: >-
+        'Setting up' in upgrade_docker_dpkg_configure.stdout | default('')
+        or 'Setting up' in upgrade_docker_dpkg_configure.stderr | default('')
+      failed_when: upgrade_docker_dpkg_configure.rc != 0
+
+    - name: Fix broken apt dependencies (apt-get -f install)
+      ansible.builtin.shell: |
+        set -euo pipefail
+        DEBIAN_FRONTEND=noninteractive apt-get -f install -y
+      args:
+        executable: /bin/bash
+      register: upgrade_docker_apt_fix
+      changed_when: >-
+        'Unpacking' in upgrade_docker_apt_fix.stdout
+        or 'Setting up' in upgrade_docker_apt_fix.stdout
+        or 'Removing' in upgrade_docker_apt_fix.stdout
+      failed_when: upgrade_docker_apt_fix.rc != 0
+
+    - name: Combine apt-get -f install stdout/stderr for autoremove hint detection
+      ansible.builtin.set_fact:
+        upgrade_docker_apt_fix_combined: "{{ (upgrade_docker_apt_fix.stdout | default('')) ~ (upgrade_docker_apt_fix.stderr | default('')) }}"
+
+    - name: Simulate apt-get autoremove (check for removable packages)
+      ansible.builtin.shell: |
+        set -euo pipefail
+        DEBIAN_FRONTEND=noninteractive apt-get -s autoremove -y
+      args:
+        executable: /bin/bash
+      register: upgrade_docker_apt_autoremove_sim
+      changed_when: false
+      failed_when: false
+
+    - name: Combine autoremove simulate output
+      ansible.builtin.set_fact:
+        upgrade_docker_apt_autoremove_sim_out: "{{ (upgrade_docker_apt_autoremove_sim.stdout | default('')) ~ (upgrade_docker_apt_autoremove_sim.stderr | default('')) }}"
+
+    - name: Decide if apt-get autoremove should run
+      ansible.builtin.set_fact:
+        upgrade_docker_apt_autoremove_needed: >-
+          {{
+            (
+              ('no longer required' in upgrade_docker_apt_fix_combined)
+              or ('больше не требуются' in upgrade_docker_apt_fix_combined)
+              or (
+                ('autoremove' in (upgrade_docker_apt_fix_combined | lower))
+                and ('automatically installed' in (upgrade_docker_apt_fix_combined | lower))
+              )
+              or ('will be REMOVED' in upgrade_docker_apt_autoremove_sim_out)
+              or ('будут удалены' in upgrade_docker_apt_autoremove_sim_out)
+            )
+          }}
+
+    - name: Remove automatically installed packages no longer required (apt-get autoremove)
+      ansible.builtin.shell: |
+        set -euo pipefail
+        DEBIAN_FRONTEND=noninteractive apt-get autoremove -y
+      args:
+        executable: /bin/bash
+      register: upgrade_docker_apt_autoremove
+      when: upgrade_docker_apt_autoremove_needed | bool
+      changed_when: >-
+        'Removing' in upgrade_docker_apt_autoremove.stdout | default('')
+        or 'Удаляется' in upgrade_docker_apt_autoremove.stdout | default('')
+        or 'Purging' in upgrade_docker_apt_autoremove.stdout | default('')
+      failed_when: upgrade_docker_apt_autoremove.rc != 0
+
     - name: Run get.docker.com installer (upgrade/force)
       ansible.builtin.shell: |
         set -euo pipefail
@@ -39,10 +123,14 @@
   ignore_errors: true
   become: true
   become_method: sudo
-  when: inventory_hostname != "127.0.0.1" and inventory_hostname != "localhost"
+  when:
+    - inventory_hostname != "127.0.0.1" and inventory_hostname != "localhost"
+    - docker_upgrade_needed | bool
 
 - name: Waiting for host(s) to reboot
   local_action: "wait_for host={{inventory_hostname}} port=22 state=started delay=60"
   become: false
   ignore_errors: true
-  when: inventory_hostname != "127.0.0.1" and inventory_hostname != "localhost"
+  when:
+    - inventory_hostname != "127.0.0.1" and inventory_hostname != "localhost"
+    - docker_upgrade_needed | bool

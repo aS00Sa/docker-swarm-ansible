@@ -280,6 +280,8 @@ ANSIBLE_CONFIG="$PWD/ansible.cfg" ansible-playbook -i inventory.ini playbooks/in
   `ansible-playbook -i inventory-prod.ini playbooks/plays/manual-sysctl-high-load-profile.yml`
 - **Отключить sysctl-high-load-profile** 
   `ansible-playbook -i inventory-prod.ini playbooks/plays/manual-sysctl-high-load-profile.yml -e sysctl_high_load_state=absent`
+- **Обновить доккер на всех ВМ** 
+  `ansible-playbook -i inventory-localdomain.ini playbooks/upgrade-docker.yml -e docker_upgrade_hosts=all -e docker_force_reinstall=true`
 
 После полного `install.yml` (без `--skip-tags`) будут настроены Swarm, GlusterFS, Traefik, HAProxy, Portainer и стадия iptables. В отладочном цикле из раздела выше стадия firewall пропускается.
 
