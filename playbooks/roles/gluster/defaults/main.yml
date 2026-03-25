@@ -4,3 +4,11 @@ device2_hdd_dev: ""
 gluster_volume_path: /glusterfs/bricks
 gluster_volume_name: gfs
 gluster_mount_path: /mnt/gfs
+
+# Ограничить диапазон портов brick-процессов (glusterfsd), чтобы он совпадал с firewall правилами.
+# Эти опции пишутся в /etc/glusterfs/glusterd.vol как:
+#   option base-port <int>
+#   option max-port <int>
+gluster_brick_port_range_enabled: false
+gluster_brick_base_port: 49152
+gluster_brick_max_port: 49664

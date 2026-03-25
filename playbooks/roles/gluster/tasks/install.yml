@@ -13,6 +13,50 @@
     force_apt_get: true
     update_cache: yes
 
+- name: Configure Gluster brick port range (glusterd.vol)
+  become: true
+  become_method: sudo
+  block:
+    - name: Detect management volume in glusterd.vol
+      ansible.builtin.shell: |
+        set -euo pipefail
+        grep -qE '^\s*volume\s+management\s*$' /etc/glusterfs/glusterd.vol
+      args:
+        executable: /bin/bash
+      register: glusterd_management_volume_present
+      changed_when: false
+      failed_when: false
+
+    - name: Remove any existing base-port/max-port options (avoid wrong placement)
+      when: glusterd_management_volume_present.rc == 0
+      ansible.builtin.lineinfile:
+        path: /etc/glusterfs/glusterd.vol
+        regexp: '^\s*option\s+(base-port|max-port)\s+'
+        state: absent
+      register: glusterd_port_range_cleanup
+
+    - name: Set glusterd base-port (inside volume management)
+      when:
+        - glusterd_management_volume_present.rc == 0
+        - gluster_brick_port_range_enabled | default(false) | bool
+      ansible.builtin.lineinfile:
+        path: /etc/glusterfs/glusterd.vol
+        regexp: '^\s*option\s+base-port\s+'
+        line: "    option base-port {{ gluster_brick_base_port | int }}"
+        insertafter: '^\s*volume\s+management\s*$'
+      register: glusterd_base_port_cfg
+
+    - name: Set glusterd max-port (inside volume management)
+      when:
+        - glusterd_management_volume_present.rc == 0
+        - gluster_brick_port_range_enabled | default(false) | bool
+      ansible.builtin.lineinfile:
+        path: /etc/glusterfs/glusterd.vol
+        regexp: '^\s*option\s+max-port\s+'
+        line: "    option max-port {{ gluster_brick_max_port | int }}"
+        insertafter: '^\s*volume\s+management\s*$'
+      register: glusterd_max_port_cfg
+
 - name: Enable Gluster service
   become: true
   become_method: sudo
@@ -20,3 +64,25 @@
     name: glusterd
     enabled: yes
     state: started
+
+- name: Restart glusterd after port range change
+  become: true
+  become_method: sudo
+  ansible.builtin.systemd:
+    name: glusterd
+    state: restarted
+  when: >
+    (
+      (
+        (glusterd_port_range_cleanup.changed | default(false))
+        or (glusterd_base_port_cfg.changed | default(false))
+        or (glusterd_max_port_cfg.changed | default(false))
+      )
+      and (
+        not (gluster_brick_port_range_enabled | default(false) | bool)
+        or (
+          (gluster_brick_base_port | default(0) | int) > 0
+          and (gluster_brick_max_port | default(0) | int) >= (gluster_brick_base_port | int)
+        )
+      )
+    )

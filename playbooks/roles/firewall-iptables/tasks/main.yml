@@ -107,6 +107,17 @@
       loop_control:
         label: "{{ item }}"
 
+    - name: Проверка диапазонов TCP Gluster (порты должны быть ≤ 65535)
+      ansible.builtin.fail:
+        msg: "Неверный диапазон '{{ item }}' в firewall_restrict_gluster_tcp_dport_ranges: допустимы только 0..65535."
+      when:
+        - firewall_restrict_gluster_service_ports | bool
+        - (item is match('^[0-9]+:[0-9]+$'))
+        - ((item.split(':')[0] | int) > 65535) or ((item.split(':')[1] | int) > 65535)
+      loop: "{{ firewall_restrict_gluster_tcp_dport_ranges | default([]) }}"
+      loop_control:
+        label: "{{ item }}"
+
     - name: Сгенерировать скрипт ограничения служебных портов Gluster
       ansible.builtin.template:
         src: apply-gluster-ports-restrict.sh.j2
@@ -192,7 +203,9 @@
 - name: Жёсткий iptables lockdown (INPUT + DOCKER-USER)
   when:
     - firewall_lockdown | bool
+    - "'lockdown' in (ansible_run_tags | default([]))"
     - ansible_os_family == 'Debian'
+  tags: [lockdown]
   block:
     - name: Эффективные CIDR админов (только firewall_trusted_admin_cidrs)
       ansible.builtin.include_tasks: normalize_trusted_admin_cidrs.yml

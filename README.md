@@ -73,7 +73,35 @@ flowchart LR
 | 24007 | TCP | Gluster — `glusterd` |
 | 49152+ | TCP | Gluster — порты brick’ов (диапазон) |
 
-При **`firewall_lockdown=true`** роль `firewall-iptables` открывает «публичный» TCP‑набор из портов HAProxy и опубликованных портов Traefik (те же имена переменных, что в стеках: обычно 80, 443 и 8080, 8443; совпадающие номера схлопываются). Остальное (Swarm, Gluster, SSH) — по правилам lockdown и inventory.
+### Режимы firewall
+
+#### Мягкий режим (по умолчанию)
+
+По умолчанию используется **мягкий** режим: роль `firewall-iptables` **не делает** жёсткий lockdown (не трогает глобальную политику INPUT/DOCKER-USER), а применяет ограничения **только через отдельные цепочки** для служебных портов:
+
+- **Swarm**: цепочка `SWARM-NODE-PORTS`
+- **Portainer**: цепочка `PORTAINER-NODE-PORTS`
+- **Gluster**: цепочка `GLUSTER-NODE-PORTS`
+
+Это как раз “безопасная база” для первого деплоя: публичные порты (80/443/22/9090 и т.п.) не ломаются, а служебные порты закрываются.
+
+#### Жёсткий lockdown (включается вручную)
+
+Жёсткий lockdown включается **только вручную**:
+
+- нужно выставить `firewall_lockdown=true`
+- и запустить с `--tags lockdown`
+
+Пример:
+
+```bash
+ANSIBLE_CONFIG="$PWD/ansible.cfg" ansible-playbook -i inventory.ini playbooks/plays/11-firewall-iptables.yml \
+  -u root --private-key ~/.ssh/id_ed25519 \
+  -e firewall_lockdown=true \
+  --tags lockdown
+```
+
+При включённом lockdown роль `firewall-iptables` открывает «публичный» TCP‑набор из портов HAProxy и опубликованных портов Traefik (те же имена переменных, что в стеках: обычно 80, 443 и 8080, 8443; совпадающие номера схлопываются). Остальное (Swarm, Gluster, SSH) — по правилам lockdown и inventory.
 
 Если **`firewall_lockdown=false`**, по отдельным шаблонам роли `firewall-iptables` в **INPUT** вешаются цепочки **`SWARM-NODE-PORTS`** (`apply-swarm-ports-restrict.sh.j2`), **`PORTAINER-NODE-PORTS`** (`apply-portainer-ports-restrict.sh.j2`), **`GLUSTER-NODE-PORTS`** (`apply-gluster-ports-restrict.sh.j2`). С интернета режутся **Swarm** (**2377/TCP**, **7946/TCP+UDP**, **4789/UDP**, флаг **`firewall_restrict_swarm_ports`**), **Portainer** (**8000/TCP**, **9001/TCP**, **`firewall_restrict_portainer_service_ports`**) и **Gluster** (по умолчанию **24007/TCP** и диапазон **49152–49664/TCP** для brick-портов — списки **`firewall_restrict_gluster_tcp_dports`** и **`firewall_restrict_gluster_tcp_dport_ranges`**, флаг **`firewall_restrict_gluster_service_ports`**). Для нод кластера и `firewall_trusted_admin_cidrs` доступ сохраняется. **9090** (Web UI Portainer) не трогается. Выключить по отдельности: `firewall_restrict_swarm_ports=false`, `firewall_restrict_portainer_service_ports=false`, `firewall_restrict_gluster_service_ports=false`.
 

@@ -24,10 +24,11 @@ firewall_restrict_portainer_tcp_dports: [8000, 9001]
 # Шаблон apply-gluster-ports-restrict.sh.j2 — цепочка GLUSTER-NODE-PORTS (glusterd + brick-порты).
 firewall_restrict_gluster_service_ports: true
 firewall_restrict_gluster_tcp_dports: [24007]
-# Диапазоны в формате iptables «start:end» (типичный пул brick-портов).
+# Диапазоны в формате iptables «start:end» (brick-порты + возможные динамические порты glusterfsd).
 firewall_restrict_gluster_tcp_dport_ranges:
-  - '49152:49664'
-  - '60000:60100'
+  - '40000:49999'
+  - '50000:59999'
+  - '60000:65535'
 
 firewall_trusted_admin_cidrs: []
 
