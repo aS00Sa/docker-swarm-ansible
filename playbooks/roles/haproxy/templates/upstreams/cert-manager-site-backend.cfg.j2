@@ -1,0 +1,19 @@
+{# One file per cert_manager_certs item (http + https backends) #}
+{% set _traefik_nodes = (groups['traefik'] | default([])) %}
+
+backend {{ backend_name_http }}
+  mode http
+  balance source
+  option httpchk GET /ping
+{% for h in _traefik_nodes %}
+  server traefik_web_{{ loop.index }} {{ hostvars[h].ansible_host | default(h) }}:{{ haproxy_traefik_web_port | default(8080) }} check
+{% endfor %}
+
+backend {{ backend_name_https }}
+  mode http
+  balance source
+  option httpchk GET /ping
+{% for h in _traefik_nodes %}
+  server traefik_websecure_{{ loop.index }} {{ hostvars[h].ansible_host | default(h) }}:{{ haproxy_traefik_websecure_port | default(8443) }} ssl verify none check
+{% endfor %}
+

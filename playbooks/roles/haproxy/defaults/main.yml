@@ -36,13 +36,25 @@ haproxy_ssl_fullchain_path: "/etc/ssl/{{ app_domain_name }}/fullchain.pem"
 haproxy_ssl_privkey_path: "/etc/ssl/{{ app_domain_name }}/privkey.pem"
 
 # Upstream стратегия:
-# - auto: если есть группа [traefik] — проксировать в Traefik; иначе использовать include-фрагменты.
+# - auto: проксировать в Traefik ТОЛЬКО если есть swarm (manager/worker),
+#         есть группа [traefik], и текущий haproxy-хост входит в [traefik].
+#         Иначе использовать include-фрагменты.
 # - traefik: всегда проксировать в Traefik (ошибка/пустой backend если [traefik] пустая).
 # - includes: всегда использовать include-фрагменты (для временного режима без Traefik).
 haproxy_upstream_mode: auto
 
 # Директория с include-фрагментами (будут подключены как `include <dir>/*.cfg`)
-haproxy_upstreams_include_dir: /etc/haproxy/upstreams
+haproxy_upstreams_gfs_subdir: haproxy_upstreams_gfs
+haproxy_upstreams_include_dir: "{{ gluster_mount_path }}/{{ haproxy_upstreams_gfs_subdir }}"
+
+# Генерировать upstream backend-файлы по `cert_manager_certs` (когда список непустой).
+# Используется для маршрутизации по Host в HAProxy на Traefik (8080/8443 или любые порты из переменных).
+haproxy_generate_upstreams_from_cert_manager_certs: true
+
+# Порты Traefik entrypoints, куда проксирует HAProxy (L7).
+# В вашей схеме Traefik слушает 8080 (web) и 8443 (websecure).
+haproxy_traefik_web_port: 8080
+haproxy_traefik_websecure_port: 8443
 
 # Имя backend по умолчанию в режиме includes (его должен определить один из include-файлов)
 haproxy_includes_default_backend: direct_layer7

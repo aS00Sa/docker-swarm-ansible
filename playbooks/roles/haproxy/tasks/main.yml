@@ -46,6 +46,60 @@
     state: directory
     mode: "0755"
 
+- name: Ensure HAProxy upstream placeholder include exists
+  become: true
+  become_method: sudo
+  ansible.builtin.copy:
+    dest: "{{ haproxy_upstreams_include_dir | default('/etc/haproxy/upstreams') }}/00-placeholder.cfg"
+    content: |
+      # Managed by Ansible: placeholder for include glob
+    mode: "0644"
+
+- name: Render HAProxy upstream backends from cert_manager_certs (Traefik)
+  when:
+    - haproxy_generate_upstreams_from_cert_manager_certs | default(true) | bool
+    - (cert_manager_certs | default([]) | length) > 0
+    - >-
+      (
+        (haproxy_upstream_mode | default('auto')) == 'traefik'
+        and ((groups['traefik'] | default([])) | length) > 0
+      )
+      or
+      (
+        (haproxy_upstream_mode | default('auto')) == 'auto'
+        and ((groups['traefik'] | default([])) | length) > 0
+        and (inventory_hostname in (groups['traefik'] | default([])))
+        and (
+          ((groups['swarm_managers'] | default([])) | length)
+          + ((groups['swarm_workers'] | default([])) | length)
+        ) > 0
+      )
+  become: true
+  become_method: sudo
+  ansible.builtin.template:
+    src: upstreams/cert-manager-site-backend.cfg.j2
+    dest: >-
+      {{
+        (haproxy_upstreams_include_dir | default('/etc/haproxy/upstreams'))
+        ~ '/10-traefik-' ~ ((item.cert_name | default(item.domains | first)) | regex_replace('[^A-Za-z0-9_.-]', '_') | replace('.', '_'))
+        ~ '.cfg'
+      }}
+    mode: "0644"
+  loop: "{{ cert_manager_certs | default([]) }}"
+  loop_control:
+    label: "{{ item.cert_name | default(item.domains | first) }}"
+  vars:
+    backend_name_http: >-
+      {{
+        'bk_traefik_http_'
+        ~ ((item.cert_name | default(item.domains | first)) | regex_replace('[^A-Za-z0-9_.-]', '_') | replace('.', '_'))
+      }}
+    backend_name_https: >-
+      {{
+        'bk_traefik_https_'
+        ~ ((item.cert_name | default(item.domains | first)) | regex_replace('[^A-Za-z0-9_.-]', '_') | replace('.', '_'))
+      }}
+
 - name: CIDR для HAProxy /stats (только при firewall_lockdown и непустом firewall_trusted_admin_cidrs из inventory)
   become: true
   become_method: sudo
