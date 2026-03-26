@@ -25,9 +25,27 @@ haproxy_stats_password: haproxy1234
 haproxy_acl_enabled: false
 # Главный переключатель роли HAProxy: false = полностью пропустить обработку роли.
 haproxy_enabled: false
-# Временный переключатель: false = не запускать HAProxy как системный сервис.
-haproxy_service_enabled: false
+# Управление systemd сервисом HAProxy.
+# true — включить и рестартить сервис после генерации конфига (обычный режим).
+# false — только сгенерировать конфиг, но сервис не трогать.
+haproxy_service_enabled: true
 
+# Пути к TLS материалам для bind ssl.
+# По умолчанию ожидаем, что `generate-certs` или `cert-manager` (symlink) положит файлы сюда.
+haproxy_ssl_fullchain_path: "/etc/ssl/{{ app_domain_name }}/fullchain.pem"
+haproxy_ssl_privkey_path: "/etc/ssl/{{ app_domain_name }}/privkey.pem"
+
+# Upstream стратегия:
+# - auto: если есть группа [traefik] — проксировать в Traefik; иначе использовать include-фрагменты.
+# - traefik: всегда проксировать в Traefik (ошибка/пустой backend если [traefik] пустая).
+# - includes: всегда использовать include-фрагменты (для временного режима без Traefik).
+haproxy_upstream_mode: auto
+
+# Директория с include-фрагментами (будут подключены как `include <dir>/*.cfg`)
+haproxy_upstreams_include_dir: /etc/haproxy/upstreams
+
+# Имя backend по умолчанию в режиме includes (его должен определить один из include-файлов)
+haproxy_includes_default_backend: direct_layer7
 # Явные regex для Host (одна строка acl hdr_reg — несколько шаблонов через пробел = ИЛИ).
 # Пустой список при haproxy_acl_enabled=true → шаблон из app_domain_name (поддомены + bare domain).
 haproxy_allow_host_regex: []

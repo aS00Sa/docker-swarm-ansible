@@ -1,0 +1,182 @@
+---
+- name: Skip cert-manager when disabled
+  when: not (cert_manager_enabled | default(false) | bool)
+  ansible.builtin.debug:
+    msg: "cert-manager disabled (cert_manager_enabled=false)"
+
+- name: Assert Gluster mount is present for cert-manager storage
+  when: cert_manager_enabled | default(false) | bool
+  become: true
+  become_method: sudo
+  block:
+    - name: Check gluster mountpoint exists
+      ansible.builtin.command: mountpoint -q "{{ gluster_mount_path }}"
+      register: cert_manager_mountpoint
+      changed_when: false
+      failed_when: cert_manager_mountpoint.rc != 0
+
+    - name: Verify fstype of gluster mount
+      ansible.builtin.command: findmnt -n -o FSTYPE --target "{{ gluster_mount_path }}"
+      register: cert_manager_findmnt_fstype
+      changed_when: false
+      failed_when: >-
+        cert_manager_findmnt_fstype.rc != 0
+        or (cert_manager_findmnt_fstype.stdout | trim) not in ['glusterfs', 'fuse.glusterfs']
+
+- name: Ensure cert-manager dirs exist on GFS
+  when:
+    - cert_manager_enabled | default(false) | bool
+  become: true
+  become_method: sudo
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0775"
+  loop:
+    - "{{ gluster_mount_path }}/{{ cert_manager_gfs_subdir }}"
+    - "{{ gluster_mount_path }}/{{ cert_manager_gfs_subdir }}/{{ cert_manager_letsencrypt_subdir }}"
+    - "{{ gluster_mount_path }}/{{ cert_manager_gfs_subdir }}/{{ cert_manager_webroot_subdir }}"
+
+- name: Compute cert-manager VIP IP (keepalived)
+  when:
+    - cert_manager_enabled | default(false) | bool
+    - (keepalived_vip_cidr | default('') | trim | length) > 0
+  ansible.builtin.set_fact:
+    cert_manager_vip_ip: "{{ (keepalived_vip_cidr | trim).split('/')[0] }}"
+
+- name: Check if this host currently owns keepalived VIP (MASTER)
+  when:
+    - cert_manager_enabled | default(false) | bool
+    - (keepalived_vip_cidr | default('') | trim | length) > 0
+    - cert_manager_singleton_keepalived_vip | default(true) | bool
+    - (cert_manager_deploy_method | default('compose')) == 'compose'
+  ansible.builtin.command:
+    argv:
+      - /bin/bash
+      - -lc
+      - "ip -o -4 addr show dev {{ keepalived_interface | default('eth0') }} | awk '{print $4}' | cut -d/ -f1"
+  register: cert_manager_iface_ipv4s
+  changed_when: false
+  failed_when: false
+
+- name: Decide whether to run cert-manager on this host
+  when:
+    - cert_manager_enabled | default(false) | bool
+    - (cert_manager_deploy_method | default('compose')) == 'compose'
+  ansible.builtin.set_fact:
+    cert_manager_should_run: >-
+      {{
+        (
+          (cert_manager_singleton_keepalived_vip | default(true) | bool)
+          and ((keepalived_vip_cidr | default('') | trim | length) > 0)
+        )
+        | ternary(
+            (cert_manager_vip_ip | default('')) in (cert_manager_iface_ipv4s.stdout_lines | default([])),
+            true
+          )
+      }}
+
+- name: Deploy cert-manager via docker compose (project dir)
+  when:
+    - cert_manager_enabled | default(false) | bool
+    - (cert_manager_deploy_method | default('compose')) == 'compose'
+    - cert_manager_should_run | default(true) | bool
+  become: true
+  become_method: sudo
+  block:
+    - name: Ensure cert-manager project dir exists
+      ansible.builtin.file:
+        path: "{{ cert_manager_compose_project_dir | default('/opt/cert-manager') }}"
+        state: directory
+        mode: "0755"
+
+    - name: Render docker-compose.yml
+      ansible.builtin.template:
+        src: docker-compose.yml.j2
+        dest: "{{ cert_manager_compose_project_dir | default('/opt/cert-manager') }}/docker-compose.yml"
+        mode: "0644"
+
+    - name: Start/Update cert-manager with docker compose
+      ansible.builtin.command:
+        argv:
+          - docker
+          - compose
+          - -f
+          - "{{ cert_manager_compose_project_dir | default('/opt/cert-manager') }}/docker-compose.yml"
+          - up
+          - -d
+      changed_when: false
+
+- name: Stop cert-manager on non-master HAProxy nodes (keepalived singleton)
+  when:
+    - cert_manager_enabled | default(false) | bool
+    - (cert_manager_deploy_method | default('compose')) == 'compose'
+    - cert_manager_singleton_keepalived_vip | default(true) | bool
+    - cert_manager_stop_on_non_master | default(true) | bool
+    - (keepalived_vip_cidr | default('') | trim | length) > 0
+    - not (cert_manager_should_run | default(false) | bool)
+  become: true
+  become_method: sudo
+  ansible.builtin.command:
+    argv:
+      - docker
+      - compose
+      - -f
+      - "{{ cert_manager_compose_project_dir | default('/opt/cert-manager') }}/docker-compose.yml"
+      - down
+  changed_when: false
+  failed_when: false
+
+- name: Verify stacks directory exists (on first swarm node)
+  when:
+    - cert_manager_enabled | default(false) | bool
+    - (cert_manager_deploy_method | default('compose')) == 'stack'
+    - inventory_hostname == ((groups['swarm_managers'] | default([])) | first | default(''))
+  ansible.builtin.template:
+    src: cert-manager-stack.j2
+    dest: "/home/{{ ansible_user }}/stacks/{{ cert_manager_stack_name }}.yml"
+    mode: "0644"
+
+- name: Deploy cert-manager stack (on first swarm node)
+  when:
+    - cert_manager_enabled | default(false) | bool
+    - inventory_hostname == ((groups['swarm_managers'] | default([])) | first | default(''))
+    - (cert_manager_deploy_method | default('compose')) == 'stack'
+  ansible.builtin.command:
+    argv:
+      - docker
+      - stack
+      - deploy
+      - --detach
+      - -c
+      - "/home/{{ ansible_user }}/stacks/{{ cert_manager_stack_name }}.yml"
+      - "{{ cert_manager_stack_name }}"
+  changed_when: false
+
+- name: Link cert-manager live certs to HAProxy ssl dir (optional)
+  when:
+    - cert_manager_enabled | default(false) | bool
+    - cert_manager_link_to_haproxy_ssl_dir | default(false) | bool
+    - inventory_hostname in (groups['haproxy'] | default([]))
+  become: true
+  become_method: sudo
+  block:
+    - name: Ensure HAProxy ssl dir exists
+      ansible.builtin.file:
+        path: "{{ cert_manager_haproxy_ssl_dir }}"
+        state: directory
+        mode: "0755"
+
+    - name: Symlink fullchain.pem from cert-manager (GFS)
+      ansible.builtin.file:
+        src: "{{ gluster_mount_path }}/{{ cert_manager_gfs_subdir }}/{{ cert_manager_letsencrypt_subdir }}/live/{{ app_domain_name }}/fullchain.pem"
+        dest: "{{ cert_manager_haproxy_ssl_dir }}/fullchain.pem"
+        state: link
+        force: true
+
+    - name: Symlink privkey.pem from cert-manager (GFS)
+      ansible.builtin.file:
+        src: "{{ gluster_mount_path }}/{{ cert_manager_gfs_subdir }}/{{ cert_manager_letsencrypt_subdir }}/live/{{ app_domain_name }}/privkey.pem"
+        dest: "{{ cert_manager_haproxy_ssl_dir }}/privkey.pem"
+        state: link
+        force: true

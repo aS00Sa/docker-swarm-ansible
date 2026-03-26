@@ -26,3 +26,9 @@ traefik_replicas: 1
 # Привязка к leader применяется только при replicated и replicas=1.
 traefik_pin_to_leader: true
 
+# ACME/Let's Encrypt внутри Traefik.
+# В платформенной схеме с HAProxy+cert-manager это должно быть выключено, иначе несколько Traefik инстансов будут конкурировать за renew.
+traefik_acme_enabled: false
+traefik_acme_email: "admin@{{ app_domain_name }}"
+traefik_acme_storage_path: "/etc/traefik/acme.json"
+traefik_acme_resolver_name: letsencrypt

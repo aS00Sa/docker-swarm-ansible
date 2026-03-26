@@ -1,0 +1,62 @@
+---
+# Включатель роли (можно выключить в inventory)
+cert_manager_enabled: false
+
+# Режим деплоя:
+# - compose: docker compose up -d (рекомендуется для cert-manager на HAProxy ноде)
+# - stack: docker stack deploy (Swarm)
+cert_manager_deploy_method: compose
+
+# Имя стека в Swarm (только для deploy_method=stack)
+cert_manager_stack_name: cert-manager
+
+# Каталог на хосте (deploy_method=compose)
+cert_manager_compose_project_dir: /opt/cert-manager
+# Локальный bind-IP для публикации challenge (compose)
+cert_manager_compose_bind_ip: 127.0.0.1
+
+# Singleton режим при keepalived VIP: запускать cert-manager только на ноде, где поднят VIP.
+# Чтобы не ловить rate limits LE при нескольких HAProxy нодах.
+cert_manager_singleton_keepalived_vip: true
+
+# Останавливать compose-проект на нодах без VIP (если singleton_keepalived_vip=true)
+cert_manager_stop_on_non_master: true
+
+# Email для Let's Encrypt
+cert_manager_email: "admin@{{ app_domain_name }}"
+
+# Список доменов для сертификата (включая поддомены при необходимости)
+cert_manager_domains:
+  - "{{ app_domain_name }}"
+
+# Где хранить данные certbot (на общем GFS)
+cert_manager_gfs_subdir: cert_manager_gfs
+cert_manager_letsencrypt_subdir: letsencrypt
+cert_manager_webroot_subdir: webroot
+
+# Сеть, в которой должен быть web-сервис для challenge (stack/Traefik)
+cert_manager_network_name: "{{ traefik_network_name | default('traefik_network') }}"
+
+# Публиковать ли webroot напрямую портом на ноде
+# - compose: публикация на cert_manager_compose_bind_ip:cert_manager_publish_http_port
+# - stack: публикация mode: host
+cert_manager_publish_http: false
+cert_manager_publish_http_port: 8088
+
+# Ограничение размещения сервиса (Swarm constraints)
+# Пример:
+# cert_manager_placement_constraints:
+#   - "node.role == manager"
+#   - "node.labels.cert_manager == true"
+cert_manager_placement_constraints: []
+
+# Если true — добавляет Traefik labels на webroot сервис для HTTP-01
+cert_manager_enable_traefik_router: true
+
+# Правило роутера для challenge (по умолчанию только по пути; хост можно добавить при желании)
+cert_manager_traefik_router_rule: "PathPrefix(`/.well-known/acme-challenge/`)"
+
+# Включить ли автолинк сертификатов в /etc/ssl/{{ app_domain_name }} на нодах haproxy
+# (чтобы HAProxy мог брать fullchain/privkey из certbot live/)
+cert_manager_link_to_haproxy_ssl_dir: false
+cert_manager_haproxy_ssl_dir: "/etc/ssl/{{ app_domain_name }}"

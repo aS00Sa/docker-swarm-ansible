@@ -43,13 +43,15 @@ providers:
     directory: /etc/traefik/dynamic
     watch: true
 
+{% if traefik_acme_enabled | default(false) | bool %}
 certificatesResolvers:
-  letsencrypt:
+  {{ traefik_acme_resolver_name | default('letsencrypt') }}:
     acme:
-      email: "admin@sprtbt.com"
-      storage: "/etc/traefik/acme.json"
+      email: "{{ traefik_acme_email | default('admin@' ~ app_domain_name) }}"
+      storage: "{{ traefik_acme_storage_path | default('/etc/traefik/acme.json') }}"
       httpChallenge:
         entryPoint: web
+{% endif %}
 
 log:
   level: INFO

@@ -1,0 +1,10 @@
+---
+# ansible-playbook -i inventory-prod.ini playbooks/plays/12-cert-manager.yml
+- hosts: cert_manager
+  tags: [cert-manager]
+  roles:
+    - role: ../roles/cluster-defaults
+  tasks:
+    - import_role:
+        name: ../roles/cert-manager
+      tags: [cert-manager]

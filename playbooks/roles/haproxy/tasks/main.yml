@@ -38,6 +38,14 @@
     force_apt_get: true
     update_cache: true
 
+- name: Ensure HAProxy upstream includes dir exists
+  become: true
+  become_method: sudo
+  ansible.builtin.file:
+    path: "{{ haproxy_upstreams_include_dir | default('/etc/haproxy/upstreams') }}"
+    state: directory
+    mode: "0755"
+
 - name: CIDR для HAProxy /stats (только при firewall_lockdown и непустом firewall_trusted_admin_cidrs из inventory)
   become: true
   become_method: sudo
@@ -67,6 +75,33 @@
       (firewall_trusted_admin_cidrs | default([]))
       | map('trim') | reject('equalto', '') | list | unique | length
     ) == 0
+
+- name: Check TLS cert files exist for HAProxy HTTPS bind
+  become: true
+  become_method: sudo
+  ansible.builtin.stat:
+    follow: true
+    path: "{{ item }}"
+  register: haproxy_tls_files
+  loop:
+    - "{{ haproxy_ssl_fullchain_path | default('/etc/ssl/' ~ app_domain_name ~ '/fullchain.pem') }}"
+    - "{{ haproxy_ssl_privkey_path | default('/etc/ssl/' ~ app_domain_name ~ '/privkey.pem') }}"
+
+- name: Decide if HAProxy HTTPS frontend should be enabled
+  ansible.builtin.set_fact:
+    haproxy_https_enabled: >-
+      {{
+        (haproxy_tls_files.results | map(attribute='stat.exists') | select('equalto', false) | list | length) == 0
+      }}
+
+- name: Warn when HAProxy HTTPS is temporarily disabled (TLS files missing)
+  when: not (haproxy_https_enabled | default(false) | bool)
+  ansible.builtin.debug:
+    msg: >-
+      TLS файлы отсутствуют, запускаю HAProxy только с HTTP (frontend https_in отключён).
+      Ожидаемые файлы:
+      {{ haproxy_ssl_fullchain_path | default('/etc/ssl/' ~ app_domain_name ~ '/fullchain.pem') }},
+      {{ haproxy_ssl_privkey_path | default('/etc/ssl/' ~ app_domain_name ~ '/privkey.pem') }}.
 
 - name: Create HAProxy config file
   become: true

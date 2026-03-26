@@ -1,0 +1,115 @@
+# cert-manager stack (certbot + webroot)
+version: "3.8"
+
+services:
+  certbot:
+    image: certbot/certbot:latest
+    command:
+      - /bin/sh
+      - -ec
+      - |
+        umask 077
+        echo "cert-manager: initial obtain/renew (webroot)"
+        certbot certonly --webroot \
+          -w /var/www/certbot \
+          {% for d in cert_manager_domains | default([app_domain_name]) %}-d {{ d }} {% endfor %} \
+          --email "{{ cert_manager_email }}" \
+          --agree-tos \
+          --non-interactive \
+          --keep-until-expiring
+        echo "cert-manager: enter renew loop"
+        while true; do
+          certbot renew --webroot -w /var/www/certbot --quiet || true
+          sleep 12h
+        done
+    volumes:
+      - cert_manager_letsencrypt:/etc/letsencrypt
+      - cert_manager_webroot:/var/www/certbot
+    networks:
+      - {{ cert_manager_network_name }}
+    deploy:
+      mode: replicated
+      replicas: 1
+{% set _cm_constraints = cert_manager_placement_constraints | default([]) %}
+{% if _cm_constraints | length > 0 %}
+      placement:
+        constraints:
+{% for c in _cm_constraints %}
+          - {{ c }}
+{% endfor %}
+{% endif %}
+
+  certbot-web:
+    image: nginx:alpine
+    command:
+      - /bin/sh
+      - -ec
+      - |
+        cat > /etc/nginx/conf.d/default.conf <<'EOF'
+        server {
+          listen 80;
+          server_name _;
+          location /.well-known/acme-challenge/ {
+            root /var/www/certbot;
+            default_type "text/plain";
+            try_files $uri =404;
+          }
+          location = /.well-known/acme-challenge/healthz {
+            return 200 "ok\n";
+          }
+          location / {
+            return 404;
+          }
+        }
+        EOF
+        nginx -g 'daemon off;'
+    volumes:
+      - cert_manager_webroot:/var/www/certbot:ro
+    networks:
+      - {{ cert_manager_network_name }}
+    deploy:
+      labels:
+{% if cert_manager_enable_traefik_router | default(true) %}
+        - "traefik.enable=true"
+        - "traefik.http.routers.certmanager-acme.rule={{ cert_manager_traefik_router_rule }}"
+        - "traefik.http.routers.certmanager-acme.entrypoints=web"
+        - "traefik.http.routers.certmanager-acme.priority=10000"
+        - "traefik.http.services.certmanager-acme.loadbalancer.server.port=80"
+{% else %}
+        - "traefik.enable=false"
+{% endif %}
+      mode: replicated
+      replicas: 1
+{% if _cm_constraints | length > 0 %}
+      placement:
+        constraints:
+{% for c in _cm_constraints %}
+          - {{ c }}
+{% endfor %}
+{% endif %}
+{% if cert_manager_publish_http | default(false) %}
+    ports:
+      - target: 80
+        published: {{ cert_manager_publish_http_port | default(8088) }}
+        protocol: tcp
+        mode: host
+{% endif %}
+
+networks:
+  {{ cert_manager_network_name }}:
+    external: true
+    name: {{ cert_manager_network_name }}
+
+volumes:
+  cert_manager_letsencrypt:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: {{ gluster_mount_path }}/{{ cert_manager_gfs_subdir }}/{{ cert_manager_letsencrypt_subdir }}
+  cert_manager_webroot:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: {{ gluster_mount_path }}/{{ cert_manager_gfs_subdir }}/{{ cert_manager_webroot_subdir }}

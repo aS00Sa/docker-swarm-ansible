@@ -24,5 +24,6 @@
 - import_playbook: plays/07-swarm-labels.yml
 - import_playbook: plays/08-portainer.yml
 - import_playbook: plays/09-traefik.yml
+- import_playbook: plays/12-cert-manager.yml
 - import_playbook: plays/10-haproxy.yml
 - import_playbook: plays/11-firewall-iptables.yml

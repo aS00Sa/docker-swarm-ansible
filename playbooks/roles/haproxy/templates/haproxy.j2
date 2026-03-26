@@ -1,3 +1,15 @@
+{# Upstream стратегия #}
+{% set _traefik_nodes = (groups['traefik'] | default([])) %}
+{% set _has_traefik = (_traefik_nodes | length) > 0 %}
+{% set _mode = (haproxy_upstream_mode | default('auto')) %}
+{% set _use_traefik = (_mode == 'traefik') or (_mode == 'auto' and _has_traefik) %}
+{% set _use_includes = (_mode == 'includes') or (_mode == 'auto' and (not _has_traefik)) %}
+
+{# IMPORTANT: `include` must be at top-level, not inside `defaults` section. #}
+{% if _use_includes %}
+include {{ haproxy_upstreams_include_dir | default('/etc/haproxy/upstreams') }}/*.cfg
+{% endif %}
+
 global
   maxconn 50000
   maxpipes 50000
@@ -46,17 +58,31 @@ defaults
   stats realm Haproxy\ Statistics
   stats auth {{haproxy_stats_user}}:{{haproxy_stats_password}}
 
-# Upstream — Traefik на [traefik] (иначе swarm_managers), порт traefik_http_port.
-{% set _traefik_up = (groups['traefik'] | default([])) %}
-{% set _traefik_up = (_traefik_up | length > 0) | ternary(_traefik_up, groups['swarm_managers'] | default([])) %}
+{% if _use_traefik %}
 backend docker_swarm_layer7
   mode http
   balance source
   option tcp-check
   option log-health-checks
-{% for h in _traefik_up %}
+{% for h in _traefik_nodes %}
   server traefik_{{ loop.index }} {{ hostvars[h].ansible_host | default(h) }}:{{ traefik_http_port | default(80) }} check port {{ traefik_http_port | default(80) }}
 {% endfor %}
+{% endif %}
+
+{# ACME HTTP-01 challenge backend (cert-manager) #}
+backend certmanager_acme_http01
+  mode http
+  balance roundrobin
+  option httpchk GET /.well-known/acme-challenge/healthz
+{% if (cert_manager_deploy_method | default('compose')) == 'compose' %}
+  # docker compose on this host → publish certbot-web on loopback and proxy locally
+  server certmgr_local 127.0.0.1:{{ cert_manager_publish_http_port | default(8088) }} check
+{% else %}
+{% set _cm_up = (groups['cert_manager'] | default([])) %}
+{% for h in _cm_up %}
+  server certmgr_{{ loop.index }} {{ hostvars[h].ansible_host | default(h) }}:{{ cert_manager_publish_http_port | default(8088) }} check
+{% endfor %}
+{% endif %}
 
 {% if haproxy_acl_enabled | default(false) %}
 {% if haproxy_allow_host_regex | default([]) | length > 0 %}
@@ -88,6 +114,8 @@ frontend http-in
   http-request deny deny_status 403 if { path_beg /stats }
 {% endif %}
 {% endif %}
+  acl acme_challenge path_beg /.well-known/acme-challenge/
+  use_backend certmanager_acme_http01 if acme_challenge
 {% if haproxy_acl_enabled | default(false) %}
   acl good_host hdr_reg(host) -i{% for r in _host_patterns %} {{ r }}{% endfor %}
 {% if haproxy_allow_uri_regex | default([]) | length > 0 %}
@@ -101,10 +129,15 @@ frontend http-in
   # uncomment to redirect http connects to https
   #redirect scheme https
 
+{% if _use_traefik %}
   default_backend docker_swarm_layer7
+{% else %}
+  default_backend {{ haproxy_includes_default_backend | default('direct_layer7') }}
+{% endif %}
 
+{% if haproxy_https_enabled | default(true) | bool %}
 frontend https_in
-  bind {{ haproxy_bind_ip | default(ansible_default_ipv4.address) }}:{{ haproxy_https_port | default(443) }} ssl crt /etc/ssl/{{app_domain_name}}/fullchain.pem crt-key /etc/ssl/{{app_domain_name}}/privkey.pem
+  bind {{ haproxy_bind_ip | default(ansible_default_ipv4.address) }}:{{ haproxy_https_port | default(443) }} ssl crt {{ haproxy_ssl_fullchain_path | default('/etc/ssl/' ~ app_domain_name ~ '/fullchain.pem') }} crt-key {{ haproxy_ssl_privkey_path | default('/etc/ssl/' ~ app_domain_name ~ '/privkey.pem') }}
   mode http
   http-request add-header X-Forwarded-Proto https if { ssl_fc }
 {% if firewall_lockdown | default(false) | bool %}
@@ -124,4 +157,9 @@ frontend https_in
   http-request deny deny_status 403 if !good_host_ssl
 {% endif %}
 {% endif %}
+{% if _use_traefik %}
   default_backend docker_swarm_layer7
+{% else %}
+  default_backend {{ haproxy_includes_default_backend | default('direct_layer7') }}
+{% endif %}
+{% endif %}
