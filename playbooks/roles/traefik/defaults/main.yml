@@ -32,3 +32,18 @@ traefik_acme_enabled: false
 traefik_acme_email: "admin@{{ app_domain_name }}"
 traefik_acme_storage_path: "/etc/traefik/acme.json"
 traefik_acme_resolver_name: letsencrypt
+
+# Дополнительные динамические upstream-сайты для Traefik (опционально).
+# Формат элемента:
+# - name: gitlab
+#   domains: [gitlab.example.com]
+#   entrypoints: [websecure]            # optional, default: [websecure]
+#   tls: true                           # optional, default: true
+#   tls_cert_resolver: letsencrypt      # optional; если пусто, TLS без certResolver
+#   upstream_servers:                   # список URL upstream'ов (обязателен)
+#     - http://10.20.10.11:8081
+#     - http://10.20.10.12:8081
+# Если список пуст — шаблон generated-upstreams.yml.j2 автогенерирует сайты из cert_manager_certs
+# и направляет их на backend-ноды (swarm_workers, иначе test_backend) на порт ниже.
+traefik_upstream_sites: []
+traefik_generated_upstream_port: 80
