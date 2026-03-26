@@ -28,6 +28,10 @@ cert_manager_email: "admin@{{ app_domain_name }}"
 # Список доменов для сертификата (включая поддомены при необходимости)
 cert_manager_domains:
   - "{{ app_domain_name }}"
+# Имя lineage в /etc/letsencrypt/live/<name> для линковки в HAProxy.
+# По умолчанию совпадает с app_domain_name, но можно явно задать, например:
+# cert_manager_cert_name: gitlab.btnxlocal.ru
+cert_manager_cert_name: "{{ app_domain_name }}"
 
 # Где хранить данные certbot (на общем GFS)
 cert_manager_gfs_subdir: cert_manager_gfs

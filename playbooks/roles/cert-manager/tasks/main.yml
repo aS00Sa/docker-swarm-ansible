@@ -169,14 +169,14 @@
 
     - name: Symlink fullchain.pem from cert-manager (GFS)
       ansible.builtin.file:
-        src: "{{ gluster_mount_path }}/{{ cert_manager_gfs_subdir }}/{{ cert_manager_letsencrypt_subdir }}/live/{{ app_domain_name }}/fullchain.pem"
+        src: "{{ gluster_mount_path }}/{{ cert_manager_gfs_subdir }}/{{ cert_manager_letsencrypt_subdir }}/live/{{ cert_manager_cert_name | default(app_domain_name) }}/fullchain.pem"
         dest: "{{ cert_manager_haproxy_ssl_dir }}/fullchain.pem"
         state: link
         force: true
 
     - name: Symlink privkey.pem from cert-manager (GFS)
       ansible.builtin.file:
-        src: "{{ gluster_mount_path }}/{{ cert_manager_gfs_subdir }}/{{ cert_manager_letsencrypt_subdir }}/live/{{ app_domain_name }}/privkey.pem"
+        src: "{{ gluster_mount_path }}/{{ cert_manager_gfs_subdir }}/{{ cert_manager_letsencrypt_subdir }}/live/{{ cert_manager_cert_name | default(app_domain_name) }}/privkey.pem"
         dest: "{{ cert_manager_haproxy_ssl_dir }}/privkey.pem"
         state: link
         force: true

@@ -38,7 +38,7 @@ services:
           location /.well-known/acme-challenge/ {
             root /var/www/certbot;
             default_type "text/plain";
-            try_files $uri =404;
+            try_files $$uri =404;
           }
           location = /.well-known/acme-challenge/healthz {
             return 200 "ok\n";
