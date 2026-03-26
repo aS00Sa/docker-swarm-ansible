@@ -26,11 +26,19 @@ entryPoints:
     address: ":{{ traefik_internal_api_port }}"
 
 providers:
+{% set _eff_method = traefik_effective_deploy_method | default(traefik_deploy_method | default('auto')) %}
+{% if _eff_method == 'compose' %}
+  docker:
+    endpoint: "unix:///var/run/docker.sock"
+    watch: true
+    exposedByDefault: false
+{% else %}
   swarm:
     endpoint: "unix:///var/run/docker.sock"
     watch: true
     exposedByDefault: false
     network: "{{ traefik_network_name }}"
+{% endif %}
   file:
     directory: /etc/traefik/dynamic
     watch: true

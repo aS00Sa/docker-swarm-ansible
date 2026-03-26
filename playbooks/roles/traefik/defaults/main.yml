@@ -16,9 +16,6 @@ traefik_gfs_subdir: traefik_gfs
 # Подкаталог на GFS с динамическими конфигами Traefik
 traefik_dynamic_subdir: dynamic
 
-# Подкаталог внутри dynamic для "сайтов"/upstreams (ручные файлы)
-traefik_dynamic_sites_subdir: sites
-
 # Выгружать сгенерированный compose-файл на контроллер (Ansible controller)
 traefik_export_stack_local: true
 
@@ -52,5 +49,4 @@ traefik_acme_resolver_name: letsencrypt
 # - upstream_port: 8081
 # - upstream_scheme: http
 
-# Создавать примерные файлы в dynamic/sites на основе cert_manager_certs (без перезаписи существующих).
-traefik_generate_sites_examples: true
+# Роль формирует только активные dynamic-конфиги в корне dynamic.

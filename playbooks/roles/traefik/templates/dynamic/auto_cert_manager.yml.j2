@@ -1,0 +1,79 @@
+{% set _c = cert_item %}
+{% set _cn = (_c.cert_name | default(_c.domains | first)) %}
+{% set _name = (_cn | regex_replace('[^a-zA-Z0-9_-]', '-') | lower) %}
+{% set _servers_transport = 'upstream-long-timeouts-' ~ _name %}
+{% set _c_servers = _c.upstream_servers | default([]) %}
+{% set _c_host = _c.upstream_host | default('') | trim %}
+{% set _c_scheme = _c.upstream_scheme | default('http') %}
+{% set _c_port = _c.upstream_port | default(80) %}
+{% set _router_name = _c.router_name | default('site-' ~ _name) %}
+{% set _service_name = _c.service_name | default('svc-' ~ _name) %}
+{% set _middlewares = _c.middlewares | default([]) %}
+{% set _mw_compress_name = _name ~ '-compress' %}
+{% set _mw_hsts_name = _name ~ '-hsts' %}
+{% set _mw_retry_name = _name ~ '-retry' %}
+{% set _backend_hosts = groups.get('swarm_workers', []) %}
+{% if _backend_hosts | length == 0 %}
+{% set _backend_hosts = groups.get('test_backend', []) %}
+{% endif %}
+tls:
+  certificates:
+    - certFile: "/etc/traefik/letsencrypt/live/{{ _cn }}/fullchain.pem"
+      keyFile: "/etc/traefik/letsencrypt/live/{{ _cn }}/privkey.pem"
+
+http:
+{% if _middlewares | length > 0 %}
+  middlewares:
+{% if 'compress' in _middlewares %}
+    {{ _mw_compress_name }}:
+      compress: {}
+{% endif %}
+{% if 'hsts' in _middlewares %}
+    {{ _mw_hsts_name }}:
+      headers:
+        stsSeconds: 31536000
+        stsIncludeSubdomains: true
+        stsPreload: true
+{% endif %}
+{% if 'retry' in _middlewares %}
+    {{ _mw_retry_name }}:
+      retry:
+        attempts: 3
+        initialInterval: "100ms"
+{% endif %}
+{% endif %}
+
+  serversTransports:
+    {{ _servers_transport }}:
+      forwardingTimeouts:
+        dialTimeout: 600s
+        responseHeaderTimeout: 0s
+        idleConnTimeout: 0s
+
+  routers:
+    {{ _router_name }}:
+      rule: "{% for d in (_c.domains | default([])) %}Host(`{{ d }}`){% if not loop.last %} || {% endif %}{% endfor %}"
+      service: {{ _service_name }}
+      entryPoints: [websecure]
+      tls: {}
+{% if _middlewares | length > 0 %}
+      middlewares: [{% if 'compress' in _middlewares %}{{ _mw_compress_name }}{% endif %}{% if 'compress' in _middlewares and ('hsts' in _middlewares or 'retry' in _middlewares) %}, {% endif %}{% if 'hsts' in _middlewares %}{{ _mw_hsts_name }}{% endif %}{% if 'hsts' in _middlewares and 'retry' in _middlewares %}, {% endif %}{% if 'retry' in _middlewares %}{{ _mw_retry_name }}{% endif %}]
+{% endif %}
+
+  services:
+    {{ _service_name }}:
+      loadBalancer:
+        serversTransport: {{ _servers_transport }}
+        servers:
+{% if _c_servers | length > 0 %}
+{% for u in _c_servers %}
+          - { url: "{{ u }}" }
+{% endfor %}
+{% elif _c_host | length > 0 %}
+          - { url: "{{ _c_scheme }}://{{ _c_host }}:{{ _c_port }}" }
+{% else %}
+{% for h in _backend_hosts %}
+          - { url: "{{ _c_scheme }}://{{ hostvars[h].ansible_host | default(h) }}:{{ _c_port }}" }
+{% endfor %}
+{% endif %}
+        passHostHeader: true

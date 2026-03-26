@@ -1,6 +1,14 @@
-{# Example site dynamic config. Vars: site_name, domains, upstream_port #}
+{# Example site dynamic config.
+   Vars: site_name, domains, upstream_port, cert_name(optional), upstream_scheme(optional) #}
 {# Style aligned with auto_tls_from_cert_manager.yml.j2 and other dynamic templates. #}
 {% set _name = (site_name | default('site-example') | regex_replace('[^a-zA-Z0-9_-]', '-') | lower) %}
+{% set _cert_name = cert_name | default((domains | default([]) | first) | default(site_name | default('site-example'))) %}
+{% set _upstream_scheme = upstream_scheme | default('http') %}
+tls:
+  certificates:
+    - certFile: "/etc/traefik/letsencrypt/live/{{ _cert_name }}/fullchain.pem"
+      keyFile: "/etc/traefik/letsencrypt/live/{{ _cert_name }}/privkey.pem"
+
 http:
   serversTransports:
     upstream-long-timeouts:
@@ -21,7 +29,7 @@ http:
       loadBalancer:
         serversTransport: upstream-long-timeouts
         servers:
-          # TODO: replace with real upstream servers
-          - { url: "http://127.0.0.1:{{ upstream_port | default(80) }}" }
+          # TODO: replace with real upstream servers (or add multiple servers)
+          - { url: "{{ _upstream_scheme }}://127.0.0.1:{{ upstream_port | default(80) }}" }
         passHostHeader: true
 

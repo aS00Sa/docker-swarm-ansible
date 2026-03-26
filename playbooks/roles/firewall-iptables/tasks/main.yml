@@ -238,7 +238,8 @@
                haproxy_https_port | default(443) | int,
                haproxy_stats_port | default(80) | int,
                traefik_http_port | default(8080) | int,
-               traefik_https_port | default(8443) | int]
+               traefik_https_port | default(8443) | int,
+               8081]
             ) | unique | sort | list
           }}
 
