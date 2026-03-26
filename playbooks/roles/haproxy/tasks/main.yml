@@ -70,9 +70,12 @@
         and ((groups['traefik'] | default([])) | length) > 0
         and (inventory_hostname in (groups['traefik'] | default([])))
         and (
-          ((groups['swarm_managers'] | default([])) | length)
-          + ((groups['swarm_workers'] | default([])) | length)
-        ) > 0
+          (
+            ((groups['swarm_managers'] | default([])) | length)
+            + ((groups['swarm_workers'] | default([])) | length)
+          ) > 0
+          or (traefik_deploy_method | default('stack')) == 'compose'
+        )
       )
   become: true
   become_method: sudo

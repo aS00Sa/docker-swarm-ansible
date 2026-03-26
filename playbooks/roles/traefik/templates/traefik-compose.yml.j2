@@ -1,0 +1,20 @@
+version: "3.8"
+
+services:
+  traefik:
+    image: traefik:{{ traefik_version }}
+    command:
+      - "--configFile=/etc/traefik/traefik.yml"
+    environment:
+      TZ: Europe/Moscow
+    ports:
+      - "{{ haproxy_traefik_web_port | default(8080) }}:{{ haproxy_traefik_web_port | default(8080) }}"
+      - "{{ haproxy_traefik_websecure_port | default(8443) }}:{{ haproxy_traefik_websecure_port | default(8443) }}"
+      - "{{ traefik_internal_api_port }}:{{ traefik_internal_api_port }}"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - "{{ gluster_mount_path }}/{{ traefik_gfs_subdir }}/traefik.yml:/etc/traefik/traefik.yml:ro"
+      - "{{ gluster_mount_path }}/{{ traefik_gfs_subdir }}/{{ traefik_dynamic_subdir }}:/etc/traefik/dynamic:ro"
+      - "{{ gluster_mount_path }}/{{ traefik_gfs_subdir }}:/etc/traefik"
+    restart: unless-stopped
+

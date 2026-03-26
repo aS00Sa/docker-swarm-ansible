@@ -16,6 +16,9 @@ traefik_gfs_subdir: traefik_gfs
 # Подкаталог на GFS с динамическими конфигами Traefik
 traefik_dynamic_subdir: dynamic
 
+# Подкаталог внутри dynamic для "сайтов"/upstreams (ручные файлы)
+traefik_dynamic_sites_subdir: sites
+
 # Выгружать сгенерированный compose-файл на контроллер (Ansible controller)
 traefik_export_stack_local: true
 
@@ -25,6 +28,15 @@ traefik_deploy_mode: global
 traefik_replicas: 1
 # Привязка к leader применяется только при replicated и replicas=1.
 traefik_pin_to_leader: true
+
+# Режим деплоя Traefik:
+# - stack: docker stack deploy (Swarm)
+# - compose: docker compose up -d (одиночный хост без Swarm)
+traefik_deploy_method: compose
+
+# Каталог проекта для docker compose (deploy_method=compose)
+# По умолчанию размещаем compose-файл на общем GFS рядом с конфигами Traefik.
+traefik_compose_project_dir: "{{ gluster_mount_path }}/{{ traefik_gfs_subdir }}"
 
 # ACME/Let's Encrypt внутри Traefik.
 # В платформенной схеме с HAProxy+cert-manager это должно быть выключено, иначе несколько Traefik инстансов будут конкурировать за renew.

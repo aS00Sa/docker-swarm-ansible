@@ -5,7 +5,8 @@
 {% set _swarm_nodes_count = (groups['swarm_managers'] | default([]) | length) + (groups['swarm_workers'] | default([]) | length) %}
 {% set _swarm_ready = _swarm_nodes_count > 0 %}
 {% set _traefik_on_this_host = inventory_hostname in (groups['traefik'] | default([])) %}
-{% set _route_to_traefik = (_mode == 'traefik' and _has_traefik) or (_mode == 'auto' and _has_traefik and _swarm_ready and _traefik_on_this_host) %}
+{% set _traefik_compose = (traefik_deploy_method | default('stack')) == 'compose' %}
+{% set _route_to_traefik = (_mode == 'traefik' and _has_traefik) or (_mode == 'auto' and _has_traefik and _traefik_on_this_host and (_swarm_ready or _traefik_compose)) %}
 
 global
   maxconn 50000
