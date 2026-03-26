@@ -27,7 +27,7 @@ cert_manager_stop_on_non_master: true
 # Email для Let's Encrypt
 cert_manager_email: "admin@{{ app_domain_name }}"
 
-# Список доменов для сертификата (включая поддомены при необходимости)
+# Список доменов для сертификата (legacy режим; используется только если cert_manager_certs пуст)
 cert_manager_domains:
   - "{{ app_domain_name }}"
 # Имя lineage в /etc/letsencrypt/live/<name> для линковки в HAProxy.
@@ -35,6 +35,11 @@ cert_manager_domains:
 # cert_manager_cert_name: gitlab.btnxlocal.ru
 cert_manager_cert_name: "{{ app_domain_name }}"
 
+# Список отдельных сертификатов (опционально).
+# Если задан непустым — роль выпустит отдельные lineage по каждому элементу
+# и будет продлевать их в одном renew-loop.
+# Элемент: { cert_name: <lineage-name>, domains: [<domain>], email: <optional> }.
+cert_manager_certs: []
 # Где хранить данные certbot (на общем GFS)
 cert_manager_gfs_subdir: cert_manager_gfs
 cert_manager_letsencrypt_subdir: letsencrypt
@@ -56,8 +61,9 @@ cert_manager_publish_http_port: 8088
 #   - "node.labels.cert_manager == true"
 cert_manager_placement_constraints: []
 
-# Если true — добавляет Traefik labels на webroot сервис для HTTP-01
-cert_manager_enable_traefik_router: true
+# Если true — добавляет Traefik labels на webroot сервис для HTTP-01.
+# По умолчанию Traefik не используется (HAProxy/локальный nginx отдают challenge).
+cert_manager_enable_traefik_router: false
 
 # Правило роутера для challenge (по умолчанию только по пути; хост можно добавить при желании)
 cert_manager_traefik_router_rule: "PathPrefix(`/.well-known/acme-challenge/`)"

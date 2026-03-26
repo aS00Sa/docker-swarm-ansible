@@ -11,6 +11,8 @@ services:
       - |
         umask 077
         echo "cert-manager: initial obtain/renew (webroot)"
+        {% set _cm_certs = cert_manager_certs | default([]) %}
+        {% if _cm_certs | length == 0 %}
         certbot certonly --webroot \
           -w /var/www/certbot \
           {% for d in cert_manager_domains | default([app_domain_name]) %}-d {{ d }} {% endfor %} \
@@ -20,6 +22,20 @@ services:
           --non-interactive \
           --expand \
           --keep-until-expiring
+        {% else %}
+        {% for c in _cm_certs %}
+        echo "cert-manager: ensure cert {{ c.cert_name | default(c.domains | first) }}"
+        certbot certonly --webroot \
+          -w /var/www/certbot \
+          {% for d in (c.domains | default([])) %}-d {{ d }} {% endfor %} \
+          --cert-name "{{ c.cert_name | default(c.domains | first) }}" \
+          --email "{{ (c.email | default(cert_manager_email)) }}" \
+          --agree-tos \
+          --non-interactive \
+          --expand \
+          --keep-until-expiring
+        {% endfor %}
+        {% endif %}
         echo "cert-manager: enter renew loop"
         while true; do
           certbot renew --webroot -w /var/www/certbot --quiet || true
@@ -72,7 +88,7 @@ services:
       - {{ cert_manager_network_name }}
     deploy:
       labels:
-{% if cert_manager_enable_traefik_router | default(true) %}
+{% if cert_manager_enable_traefik_router | default(false) %}
         - "traefik.enable=true"
         - "traefik.http.routers.certmanager-acme.rule={{ cert_manager_traefik_router_rule }}"
         - "traefik.http.routers.certmanager-acme.entrypoints=web"
