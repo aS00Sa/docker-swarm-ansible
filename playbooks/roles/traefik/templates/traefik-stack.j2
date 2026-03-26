@@ -12,12 +12,12 @@ services:
     environment:
       TZ: Europe/Moscow
     ports:
-      - target: {{ traefik_http_port }}
-        published: {{ traefik_http_port }}
+      - target: {{ haproxy_traefik_web_port | default(8080) }}
+        published: {{ haproxy_traefik_web_port | default(8080) }}
         protocol: tcp
         mode: host
-      - target: {{ traefik_https_port }}
-        published: {{ traefik_https_port }}
+      - target: {{ haproxy_traefik_websecure_port | default(8443) }}
+        published: {{ haproxy_traefik_websecure_port | default(8443) }}
         protocol: tcp
         mode: host
       - target: {{ traefik_internal_api_port }}
@@ -29,6 +29,7 @@ services:
       - traefik-acme:/etc/traefik
       - {{ gluster_mount_path }}/{{ traefik_gfs_subdir }}/traefik.yml:/etc/traefik/traefik.yml:ro
       - {{ gluster_mount_path }}/{{ traefik_gfs_subdir }}/{{ traefik_dynamic_subdir }}:/etc/traefik/dynamic:ro
+      - {{ gluster_mount_path }}/{{ cert_manager_gfs_subdir | default('cert_manager_gfs') }}/{{ cert_manager_letsencrypt_subdir | default('letsencrypt') }}:/etc/traefik/letsencrypt:ro
       - traefik_data:/data
     networks:
       - {{ traefik_network_name }}

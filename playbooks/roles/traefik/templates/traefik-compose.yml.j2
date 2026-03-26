@@ -15,6 +15,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       - "{{ gluster_mount_path }}/{{ traefik_gfs_subdir }}/traefik.yml:/etc/traefik/traefik.yml:ro"
       - "{{ gluster_mount_path }}/{{ traefik_gfs_subdir }}/{{ traefik_dynamic_subdir }}:/etc/traefik/dynamic:ro"
+      - "{{ gluster_mount_path }}/{{ cert_manager_gfs_subdir | default('cert_manager_gfs') }}/{{ cert_manager_letsencrypt_subdir | default('letsencrypt') }}:/etc/traefik/letsencrypt:ro"
       - "{{ gluster_mount_path }}/{{ traefik_gfs_subdir }}:/etc/traefik"
     restart: unless-stopped
 

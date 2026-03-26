@@ -1,6 +1,6 @@
 ---
-traefik_http_port: 80
-traefik_https_port: 443
+traefik_http_port: 8080
+traefik_https_port: 8443
 traefik_internal_api_port: 9091
 traefik_network_name: traefik_network
 traefik_app_name: traefik_app
@@ -30,9 +30,10 @@ traefik_replicas: 1
 traefik_pin_to_leader: true
 
 # Режим деплоя Traefik:
+# - auto: если есть swarm (есть хотя бы 1 host в swarm_managers или swarm_workers) → stack, иначе → compose
 # - stack: docker stack deploy (Swarm)
 # - compose: docker compose up -d (одиночный хост без Swarm)
-traefik_deploy_method: compose
+traefik_deploy_method: auto
 
 # Каталог проекта для docker compose (deploy_method=compose)
 # По умолчанию размещаем compose-файл на общем GFS рядом с конфигами Traefik.
@@ -45,17 +46,11 @@ traefik_acme_email: "admin@{{ app_domain_name }}"
 traefik_acme_storage_path: "/etc/traefik/acme.json"
 traefik_acme_resolver_name: letsencrypt
 
-# Дополнительные динамические upstream-сайты для Traefik (опционально).
-# Формат элемента:
-# - name: gitlab
-#   domains: [gitlab.example.com]
-#   entrypoints: [websecure]            # optional, default: [websecure]
-#   tls: true                           # optional, default: true
-#   tls_cert_resolver: letsencrypt      # optional; если пусто, TLS без certResolver
-#   upstream_servers:                   # список URL upstream'ов (обязателен)
-#     - http://10.20.10.11:8081
-#     - http://10.20.10.12:8081
-# Если список пуст — шаблон generated-upstreams.yml.j2 автогенерирует сайты из cert_manager_certs
-# и направляет их на backend-ноды (swarm_workers, иначе test_backend) на порт ниже.
-traefik_upstream_sites: []
-traefik_generated_upstream_port: 80
+# Генерация upstream-сайтов Traefik происходит из cert_manager_certs.
+# В cert_manager_certs можно задавать опционально:
+# - upstream_servers: ["http://10.0.0.10:8081", "http://10.0.0.11:8081"]
+# - upstream_port: 8081
+# - upstream_scheme: http
+
+# Создавать примерные файлы в dynamic/sites на основе cert_manager_certs (без перезаписи существующих).
+traefik_generate_sites_examples: true

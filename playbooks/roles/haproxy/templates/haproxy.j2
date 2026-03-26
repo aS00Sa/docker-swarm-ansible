@@ -5,8 +5,10 @@
 {% set _swarm_nodes_count = (groups['swarm_managers'] | default([]) | length) + (groups['swarm_workers'] | default([]) | length) %}
 {% set _swarm_ready = _swarm_nodes_count > 0 %}
 {% set _traefik_on_this_host = inventory_hostname in (groups['traefik'] | default([])) %}
-{% set _traefik_compose = (traefik_deploy_method | default('stack')) == 'compose' %}
-{% set _route_to_traefik = (_mode == 'traefik' and _has_traefik) or (_mode == 'auto' and _has_traefik and _traefik_on_this_host and (_swarm_ready or _traefik_compose)) %}
+{% set _traefik_method = traefik_deploy_method | default('auto') %}
+{% set _compose_expected = (_traefik_method == 'compose') or ((_traefik_method == 'auto') and (not _swarm_ready)) %}
+{% set _traefik_ready = _swarm_ready or _compose_expected %}
+{% set _route_to_traefik = (_traefik_ready and _has_traefik) and ((_mode == 'traefik') or (_mode == 'auto' and _traefik_on_this_host)) %}
 
 global
   maxconn 50000
@@ -75,6 +77,15 @@ backend traefik_websecure
 {% for h in _traefik_nodes %}
   server traefik_websecure_{{ loop.index }} {{ hostvars[h].ansible_host | default(h) }}:{{ haproxy_traefik_websecure_port | default(8443) }} ssl verify none check port {{ haproxy_traefik_websecure_port | default(8443) }}
 {% endfor %}
+
+backend traefik_websecure_tcp
+  mode tcp
+  balance source
+  option tcp-check
+  option log-health-checks
+{% for h in _traefik_nodes %}
+  server traefik_websecure_tcp_{{ loop.index }} {{ hostvars[h].ansible_host | default(h) }}:{{ haproxy_traefik_websecure_port | default(8443) }} send-proxy-v2 check port {{ haproxy_traefik_websecure_port | default(8443) }}
+{% endfor %}
 {% endif %}
 
 {# Safe fallback backend for include-mode / non-swarm mode. #}
@@ -129,18 +140,8 @@ frontend http-in
 {% endif %}
   acl acme_challenge path_beg /.well-known/acme-challenge/
   use_backend certmanager_acme_http01 if acme_challenge
-{% if haproxy_generate_upstreams_from_cert_manager_certs | default(true) | bool %}
-{% set _cm_certs = cert_manager_certs | default([]) %}
-{% if (_cm_certs | length) > 0 and _route_to_traefik %}
-{% for c in _cm_certs %}
-{% set _cn = (c.cert_name | default(c.domains | first)) %}
-{% set _acl = 'host_' ~ (_cn | regex_replace('[^A-Za-z0-9_.-]', '_') | replace('.', '_')) %}
-{% set _bk = 'bk_traefik_http_' ~ (_cn | regex_replace('[^A-Za-z0-9_.-]', '_') | replace('.', '_')) %}
-  acl {{ _acl }} hdr(host) -i{% for d in (c.domains | default([])) %} {{ d }}{% endfor %}
-  use_backend {{ _bk }} if {{ _acl }}
-{% endfor %}
-{% endif %}
-{% endif %}
+{# В текущей архитектуре HAProxy делает апстрим до Traefik "по умолчанию".
+   Маршрутизацию по доменам/приложениям делает Traefik (dynamic config), а не HAProxy. #}
 {% if haproxy_acl_enabled | default(false) %}
   acl good_host hdr_reg(host) -i{% for r in _host_patterns %} {{ r }}{% endfor %}
 {% if haproxy_allow_uri_regex | default([]) | length > 0 %}
@@ -157,46 +158,27 @@ frontend http-in
 {% if _route_to_traefik %}
   default_backend traefik_web
 {% else %}
-  default_backend {{ haproxy_includes_default_backend | default('direct_layer7') }}
+  default_backend direct_layer7
 {% endif %}
 
 {% if haproxy_https_enabled | default(true) | bool %}
 frontend https_in
-  bind {{ haproxy_bind_ip | default(ansible_default_ipv4.address) }}:{{ haproxy_https_port | default(443) }} ssl crt {{ haproxy_ssl_fullchain_path | default('/etc/ssl/' ~ app_domain_name ~ '/fullchain.pem') }}
-  mode http
-  http-request add-header X-Forwarded-Proto https if { ssl_fc }
+  bind {{ haproxy_bind_ip | default(ansible_default_ipv4.address) }}:{{ haproxy_https_port | default(443) }}
+  mode tcp
+  tcp-request inspect-delay 5s
+  tcp-request content accept if { req_ssl_hello_type 1 }
 {% if firewall_lockdown | default(false) | bool %}
 {% if _stats_cidrs | length > 0 %}
   acl stats_from_trusted_ssl src -f /etc/haproxy/stats-trusted.cidr
-  http-request deny deny_status 403 if { path_beg /stats } !stats_from_trusted_ssl
+  tcp-request content reject if !stats_from_trusted_ssl
 {% else %}
-  http-request deny deny_status 403 if { path_beg /stats }
-{% endif %}
-{% endif %}
-{% if haproxy_acl_enabled | default(false) %}
-  acl good_host_ssl hdr_reg(host) -i{% for r in _host_patterns %} {{ r }}{% endfor %}
-{% if haproxy_allow_uri_regex | default([]) | length > 0 %}
-  acl good_path_ssl path_reg -i{% for r in haproxy_allow_uri_regex %} {{ r }}{% endfor %}
-  http-request deny deny_status 403 if !good_host_ssl || !good_path_ssl
-{% else %}
-  http-request deny deny_status 403 if !good_host_ssl
-{% endif %}
-{% endif %}
-{% if haproxy_generate_upstreams_from_cert_manager_certs | default(true) | bool %}
-{% set _cm_certs = cert_manager_certs | default([]) %}
-{% if (_cm_certs | length) > 0 and _route_to_traefik %}
-{% for c in _cm_certs %}
-{% set _cn = (c.cert_name | default(c.domains | first)) %}
-{% set _acl = 'host_' ~ (_cn | regex_replace('[^A-Za-z0-9_.-]', '_') | replace('.', '_')) %}
-{% set _bk = 'bk_traefik_https_' ~ (_cn | regex_replace('[^A-Za-z0-9_.-]', '_') | replace('.', '_')) %}
-  acl {{ _acl }} hdr(host) -i{% for d in (c.domains | default([])) %} {{ d }}{% endfor %}
-  use_backend {{ _bk }} if {{ _acl }}
-{% endfor %}
+  tcp-request content reject
 {% endif %}
 {% endif %}
 {% if _route_to_traefik %}
-  default_backend traefik_websecure
+  default_backend traefik_websecure_tcp
 {% else %}
-  default_backend {{ haproxy_includes_default_backend | default('direct_layer7') }}
+  default_backend direct_layer7
 {% endif %}
 {% endif %}
+

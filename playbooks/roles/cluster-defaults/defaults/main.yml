@@ -1,6 +1,7 @@
 ---
 # Дефолты для всего кластера (перекрытие: inventory [all:vars]).
 # Сервисные переменные — в defaults соответствующих ролей (docker, traefik, haproxy, …).
+# База: defaults ролей (docker, portainer, traefik, haproxy, gluster, firewall-iptables) + cluster-defaults (напр. default_ssh_port).
 
 # Порт SSH хостов кластера (Ansible, правила firewall в роли firewall-iptables).
 default_ssh_port: 22

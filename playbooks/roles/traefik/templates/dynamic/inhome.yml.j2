@@ -30,55 +30,55 @@ http:
       rule: "Host(`nhm.account.{{ app_domain_name }}`)"
       service: inhome-account
       entryPoints: [websecure]
-      tls: { certResolver: letsencrypt }
+      tls: {}
       middlewares: [allow-cors]
     inhome-admin:
       rule: "Host(`nhm.admin.{{ app_domain_name }}`)"
       service: inhome-admin
       entryPoints: [websecure]
-      tls: { certResolver: letsencrypt }
+      tls: {}
       middlewares: [allow-cors]
     inhome-nard:
       rule: "Host(`nhm.nard.{{ app_domain_name }}`)"
       service: inhome-nard
       entryPoints: [websecure]
-      tls: { certResolver: letsencrypt }
+      tls: {}
       middlewares: [allow-cors]
     inhome-cupis:
       rule: "Host(`nhm.cupis.{{ app_domain_name }}`)"
       service: inhome-cupis
       entryPoints: [websecure]
-      tls: { certResolver: letsencrypt }
+      tls: {}
       middlewares: [allow-cors]
     inhome-bridge:
       rule: "Host(`nhm.bridge.{{ app_domain_name }}`)"
       service: inhome-bridge
       entryPoints: [websecure]
-      tls: { certResolver: letsencrypt }
+      tls: {}
       middlewares: [allow-cors]
     inhome-boxing:
       rule: "Host(`nhm.boxing.{{ app_domain_name }}`)"
       service: inhome-boxing
       entryPoints: [websecure]
-      tls: { certResolver: letsencrypt }
+      tls: {}
       middlewares: [allow-cors]
     inhome-pps:
       rule: "Host(`nhm.pps.{{ app_domain_name }}`)"
       service: inhome-pps
       entryPoints: [websecure]
-      tls: { certResolver: letsencrypt }
+      tls: {}
       middlewares: [allow-cors]
     inhome-erai:
       rule: "Host(`nhm.erai.{{ app_domain_name }}`)"
       service: inhome-erai
       entryPoints: [websecure]
-      tls: { certResolver: letsencrypt }
+      tls: {}
       middlewares: [allow-cors]
     inhome-worker:
       rule: "Host(`nhm.worker.{{ app_domain_name }}`)"
       service: inhome-worker
       entryPoints: [websecure]
-      tls: { certResolver: letsencrypt }
+      tls: {}
       middlewares: [allow-cors]
 
   services:

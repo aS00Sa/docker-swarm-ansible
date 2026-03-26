@@ -30,25 +30,25 @@ http:
       rule: "Host(`bthm.server.{{ app_domain_name }}`)"
       service: bethome-server
       entryPoints: [websecure]
-      tls: { certResolver: letsencrypt }
+      tls: {}
       middlewares: [allow-cors]
     bethome-cdn:
       rule: "Host(`bthm.cdn.{{ app_domain_name }}`)"
       service: bethome-cdn
       entryPoints: [websecure]
-      tls: { certResolver: letsencrypt }
+      tls: {}
       middlewares: [allow-cors]
     bethome-stream:
       rule: "Host(`bthm.stream.{{ app_domain_name }}`)"
       service: bethome-stream
       entryPoints: [websecure]
-      tls: { certResolver: letsencrypt }
+      tls: {}
       middlewares: [allow-cors]
     bethome-admin:
       rule: "Host(`bthm.admin.{{ app_domain_name }}`)"
       service: bethome-admin
       entryPoints: [websecure]
-      tls: { certResolver: letsencrypt }
+      tls: {}
       middlewares: [allow-cors]
 
   services:

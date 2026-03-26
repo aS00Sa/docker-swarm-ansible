@@ -1,6 +1,6 @@
 ---
 # Включатель роли (можно выключить в inventory)
-cert_manager_enabled: false
+cert_manager_enabled: true
 
 # Режим деплоя:
 # - compose: docker compose up -d (рекомендуется для cert-manager на HAProxy ноде)
@@ -51,7 +51,7 @@ cert_manager_network_name: "{{ traefik_network_name | default('traefik_network')
 # Публиковать ли webroot напрямую портом на ноде
 # - compose: публикация на cert_manager_compose_bind_ip:cert_manager_publish_http_port
 # - stack: публикация mode: host
-cert_manager_publish_http: false
+cert_manager_publish_http: true
 cert_manager_publish_http_port: 8088
 
 # Ограничение размещения сервиса (Swarm constraints)
@@ -70,5 +70,5 @@ cert_manager_traefik_router_rule: "PathPrefix(`/.well-known/acme-challenge/`)"
 
 # Включить ли автолинк сертификатов в /etc/ssl/{{ app_domain_name }} на нодах haproxy
 # (чтобы HAProxy мог брать fullchain/privkey из certbot live/)
-cert_manager_link_to_haproxy_ssl_dir: false
+cert_manager_link_to_haproxy_ssl_dir: true
 cert_manager_haproxy_ssl_dir: "/etc/ssl/{{ app_domain_name }}"

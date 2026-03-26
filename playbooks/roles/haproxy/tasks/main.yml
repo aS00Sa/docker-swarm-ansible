@@ -38,70 +38,9 @@
     force_apt_get: true
     update_cache: true
 
-- name: Ensure HAProxy upstream includes dir exists
-  become: true
-  become_method: sudo
-  ansible.builtin.file:
-    path: "{{ haproxy_upstreams_include_dir | default('/etc/haproxy/upstreams') }}"
-    state: directory
-    mode: "0755"
-
-- name: Ensure HAProxy upstream placeholder include exists
-  become: true
-  become_method: sudo
-  ansible.builtin.copy:
-    dest: "{{ haproxy_upstreams_include_dir | default('/etc/haproxy/upstreams') }}/00-placeholder.cfg"
-    content: |
-      # Managed by Ansible: placeholder for include glob
-    mode: "0644"
-
-- name: Render HAProxy upstream backends from cert_manager_certs (Traefik)
-  when:
-    - haproxy_generate_upstreams_from_cert_manager_certs | default(true) | bool
-    - (cert_manager_certs | default([]) | length) > 0
-    - >-
-      (
-        (haproxy_upstream_mode | default('auto')) == 'traefik'
-        and ((groups['traefik'] | default([])) | length) > 0
-      )
-      or
-      (
-        (haproxy_upstream_mode | default('auto')) == 'auto'
-        and ((groups['traefik'] | default([])) | length) > 0
-        and (inventory_hostname in (groups['traefik'] | default([])))
-        and (
-          (
-            ((groups['swarm_managers'] | default([])) | length)
-            + ((groups['swarm_workers'] | default([])) | length)
-          ) > 0
-          or (traefik_deploy_method | default('stack')) == 'compose'
-        )
-      )
-  become: true
-  become_method: sudo
-  ansible.builtin.template:
-    src: upstreams/cert-manager-site-backend.cfg.j2
-    dest: >-
-      {{
-        (haproxy_upstreams_include_dir | default('/etc/haproxy/upstreams'))
-        ~ '/10-traefik-' ~ ((item.cert_name | default(item.domains | first)) | regex_replace('[^A-Za-z0-9_.-]', '_') | replace('.', '_'))
-        ~ '.cfg'
-      }}
-    mode: "0644"
-  loop: "{{ cert_manager_certs | default([]) }}"
-  loop_control:
-    label: "{{ item.cert_name | default(item.domains | first) }}"
-  vars:
-    backend_name_http: >-
-      {{
-        'bk_traefik_http_'
-        ~ ((item.cert_name | default(item.domains | first)) | regex_replace('[^A-Za-z0-9_.-]', '_') | replace('.', '_'))
-      }}
-    backend_name_https: >-
-      {{
-        'bk_traefik_https_'
-        ~ ((item.cert_name | default(item.domains | first)) | regex_replace('[^A-Za-z0-9_.-]', '_') | replace('.', '_'))
-      }}
+# NOTE: ранее генерировали per-site backend include-файлы из cert_manager_certs.
+# Сейчас HAProxy всегда апстримит до Traefik (default_backend) без per-domain правил;
+# маршрутизацию по доменам выполняет Traefik (dynamic config).
 
 - name: CIDR для HAProxy /stats (только при firewall_lockdown и непустом firewall_trusted_admin_cidrs из inventory)
   become: true
@@ -133,32 +72,9 @@
       | map('trim') | reject('equalto', '') | list | unique | length
     ) == 0
 
-- name: Check TLS cert files exist for HAProxy HTTPS bind
-  become: true
-  become_method: sudo
-  ansible.builtin.stat:
-    follow: true
-    path: "{{ item }}"
-  register: haproxy_tls_files
-  loop:
-    - "{{ haproxy_ssl_fullchain_path | default('/etc/ssl/' ~ app_domain_name ~ '/fullchain.pem') }}"
-    - "{{ haproxy_ssl_privkey_path | default('/etc/ssl/' ~ app_domain_name ~ '/privkey.pem') }}"
-
-- name: Decide if HAProxy HTTPS frontend should be enabled
+- name: Decide if HAProxy 443 frontend should be enabled
   ansible.builtin.set_fact:
-    haproxy_https_enabled: >-
-      {{
-        (haproxy_tls_files.results | map(attribute='stat.exists') | select('equalto', false) | list | length) == 0
-      }}
-
-- name: Warn when HAProxy HTTPS is temporarily disabled (TLS files missing)
-  when: not (haproxy_https_enabled | default(false) | bool)
-  ansible.builtin.debug:
-    msg: >-
-      TLS файлы отсутствуют, запускаю HAProxy только с HTTP (frontend https_in отключён).
-      Ожидаемые файлы:
-      {{ haproxy_ssl_fullchain_path | default('/etc/ssl/' ~ app_domain_name ~ '/fullchain.pem') }},
-      {{ haproxy_ssl_privkey_path | default('/etc/ssl/' ~ app_domain_name ~ '/privkey.pem') }}.
+    haproxy_https_enabled: true
 
 - name: Create HAProxy config file
   become: true

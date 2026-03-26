@@ -1,7 +1,26 @@
 ---
+- name: Decide effective Traefik deploy method (auto)
+  ansible.builtin.set_fact:
+    traefik_effective_deploy_method: >-
+      {{
+        (
+          (traefik_deploy_method | default('auto')) == 'auto'
+        )
+        | ternary(
+            (
+              (
+                ((groups['swarm_managers'] | default([])) | length)
+                + ((groups['swarm_workers'] | default([])) | length)
+              ) > 0
+            )
+            | ternary('stack', 'compose'),
+            (traefik_deploy_method | default('auto'))
+          )
+      }}
+
 - name: Verify stacks directory exists (on first swarm node)
   when:
-    - (traefik_deploy_method | default('stack')) == 'stack'
+    - (traefik_effective_deploy_method | default('stack')) == 'stack'
     - inventory_hostname == ((groups['swarm_managers'] | default([])) | first | default(''))
   file:
     path: "/home/{{ansible_user}}/stacks"
@@ -9,14 +28,14 @@
 
 - name: Generate admin password hash
   when:
-    - (traefik_deploy_method | default('stack')) == 'stack'
+    - (traefik_effective_deploy_method | default('stack')) == 'stack'
     - inventory_hostname == ((groups['swarm_managers'] | default([])) | first | default(''))
   shell: echo $(htpasswd -nb {{traefik_admin_user}} {{traefik_admin_password}}) | sed -e s/\\$/\\$\\$/g
   register: traefikpassword
 
 - name: Read Swarm manager statuses (leader-aware placement)
   when:
-    - (traefik_deploy_method | default('stack')) == 'stack'
+    - (traefik_effective_deploy_method | default('stack')) == 'stack'
     - inventory_hostname == ((groups['swarm_managers'] | default([])) | first | default(''))
     - (traefik_deploy_mode | default('global')) == 'replicated'
     - (traefik_replicas | default(1) | int) == 1
@@ -27,7 +46,7 @@
 
 - name: Resolve Traefik placement hostname (leader-aware)
   when:
-    - (traefik_deploy_method | default('stack')) == 'stack'
+    - (traefik_effective_deploy_method | default('stack')) == 'stack'
     - inventory_hostname == ((groups['swarm_managers'] | default([])) | first | default(''))
     - (traefik_deploy_mode | default('global')) == 'replicated'
     - (traefik_replicas | default(1) | int) == 1
@@ -47,7 +66,7 @@
 
 - name: Create docker-compose stack file (on first swarm node)
   when:
-    - (traefik_deploy_method | default('stack')) == 'stack'
+    - (traefik_effective_deploy_method | default('stack')) == 'stack'
     - inventory_hostname == ((groups['swarm_managers'] | default([])) | first | default(''))
   template:
     src: traefik-stack.j2
@@ -56,7 +75,7 @@
 
 - name: Ensure Traefik data dir exists on GFS (on first swarm node)
   when:
-    - (traefik_deploy_method | default('stack')) == 'stack'
+    - (traefik_effective_deploy_method | default('stack')) == 'stack'
     - inventory_hostname == ((groups['swarm_managers'] | default([])) | first | default(''))
   become: true
   become_method: sudo
@@ -67,7 +86,7 @@
 
 - name: Ensure Traefik dynamic dir exists on GFS (on first swarm node)
   when:
-    - (traefik_deploy_method | default('stack')) == 'stack'
+    - (traefik_effective_deploy_method | default('stack')) == 'stack'
     - inventory_hostname == ((groups['swarm_managers'] | default([])) | first | default(''))
   become: true
   become_method: sudo
@@ -78,7 +97,7 @@
 
 - name: Ensure Traefik dynamic sites dir exists on GFS (on first swarm node)
   when:
-    - (traefik_deploy_method | default('stack')) == 'stack'
+    - (traefik_effective_deploy_method | default('stack')) == 'stack'
     - inventory_hostname == ((groups['swarm_managers'] | default([])) | first | default(''))
   become: true
   become_method: sudo
@@ -89,7 +108,7 @@
 
 - name: Ensure Traefik ACME storage file exists with strict mode (on first swarm node)
   when:
-    - (traefik_deploy_method | default('stack')) == 'stack'
+    - (traefik_effective_deploy_method | default('stack')) == 'stack'
     - inventory_hostname == ((groups['swarm_managers'] | default([])) | first | default(''))
   become: true
   become_method: sudo
@@ -103,7 +122,7 @@
 
 - name: Deploy Traefik dynamic templates to GFS (on first swarm node)
   when:
-    - (traefik_deploy_method | default('stack')) == 'stack'
+    - (traefik_effective_deploy_method | default('stack')) == 'stack'
     - inventory_hostname == ((groups['swarm_managers'] | default([])) | first | default(''))
   become: true
   become_method: sudo
@@ -115,9 +134,32 @@
     group: root
   loop: "{{ lookup('fileglob', role_path ~ '/templates/dynamic/*.j2', wantlist=True) }}"
 
+- name: Create example site upstream configs in dynamic/sites (on first swarm node)
+  when:
+    - (traefik_effective_deploy_method | default('stack')) == 'stack'
+    - inventory_hostname == ((groups['swarm_managers'] | default([])) | first | default(''))
+    - traefik_generate_sites_examples | default(true) | bool
+    - (cert_manager_certs | default([]) | length) > 0
+  become: true
+  become_method: sudo
+  ansible.builtin.template:
+    src: dynamic/sites/site-example.yml.j2
+    dest: "{{ gluster_mount_path }}/{{ traefik_gfs_subdir }}/{{ traefik_dynamic_subdir }}/{{ traefik_dynamic_sites_subdir | default('sites') }}/{{ (item.cert_name | default(item.domains | first)) | regex_replace('[^A-Za-z0-9_.-]', '_') | replace('.', '_') }}.example.yml"
+    mode: "0644"
+    owner: root
+    group: root
+    force: false
+  loop: "{{ cert_manager_certs | default([]) }}"
+  loop_control:
+    label: "{{ item.cert_name | default(item.domains | first) }}"
+  vars:
+    site_name: "{{ (item.cert_name | default(item.domains | first)) | regex_replace('[^A-Za-z0-9_.-]', '-') | lower }}"
+    domains: "{{ item.domains | default([]) }}"
+    upstream_port: "{{ item.upstream_port | default(80) }}"
+
 - name: Create Traefik static configuration on GFS
   when:
-    - (traefik_deploy_method | default('stack')) == 'stack'
+    - (traefik_effective_deploy_method | default('stack')) == 'stack'
     - inventory_hostname == ((groups['swarm_managers'] | default([])) | first | default(''))
   become: true
   become_method: sudo
@@ -131,7 +173,7 @@
 
 - name: Export traefik stack deploy compose to GFS (docker-compose.yml)
   when:
-    - (traefik_deploy_method | default('stack')) == 'stack'
+    - (traefik_effective_deploy_method | default('stack')) == 'stack'
     - inventory_hostname == ((groups['swarm_managers'] | default([])) | first | default(''))
   become: true
   become_method: sudo
@@ -146,7 +188,7 @@
 # Идемпотентность/diff spec как у модуля — нет; нужен Docker CLI с поддержкой stack deploy --detach (типично 19.03+).
 - name: Deploy stack from a compose file (on first swarm node)
   when:
-    - (traefik_deploy_method | default('stack')) == 'stack'
+    - (traefik_effective_deploy_method | default('stack')) == 'stack'
     - inventory_hostname == ((groups['swarm_managers'] | default([])) | first | default(''))
   block:
     - name: Deploy Traefik stack (first attempt)
@@ -204,7 +246,7 @@
 
 - name: Force Traefik restart (apply static config)
   when:
-    - (traefik_deploy_method | default('stack')) == 'stack'
+    - (traefik_effective_deploy_method | default('stack')) == 'stack'
     - inventory_hostname == ((groups['swarm_managers'] | default([])) | first | default(''))
     - traefik_static_config.changed
   become: true
@@ -213,7 +255,7 @@
 
 - name: Ensure local generated directory exists
   when:
-    - (traefik_deploy_method | default('stack')) == 'stack'
+    - (traefik_effective_deploy_method | default('stack')) == 'stack'
     - inventory_hostname == ((groups['swarm_managers'] | default([])) | first | default('')) and traefik_export_stack_local | default(true)
   delegate_to: localhost
   run_once: true
@@ -224,7 +266,7 @@
 
 - name: Export traefik-stack.yml to controller
   when:
-    - (traefik_deploy_method | default('stack')) == 'stack'
+    - (traefik_effective_deploy_method | default('stack')) == 'stack'
     - inventory_hostname == ((groups['swarm_managers'] | default([])) | first | default('')) and traefik_export_stack_local | default(true)
   fetch:
     src: /home/{{ansible_user}}/stacks/traefik-stack.yml
@@ -233,7 +275,7 @@
 
 - name: Export resulting traefik.yml to controller
   when:
-    - (traefik_deploy_method | default('stack')) == 'stack'
+    - (traefik_effective_deploy_method | default('stack')) == 'stack'
     - inventory_hostname == ((groups['swarm_managers'] | default([])) | first | default('')) and traefik_export_stack_local | default(true)
   fetch:
     src: "{{ gluster_mount_path }}/{{ traefik_gfs_subdir }}/traefik.yml"
@@ -241,7 +283,7 @@
     flat: true
 
 - name: Deploy Traefik via docker compose (non-swarm)
-  when: (traefik_deploy_method | default('stack')) == 'compose'
+  when: (traefik_effective_deploy_method | default('stack')) == 'compose'
   become: true
   become_method: sudo
   block:
@@ -271,6 +313,25 @@
         owner: root
         group: root
       loop: "{{ lookup('fileglob', role_path ~ '/templates/dynamic/*.j2', wantlist=True) }}"
+
+    - name: Create example site upstream configs in dynamic/sites (compose)
+      when:
+        - traefik_generate_sites_examples | default(true) | bool
+        - (cert_manager_certs | default([]) | length) > 0
+      ansible.builtin.template:
+        src: dynamic/sites/site-example.yml.j2
+        dest: "{{ gluster_mount_path }}/{{ traefik_gfs_subdir }}/{{ traefik_dynamic_subdir }}/{{ traefik_dynamic_sites_subdir | default('sites') }}/{{ (item.cert_name | default(item.domains | first)) | regex_replace('[^A-Za-z0-9_.-]', '_') | replace('.', '_') }}.example.yml"
+        mode: "0644"
+        owner: root
+        group: root
+        force: false
+      loop: "{{ cert_manager_certs | default([]) }}"
+      loop_control:
+        label: "{{ item.cert_name | default(item.domains | first) }}"
+      vars:
+        site_name: "{{ (item.cert_name | default(item.domains | first)) | regex_replace('[^A-Za-z0-9_.-]', '-') | lower }}"
+        domains: "{{ item.domains | default([]) }}"
+        upstream_port: "{{ item.upstream_port | default(80) }}"
 
     - name: Create Traefik static configuration on GFS (compose)
       ansible.builtin.template:

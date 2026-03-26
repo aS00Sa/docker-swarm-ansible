@@ -9,12 +9,12 @@ http:
       rule: "Host(`frt.admin.panel.{{ app_domain_name }}`)"
       service: frontend-admin-panel
       entryPoints: [websecure]
-      tls: { certResolver: letsencrypt }
+      tls: {}
     frontend-crisis:
       rule: "Host(`frt.crisis.{{ app_domain_name }}`)"
       service: frontend-crisis
       entryPoints: [websecure]
-      tls: { certResolver: letsencrypt }
+      tls: {}
 
   services:
     frontend-admin-panel:

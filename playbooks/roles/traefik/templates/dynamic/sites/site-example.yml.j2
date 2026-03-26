@@ -1,0 +1,27 @@
+{# Example site dynamic config. Vars: site_name, domains, upstream_port #}
+{# Style aligned with auto_tls_from_cert_manager.yml.j2 and other dynamic templates. #}
+{% set _name = (site_name | default('site-example') | regex_replace('[^a-zA-Z0-9_-]', '-') | lower) %}
+http:
+  serversTransports:
+    upstream-long-timeouts:
+      forwardingTimeouts:
+        dialTimeout: 600s
+        responseHeaderTimeout: 0s
+        idleConnTimeout: 0s
+
+  routers:
+    site-{{ _name }}:
+      rule: "{% for d in (domains | default([])) %}Host(`{{ d }}`){% if not loop.last %} || {% endif %}{% endfor %}"
+      service: svc-{{ _name }}
+      entryPoints: [websecure]
+      tls: {}
+
+  services:
+    svc-{{ _name }}:
+      loadBalancer:
+        serversTransport: upstream-long-timeouts
+        servers:
+          # TODO: replace with real upstream servers
+          - { url: "http://127.0.0.1:{{ upstream_port | default(80) }}" }
+        passHostHeader: true
+

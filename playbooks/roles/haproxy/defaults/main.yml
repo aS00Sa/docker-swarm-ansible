@@ -22,9 +22,9 @@ haproxy_stats_user: haproxy_stats
 haproxy_stats_password: haproxy1234
 
 # ACL на фронтенде: Host (и опционально path) по regex; иначе 403 (для fail2ban).
-haproxy_acl_enabled: false
+haproxy_acl_enabled: true
 # Главный переключатель роли HAProxy: false = полностью пропустить обработку роли.
-haproxy_enabled: false
+haproxy_enabled: true
 # Управление systemd сервисом HAProxy.
 # true — включить и рестартить сервис после генерации конфига (обычный режим).
 # false — только сгенерировать конфиг, но сервис не трогать.
@@ -36,28 +36,20 @@ haproxy_ssl_fullchain_path: "/etc/ssl/{{ app_domain_name }}/fullchain.pem"
 haproxy_ssl_privkey_path: "/etc/ssl/{{ app_domain_name }}/privkey.pem"
 
 # Upstream стратегия:
-# - auto: проксировать в Traefik ТОЛЬКО если есть swarm (manager/worker),
-#         есть группа [traefik], и текущий haproxy-хост входит в [traefik].
-#         Иначе использовать include-фрагменты.
+# - auto: есть группа [traefik] и текущий haproxy-хост входит в [traefik];
+#         если Swarm есть → маршрут в stack Traefik, если Swarm нет → маршрут в compose Traefik.
+#         Иначе отдавать 503 (direct_layer7).
 # - traefik: всегда проксировать в Traefik (ошибка/пустой backend если [traefik] пустая).
-# - includes: всегда использовать include-фрагменты (для временного режима без Traefik).
 haproxy_upstream_mode: auto
-
-# Директория с include-фрагментами (будут подключены как `include <dir>/*.cfg`)
-haproxy_upstreams_gfs_subdir: haproxy_upstreams_gfs
-haproxy_upstreams_include_dir: "{{ gluster_mount_path }}/{{ haproxy_upstreams_gfs_subdir }}"
-
-# Генерировать upstream backend-файлы по `cert_manager_certs` (когда список непустой).
-# Используется для маршрутизации по Host в HAProxy на Traefik (8080/8443 или любые порты из переменных).
-haproxy_generate_upstreams_from_cert_manager_certs: true
 
 # Порты Traefik entrypoints, куда проксирует HAProxy (L7).
 # В вашей схеме Traefik слушает 8080 (web) и 8443 (websecure).
 haproxy_traefik_web_port: 8080
 haproxy_traefik_websecure_port: 8443
 
-# Имя backend по умолчанию в режиме includes (его должен определить один из include-файлов)
-haproxy_includes_default_backend: direct_layer7
+# 443 passthrough (TCP) вместо TLS termination на HAProxy.
+haproxy_https_mode: tcp_passthrough
+
 # Явные regex для Host (одна строка acl hdr_reg — несколько шаблонов через пробел = ИЛИ).
 # Пустой список при haproxy_acl_enabled=true → шаблон из app_domain_name (поддомены + bare domain).
 haproxy_allow_host_regex: []
@@ -66,7 +58,7 @@ haproxy_allow_host_regex: []
 haproxy_allow_uri_regex: []
 
 # Fail2ban по /var/log/haproxy.log на ответы 403 от HAProxy (сканеры / чужой Host).
-fail2ban_haproxy_enabled: false
+fail2ban_haproxy_enabled: true
 fail2ban_bantime: 3600
 fail2ban_findtime: 600
 fail2ban_maxretry: 10

@@ -3,14 +3,9 @@ api:
 
 entryPoints:
   web:
-    address: ":{{ traefik_http_port }}"
+    address: ":{{ haproxy_traefik_web_port | default(8080) }}"
     transport:
-      forwardingTimeouts:
-        # Долгие аплоады (GitLab runner -> GitLab) не должны обрываться прокси из-за таймаутов.
-        dialTimeout: 600s
-        responseHeaderTimeout: 0s
-        idleTimeout: 0s
-        responseForwardingTimeout: 0s
+      # Долгие аплоады не должны обрываться прокси из-за таймаутов.
       respondingTimeouts:
         readTimeout: 0s
         writeTimeout: 0s
@@ -20,13 +15,10 @@ entryPoints:
           to: websecure
           scheme: https  
   websecure:
-    address: ":{{ traefik_https_port }}"
+    address: ":{{ haproxy_traefik_websecure_port | default(8443) }}"
+    proxyProtocol:
+      insecure: true
     transport:
-      forwardingTimeouts:
-        dialTimeout: 600s
-        responseHeaderTimeout: 0s
-        idleTimeout: 0s
-        responseForwardingTimeout: 0s
       respondingTimeouts:
         readTimeout: 0s
         writeTimeout: 0s
@@ -42,6 +34,13 @@ providers:
   file:
     directory: /etc/traefik/dynamic
     watch: true
+
+serversTransport:
+  forwardingTimeouts:
+    # Таймауты upstream-соединений (Traefik -> backend, напр. GitLab/Nexus)
+    dialTimeout: 600s
+    responseHeaderTimeout: 0s
+    idleConnTimeout: 0s
 
 {% if traefik_acme_enabled | default(false) | bool %}
 certificatesResolvers:

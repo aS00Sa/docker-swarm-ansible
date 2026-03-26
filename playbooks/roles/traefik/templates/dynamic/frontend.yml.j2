@@ -13,13 +13,13 @@ http:
       rule: "(Host(`{{ app_domain_name }}`) || Host(`www.{{ app_domain_name }}`)) && (Path(`/manifest.webmanifest`) || Path(`/favicon.ico`) || PathPrefix(`/sw.js`) || PathPrefix(`/workbox-`) || PathPrefix(`/assets/`) || PathPrefix(`/static/`))"
       service: frontend-main
       entryPoints: [websecure]
-      tls: { certResolver: letsencrypt }
+      tls: {}
       priority: 100
     frontend-root:
       rule: "Host(`{{ app_domain_name }}`) || Host(`www.{{ app_domain_name }}`)"
       service: frontend-main
       entryPoints: [websecure]
-      tls: { certResolver: letsencrypt }
+      tls: {}
 #      middlewares: [frontend-basicauth]
 
   services:

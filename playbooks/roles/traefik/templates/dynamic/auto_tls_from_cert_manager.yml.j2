@@ -1,0 +1,58 @@
+{% set _certs = cert_manager_certs | default([]) %}
+{% set _backend_hosts = groups.get('swarm_workers', []) %}
+{% if _backend_hosts | length == 0 %}
+{% set _backend_hosts = groups.get('test_backend', []) %}
+{% endif %}
+{% if (_certs | length == 0) %}
+# No generated Traefik upstream sites (cert_manager_certs is empty).
+{% else %}
+tls:
+  certificates:
+{% for c in _certs %}
+{% set _cn = (c.cert_name | default(c.domains | first)) %}
+    - certFile: "/etc/traefik/letsencrypt/live/{{ _cn }}/fullchain.pem"
+      keyFile: "/etc/traefik/letsencrypt/live/{{ _cn }}/privkey.pem"
+{% endfor %}
+
+http:
+  serversTransports:
+    upstream-long-timeouts:
+      forwardingTimeouts:
+        dialTimeout: 600s
+        responseHeaderTimeout: 0s
+        idleConnTimeout: 0s
+
+  routers:
+{% for c in _certs %}
+{% set _cn = (c.cert_name | default(c.domains | first)) %}
+{% set _name = (_cn | regex_replace('[^a-zA-Z0-9_-]', '-') | lower) %}
+    site-{{ _name }}:
+      rule: "{% for d in (c.domains | default([])) %}Host(`{{ d }}`){% if not loop.last %} || {% endif %}{% endfor %}"
+      service: svc-{{ _name }}
+      entryPoints: [websecure]
+      tls: {}
+{% endfor %}
+
+  services:
+{% for c in _certs %}
+{% set _cn = (c.cert_name | default(c.domains | first)) %}
+{% set _name = (_cn | regex_replace('[^a-zA-Z0-9_-]', '-') | lower) %}
+{% set _c_servers = c.upstream_servers | default([]) %}
+{% set _c_scheme = c.upstream_scheme | default('http') %}
+{% set _c_port = c.upstream_port | default(80) %}
+    svc-{{ _name }}:
+      loadBalancer:
+        serversTransport: upstream-long-timeouts
+        servers:
+{% if _c_servers | length > 0 %}
+{% for u in _c_servers %}
+          - { url: "{{ u }}" }
+{% endfor %}
+{% else %}
+{% for h in _backend_hosts %}
+          - { url: "{{ _c_scheme }}://{{ hostvars[h].ansible_host | default(h) }}:{{ _c_port }}" }
+{% endfor %}
+{% endif %}
+        passHostHeader: true
+{% endfor %}
+{% endif %}
