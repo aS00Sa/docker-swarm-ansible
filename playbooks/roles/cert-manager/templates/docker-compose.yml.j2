@@ -5,16 +5,19 @@ services:
     image: certbot/certbot:latest
     entrypoint:
       - /bin/sh
+    command:
       - -ec
-    command: |
+      - |
         umask 077
         echo "cert-manager: initial obtain/renew (webroot)"
         certbot certonly --webroot \
           -w /var/www/certbot \
           {% for d in cert_manager_domains | default([app_domain_name]) %}-d {{ d }} {% endfor %} \
+          --cert-name "{{ cert_manager_cert_name | default(app_domain_name) }}" \
           --email "{{ cert_manager_email }}" \
           --agree-tos \
           --non-interactive \
+          --expand \
           --keep-until-expiring
         echo "cert-manager: enter renew loop"
         while true; do

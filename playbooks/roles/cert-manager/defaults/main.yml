@@ -11,7 +11,9 @@ cert_manager_deploy_method: compose
 cert_manager_stack_name: cert-manager
 
 # Каталог на хосте (deploy_method=compose)
-cert_manager_compose_project_dir: /opt/cert-manager
+# По умолчанию размещаем compose-файл на общем GFS:
+# /mnt/gfs/cert_manager_gfs/docker-compose.yml
+cert_manager_compose_project_dir: "{{ gluster_mount_path }}/{{ cert_manager_gfs_subdir }}"
 # Локальный bind-IP для публикации challenge (compose)
 cert_manager_compose_bind_ip: 127.0.0.1
 

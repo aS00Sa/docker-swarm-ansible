@@ -96,6 +96,12 @@
         dest: "{{ cert_manager_compose_project_dir | default('/opt/cert-manager') }}/docker-compose.yml"
         mode: "0644"
 
+    - name: Render docker-compose.yml to fixed GFS path
+      ansible.builtin.template:
+        src: docker-compose.yml.j2
+        dest: "{{ gluster_mount_path }}/{{ cert_manager_gfs_subdir }}/docker-compose.yml"
+        mode: "0644"
+
     - name: Start/Update cert-manager with docker compose
       ansible.builtin.command:
         argv:

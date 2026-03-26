@@ -4,8 +4,9 @@ version: "3.8"
 services:
   certbot:
     image: certbot/certbot:latest
-    command:
+    entrypoint:
       - /bin/sh
+    command:
       - -ec
       - |
         umask 077
@@ -13,9 +14,11 @@ services:
         certbot certonly --webroot \
           -w /var/www/certbot \
           {% for d in cert_manager_domains | default([app_domain_name]) %}-d {{ d }} {% endfor %} \
+          --cert-name "{{ cert_manager_cert_name | default(app_domain_name) }}" \
           --email "{{ cert_manager_email }}" \
           --agree-tos \
           --non-interactive \
+          --expand \
           --keep-until-expiring
         echo "cert-manager: enter renew loop"
         while true; do
