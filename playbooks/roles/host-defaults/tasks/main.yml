@@ -1,15 +1,15 @@
 ---
-- name: Build auto hostname parts from inventory groups
+- name: Build unified gluster host pool for numbering
   ansible.builtin.set_fact:
-    host_defaults_swarm_part: >-
-      {%- if inventory_hostname in (groups['swarm_managers'] | default([])) -%}
-      manager
-      {%- elif inventory_hostname in (groups['swarm_workers'] | default([])) -%}
-      worker
-      {%- else -%}
-      node
-      {%- endif -%}
-    host_defaults_svc_part: >-
+    host_defaults_gluster_hosts: >-
+      {{
+        groups['gluster_nodes_bricks'] | default([]) | list
+      }}
+  when: host_defaults_auto_hostname_enabled | default(false) | bool
+
+- name: Build service role with haproxy/traefik priority
+  ansible.builtin.set_fact:
+    host_defaults_svc_role: >-
       {%- set _in_haproxy = inventory_hostname in (groups['haproxy'] | default([])) -%}
       {%- set _in_traefik = inventory_hostname in (groups['traefik'] | default([])) -%}
       {%- set _cm_hosts = groups['cert_manager'] | default([]) -%}
@@ -19,31 +19,134 @@
       {%- if _in_haproxy and _in_traefik -%}
       {%- if (_cm_cnt > 0) and (_cm_in_traefik == _cm_cnt) and (_cm_in_haproxy != _cm_cnt) -%}traefik
       {%- elif (_cm_cnt > 0) and (_cm_in_haproxy == _cm_cnt) and (_cm_in_traefik != _cm_cnt) -%}haproxy
-      {%- else -%}traefik{%- endif -%}
-      {%- elif _in_traefik -%}
-      traefik
+      {%- else -%}haproxy{%- endif -%}
       {%- elif _in_haproxy -%}
       haproxy
+      {%- elif _in_traefik -%}
+      traefik
       {%- else -%}
-      node
+      
       {%- endif -%}
-    host_defaults_swarm_ordinal: >-
-      {%- if inventory_hostname in (groups['swarm_managers'] | default([])) -%}
-      {{ ((groups['swarm_managers'] | default([])).index(inventory_hostname)) + 1 }}
-      {%- elif inventory_hostname in (groups['swarm_workers'] | default([])) -%}
-      {{ ((groups['swarm_workers'] | default([])).index(inventory_hostname)) + 1 }}
-      {%- else -%}
-      1
-      {%- endif -%}
-    host_defaults_auto_hostname: >-
+  when: host_defaults_auto_hostname_enabled | default(false) | bool
+
+- name: Detect swarm membership for hostname schema
+  ansible.builtin.set_fact:
+    host_defaults_is_swarm_host: >-
+      {{
+        inventory_hostname in (groups['swarm_nodes'] | default([]))
+      }}
+  when: host_defaults_auto_hostname_enabled | default(false) | bool
+
+- name: Build role parts for auto hostname
+  ansible.builtin.set_fact:
+    host_defaults_role_parts: >-
       {{
         (
-          (host_defaults_hostname_prefix | default('node'))
-          ~ '-' ~ (host_defaults_swarm_part | trim)
-          ~ '-' ~ (host_defaults_svc_part | trim)
-          ~ '-' ~ ('%02d' | format((host_defaults_swarm_ordinal | int)))
+          ['node']
+          if not (host_defaults_is_swarm_host | default(false) | bool)
+          else (
+            [
+              'swarm',
+              (
+                'managers'
+                if inventory_hostname in (groups['swarm_managers'] | default([]))
+                else (
+                  'workers'
+                  if inventory_hostname in (groups['swarm_workers'] | default([]))
+                  else ''
+                )
+              ),
+              ('gluster' if inventory_hostname in (host_defaults_gluster_hosts | default([])) else ''),
+              (host_defaults_svc_role | default('', true) | string | trim)
+            ] | reject('equalto', '') | reject('equalto', 'None') | reject('equalto', 'none') | list
+          )
         )
+      }}
+  when: host_defaults_auto_hostname_enabled | default(false) | bool
+
+- name: Select base group for hostname numbering
+  ansible.builtin.set_fact:
+    host_defaults_numbering_group: >-
+      {%- if inventory_hostname in (groups['swarm_managers'] | default([])) -%}
+      swarm_managers
+      {%- elif inventory_hostname in (groups['swarm_workers'] | default([])) -%}
+      swarm_workers
+      {%- else -%}
+      all
+      {%- endif -%}
+  when: host_defaults_auto_hostname_enabled | default(false) | bool
+
+- name: Build ordinal part for auto hostname
+  ansible.builtin.set_fact:
+    host_defaults_node_ordinal: >-
+      {{
+        (
+          (
+            host_defaults_gluster_hosts
+            if (host_defaults_numbering_group == 'gluster')
+            else (groups[host_defaults_numbering_group] | default([]))
+          ).index(inventory_hostname)
+        ) + 1
+      }}
+  when: host_defaults_auto_hostname_enabled | default(false) | bool
+
+- name: Build final auto hostname
+  ansible.builtin.set_fact:
+    host_defaults_auto_hostname: >-
+      {{
+        ([
+          (
+            ''
+            if (host_defaults_is_swarm_host | default(false) | bool)
+            else (
+              ''
+              if ((host_defaults_role_parts | default([]) | first | default('')) == 'node')
+              else (host_defaults_hostname_prefix | default('node'))
+            )
+          ),
+          (host_defaults_role_parts | default([]) | join('-')),
+          ('%02d' | format((host_defaults_node_ordinal | int)))
+        ] | reject('equalto', '') | list | join('-'))
         | lower
+      }}
+  when: host_defaults_auto_hostname_enabled | default(false) | bool
+
+- name: Read current static hostname
+  become: true
+  become_method: sudo
+  ansible.builtin.command: hostnamectl --static
+  register: host_defaults_current_hostname_cmd
+  changed_when: false
+  when: host_defaults_auto_hostname_enabled | default(false) | bool
+
+- name: Cache current hostname value
+  ansible.builtin.set_fact:
+    host_defaults_current_hostname: "{{ host_defaults_current_hostname_cmd.stdout | default('') | trim }}"
+  when: host_defaults_auto_hostname_enabled | default(false) | bool
+
+- name: Detect if non-swarm inventory host is alias of swarm node
+  ansible.builtin.set_fact:
+    host_defaults_swarm_candidate_hosts: "{{ groups['swarm_nodes'] | default([]) }}"
+    host_defaults_swarm_candidate_ips: []
+  when: host_defaults_auto_hostname_enabled | default(false) | bool
+
+- name: Build swarm candidate IP list for alias detection
+  ansible.builtin.set_fact:
+    host_defaults_swarm_candidate_ips: "{{ host_defaults_swarm_candidate_ips + [ (hostvars[item].ansible_host | default(item) | string) ] }}"
+  loop: "{{ host_defaults_swarm_candidate_hosts | default([]) }}"
+  when: host_defaults_auto_hostname_enabled | default(false) | bool
+
+- name: Detect if non-swarm inventory host is alias of swarm node
+  ansible.builtin.set_fact:
+    host_defaults_is_alias_of_swarm: >-
+      {{
+        (
+          (
+            ansible_all_ipv4_addresses | default([])
+          )
+          | intersect(host_defaults_swarm_candidate_ips | default([]))
+          | length
+        ) > 0
       }}
   when: host_defaults_auto_hostname_enabled | default(false) | bool
 
@@ -52,7 +155,17 @@
   become_method: sudo
   ansible.builtin.hostname:
     name: "{{ host_defaults_auto_hostname }}"
-  when: host_defaults_auto_hostname_enabled | default(false) | bool
+  when:
+    - host_defaults_auto_hostname_enabled | default(false) | bool
+    - not (
+        (not (host_defaults_is_swarm_host | default(false) | bool))
+        and
+        (
+          ((host_defaults_current_hostname | default('')) is match('^swarm-'))
+          or
+          (host_defaults_is_alias_of_swarm | default(false) | bool)
+        )
+      )
 
 - name: Check if auto update is enabled
   stat:
