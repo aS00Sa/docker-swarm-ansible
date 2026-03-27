@@ -8,15 +8,152 @@
         )
         | ternary(
             (
-              (
-                ((groups['swarm_managers'] | default([])) | length)
-                + ((groups['swarm_workers'] | default([])) | length)
-              ) > 0
+              inventory_hostname in (
+                (groups['swarm_managers'] | default([]))
+                + (groups['swarm_workers'] | default([]))
+              )
             )
             | ternary('stack', 'compose'),
             (traefik_deploy_method | default('auto'))
           )
       }}
+
+- name: Verify HAProxy is active before Traefik deploy
+  when: traefik_require_haproxy_ready | default(true) | bool
+  run_once: true
+  block:
+    - name: Fail if haproxy group is empty (strict mode)
+      when:
+        - not (traefik_dependency_checks_warn_only | default(false) | bool)
+        - (groups['haproxy'] | default([]) | length) == 0
+      ansible.builtin.fail:
+        msg: "Pre-check failed: inventory group [haproxy] is empty."
+
+    - name: Warn if haproxy group is empty (warn-only mode)
+      when:
+        - traefik_dependency_checks_warn_only | default(false) | bool
+        - (groups['haproxy'] | default([]) | length) == 0
+      ansible.builtin.debug:
+        msg: "WARNING: pre-check: inventory group [haproxy] is empty."
+
+    - name: Check HAProxy service status on haproxy hosts
+      become: true
+      become_method: sudo
+      ansible.builtin.command: systemctl is-active haproxy
+      loop: "{{ groups['haproxy'] | default([]) }}"
+      loop_control:
+        label: "{{ item }}"
+      delegate_to: "{{ item }}"
+      register: traefik_haproxy_status
+      changed_when: false
+      failed_when: false
+
+    - name: Build list of haproxy hosts not ready
+      ansible.builtin.set_fact:
+        traefik_haproxy_not_ready_hosts: >-
+          {{
+            (
+              traefik_haproxy_status.results
+              | default([])
+              | rejectattr('stdout', 'equalto', 'active')
+              | map(attribute='item')
+              | list
+            )
+          }}
+
+    - name: Fail if HAProxy is not active (strict mode)
+      when:
+        - not (traefik_dependency_checks_warn_only | default(false) | bool)
+        - (traefik_haproxy_not_ready_hosts | default([]) | length) > 0
+      ansible.builtin.fail:
+        msg: "Pre-check failed: HAProxy is not active on: {{ traefik_haproxy_not_ready_hosts | join(', ') }}"
+
+    - name: Warn if HAProxy is not active (warn-only mode)
+      when:
+        - traefik_dependency_checks_warn_only | default(false) | bool
+        - (traefik_haproxy_not_ready_hosts | default([]) | length) > 0
+      ansible.builtin.debug:
+        msg: "WARNING: pre-check: HAProxy is not active on: {{ traefik_haproxy_not_ready_hosts | join(', ') }}"
+
+- name: Verify cert-manager compose is running before Traefik deploy
+  when: traefik_require_cert_manager_ready | default(true) | bool
+  run_once: true
+  block:
+    - name: Fail if cert_manager group is empty (strict mode)
+      when:
+        - not (traefik_dependency_checks_warn_only | default(false) | bool)
+        - (groups['cert_manager'] | default([]) | length) == 0
+      ansible.builtin.fail:
+        msg: "Pre-check failed: inventory group [cert_manager] is empty."
+
+    - name: Warn if cert_manager group is empty (warn-only mode)
+      when:
+        - traefik_dependency_checks_warn_only | default(false) | bool
+        - (groups['cert_manager'] | default([]) | length) == 0
+      ansible.builtin.debug:
+        msg: "WARNING: pre-check: inventory group [cert_manager] is empty."
+
+    - name: Check running cert-manager services via docker compose
+      become: true
+      become_method: sudo
+      ansible.builtin.command:
+        argv:
+          - docker
+          - compose
+          - -f
+          - "{{ cert_manager_compose_project_dir | default('/opt/cert-manager') }}/docker-compose.yml"
+          - ps
+          - --status
+          - running
+          - --services
+      loop: "{{ groups['cert_manager'] | default([]) }}"
+      loop_control:
+        label: "{{ item }}"
+      delegate_to: "{{ item }}"
+      register: traefik_cert_manager_compose_status
+      changed_when: false
+      failed_when: false
+
+    - name: Build list of cert-manager hosts not ready
+      ansible.builtin.set_fact:
+        traefik_cert_manager_not_ready_hosts: >-
+          {{
+            (
+              traefik_cert_manager_compose_status.results
+              | default([])
+              | rejectattr('rc', 'equalto', 0)
+              | map(attribute='item')
+              | list
+            )
+            +
+            (
+              traefik_cert_manager_compose_status.results
+              | default([])
+              | selectattr('rc', 'equalto', 0)
+              | selectattr('stdout_lines', 'equalto', [])
+              | map(attribute='item')
+              | list
+            )
+            | unique
+          }}
+
+    - name: Fail if cert-manager compose is not ready (strict mode)
+      when:
+        - not (traefik_dependency_checks_warn_only | default(false) | bool)
+        - (traefik_cert_manager_not_ready_hosts | default([]) | length) > 0
+      ansible.builtin.fail:
+        msg: >-
+          Pre-check failed: cert-manager compose has no running services on:
+          {{ traefik_cert_manager_not_ready_hosts | join(', ') }}
+
+    - name: Warn if cert-manager compose is not ready (warn-only mode)
+      when:
+        - traefik_dependency_checks_warn_only | default(false) | bool
+        - (traefik_cert_manager_not_ready_hosts | default([]) | length) > 0
+      ansible.builtin.debug:
+        msg: >-
+          WARNING: pre-check: cert-manager compose has no running services on:
+          {{ traefik_cert_manager_not_ready_hosts | join(', ') }}
 
 - name: Verify stacks directory exists (on first swarm node)
   when:

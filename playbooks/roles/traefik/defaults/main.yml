@@ -27,10 +27,19 @@ traefik_replicas: 1
 traefik_pin_to_leader: true
 
 # Режим деплоя Traefik:
-# - auto: если есть swarm (есть хотя бы 1 host в swarm_managers или swarm_workers) → stack, иначе → compose
+# - auto: если текущий хост в swarm_managers/swarm_workers → stack, иначе → compose
 # - stack: docker stack deploy (Swarm)
 # - compose: docker compose up -d (одиночный хост без Swarm)
 traefik_deploy_method: auto
+
+# Перед деплоем Traefik проверять готовность зависимостей:
+# - HAProxy service active на всех хостах группы [haproxy]
+# - cert-manager compose имеет хотя бы один running service на хостах [cert_manager]
+# Если traefik_dependency_checks_warn_only=true, pre-check не останавливают play
+# и выводятся как warning (debug), а не hard fail.
+traefik_require_haproxy_ready: true
+traefik_require_cert_manager_ready: true
+traefik_dependency_checks_warn_only: false
 
 # Каталог проекта для docker compose (deploy_method=compose)
 # По умолчанию размещаем compose-файл на общем GFS рядом с конфигами Traefik.
