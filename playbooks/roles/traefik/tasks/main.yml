@@ -1,5 +1,18 @@
 ---
+- name: Probe local Docker Swarm state
+  ansible.builtin.command:
+    argv:
+      - docker
+      - info
+      - --format
+      - "{{ '{{.Swarm.LocalNodeState}}' }}"
+  register: traefik_swarm_state_probe
+  changed_when: false
+  failed_when: false
+
 - name: Decide effective Traefik deploy method (auto)
+  vars:
+    traefik_local_swarm_state: "{{ traefik_swarm_state_probe.stdout | default('') | trim | lower }}"
   ansible.builtin.set_fact:
     traefik_effective_deploy_method: >-
       {{
@@ -8,9 +21,13 @@
         )
         | ternary(
             (
-              inventory_hostname in (
-                (groups['swarm_managers'] | default([]))
-                + (groups['swarm_workers'] | default([]))
+              (traefik_local_swarm_state == 'active')
+              or
+              (
+                inventory_hostname in (
+                  (groups['swarm_managers'] | default([]))
+                  + (groups['swarm_workers'] | default([]))
+                )
               )
             )
             | ternary('stack', 'compose'),
@@ -172,6 +189,22 @@
   file:
     path: "/home/{{ansible_user}}/stacks"
     state: directory
+
+- name: Stop legacy Traefik docker compose on traefik hosts before stack deploy
+  when:
+    - (traefik_effective_deploy_method | default('stack')) == 'stack'
+    - inventory_hostname in (groups['traefik'] | default([]))
+  become: true
+  become_method: sudo
+  ansible.builtin.command:
+    argv:
+      - docker
+      - compose
+      - -f
+      - "{{ traefik_compose_project_dir | default('/opt/traefik') }}/docker-compose.yml"
+      - down
+  changed_when: false
+  failed_when: false
 
 - name: Generate admin password hash
   when:
