@@ -19,6 +19,9 @@ iptables -A GLUSTER-NODE-PORTS -s {{ ip }} -j RETURN
 {% for cidr in firewall_effective_admin_cidrs | unique %}
 iptables -A GLUSTER-NODE-PORTS -s {{ cidr }} -j RETURN
 {% endfor %}
+{% for ip in (groups['haproxy'] | default([])) + (groups['traefik'] | default([])) %}
+iptables -A GLUSTER-NODE-PORTS -s {{ (hostvars[ip].ansible_host | default(ip)) }} -j RETURN
+{% endfor %}
 {% for p in _tcp %}
 iptables -A GLUSTER-NODE-PORTS -p tcp --dport {{ p }} -j DROP
 {% endfor %}

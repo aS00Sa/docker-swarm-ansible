@@ -8,10 +8,14 @@
   ignore_errors: true
   changed_when: false
 
-#- name: Leave existing Swarm if active
-#  shell: docker swarm leave --force
-#  when: (swarm_state.stdout | default('')) == "active"
-#  ignore_errors: true
+- name: Reset broken local swarm state before rejoin
+  become: true
+  become_method: sudo
+  shell: docker swarm leave --force
+  register: swarm_leave_broken
+  failed_when: false
+  changed_when: (swarm_leave_broken.rc | default(1)) == 0
+  when: (swarm_state.stdout | default('') | trim) == "error"
 
 - name: Add Docker node to existing Swarm as manager
   become: true
@@ -39,6 +43,8 @@
 - name: Wait until node becomes active in swarm
   become: true
   become_method: sudo
+  vars:
+    swarm_manager_first: "{{ (groups['swarm_managers'] | default([])) | first | default('') }}"
   shell: docker info --format "{{ '{{' }} .Swarm.LocalNodeState {{ '}}' }}"
   register: swarm_state_after_join
   changed_when: false
@@ -48,3 +54,4 @@
   when:
     - (swarm_state.stdout | default('')) != "active"
     - swarm_manager_first | length > 0
+    - "'already part of a swarm' not in (swarm_join_result.stderr | default('') | lower)"

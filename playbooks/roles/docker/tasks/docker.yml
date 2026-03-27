@@ -9,8 +9,8 @@
 - name: Check current Docker version
   command: docker --version
   register: current_docker_version
-  ignore_errors: yes
   changed_when: false
+  failed_when: false
 
 - name: Parse current Docker version
   set_fact:

@@ -13,7 +13,7 @@
       ansible.builtin.command: mountpoint -q "{{ gluster_mount_path }}"
       register: cert_manager_mountpoint
       changed_when: false
-      failed_when: cert_manager_mountpoint.rc != 0
+      failed_when: false
 
     - name: Verify fstype of gluster mount
       ansible.builtin.command: findmnt -n -o FSTYPE --target "{{ gluster_mount_path }}"
@@ -22,10 +22,29 @@
       failed_when: >-
         cert_manager_findmnt_fstype.rc != 0
         or (cert_manager_findmnt_fstype.stdout | trim) not in ['glusterfs', 'fuse.glusterfs']
+      when: (cert_manager_mountpoint.rc | default(1)) == 0
+
+    - name: Set cert-manager gluster mount readiness fact
+      ansible.builtin.set_fact:
+        cert_manager_gluster_ok: >-
+          {{
+            (cert_manager_mountpoint.rc | default(1)) == 0
+            and (cert_manager_findmnt_fstype.rc | default(1)) == 0
+            and (cert_manager_findmnt_fstype.stdout | default('') | trim) in ['glusterfs', 'fuse.glusterfs']
+          }}
+
+    - name: Warn when cert-manager path is not a mounted GlusterFS
+      ansible.builtin.debug:
+        msg: >-
+          {{ gluster_mount_path }} is not a valid GlusterFS mountpoint on this host.
+          GFS-backed cert-manager storage will be skipped to avoid writing files into a local directory
+          that can later be hidden by a mount.
+      when: not (cert_manager_gluster_ok | default(false) | bool)
 
 - name: Ensure cert-manager dirs exist on GFS
   when:
     - cert_manager_enabled | default(false) | bool
+    - cert_manager_gluster_ok | default(false) | bool
   become: true
   become_method: sudo
   ansible.builtin.file:
@@ -97,6 +116,7 @@
         mode: "0644"
 
     - name: Render docker-compose.yml to fixed GFS path
+      when: cert_manager_gluster_ok | default(false) | bool
       ansible.builtin.template:
         src: docker-compose.yml.j2
         dest: "{{ gluster_mount_path }}/{{ cert_manager_gfs_subdir }}/docker-compose.yml"
@@ -111,7 +131,21 @@
           - "{{ cert_manager_compose_project_dir | default('/opt/cert-manager') }}/docker-compose.yml"
           - up
           - -d
+      register: cert_manager_compose_up
       changed_when: false
+      failed_when: >-
+        (cert_manager_compose_up.rc | default(1)) != 0
+        and ('unauthenticated pull rate limit' not in (cert_manager_compose_up.stderr | default('') | lower))
+
+    - name: Warn when cert-manager deploy was skipped by Docker Hub rate limit
+      ansible.builtin.debug:
+        msg: >-
+          cert-manager compose up skipped due to Docker Hub unauthenticated pull rate limit.
+          Retry later or configure authenticated pull/mirror for nginx:alpine and certbot/certbot.
+      when:
+        - cert_manager_compose_up is defined
+        - (cert_manager_compose_up.rc | default(0)) != 0
+        - "'unauthenticated pull rate limit' in (cert_manager_compose_up.stderr | default('') | lower)"
 
 - name: Stop cert-manager on non-master HAProxy nodes (keepalived singleton)
   when:
@@ -164,6 +198,7 @@
     - cert_manager_enabled | default(false) | bool
     - cert_manager_link_to_haproxy_ssl_dir | default(false) | bool
     - inventory_hostname in (groups['haproxy'] | default([]))
+    - cert_manager_gluster_ok | default(false) | bool
   become: true
   become_method: sudo
   block:

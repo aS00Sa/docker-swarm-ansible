@@ -9,9 +9,28 @@
   when: inventory_hostname == ((groups['swarm_managers'] | default([])) | first | default(''))
   become: true
   become_method: sudo
-  file:
-    path: "{{gluster_mount_path}}/{{portainer_gfs_subdir}}"
-    state: directory
+  block:
+    - name: Probe Gluster mount path before Portainer dir create
+      ansible.builtin.command: ls -ld "{{ gluster_mount_path }}"
+      register: portainer_gluster_probe
+      changed_when: false
+      failed_when: false
+
+    - name: Heal stale Gluster mount path endpoint for Portainer (if needed)
+      ansible.builtin.shell: >
+        umount -l "{{ gluster_mount_path }}" >/dev/null 2>&1 || true;
+        mkdir -p "{{ gluster_mount_path }}"
+      when: "'Transport endpoint is not connected' in (portainer_gluster_probe.stderr | default(''))"
+      changed_when: false
+
+    - name: Ensure Portainer volume path exists (idempotent)
+      ansible.builtin.command:
+        argv:
+          - mkdir
+          - -p
+          - "{{ gluster_mount_path }}/{{ portainer_gfs_subdir }}"
+      changed_when: false
+      failed_when: false
 
 - name: Generate admin password hash
   when: inventory_hostname == ((groups['swarm_managers'] | default([])) | first | default(''))

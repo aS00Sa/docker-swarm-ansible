@@ -130,6 +130,29 @@
       when: firewall_restrict_gluster_service_ports | bool
       changed_when: true
 
+    - name: Allow edge nodes to access NFS (tcp/2049) on public gluster gateway
+      when: inventory_hostname in (groups['gluster_nodes'] | default([]))
+      become: true
+      become_method: sudo
+      ansible.builtin.command:
+        argv:
+          - /bin/bash
+          - -lc
+          - >-
+            iptables -C INPUT -p tcp --dport 2049 -s {{ (hostvars[item].ansible_host | default(item)) }} -j ACCEPT 2>/dev/null
+            || iptables -I INPUT 1 -p tcp --dport 2049 -s {{ (hostvars[item].ansible_host | default(item)) }} -j ACCEPT
+      loop: "{{ ((groups['haproxy'] | default([])) + (groups['traefik'] | default([]))) | unique | list }}"
+      loop_control:
+        label: "{{ item }}"
+      changed_when: true
+      failed_when: false
+
+    - name: Enable edge routing on public gluster gateway (optional)
+      ansible.builtin.include_tasks: edge-gluster-gateway.yml
+      when:
+        - firewall_restrict_gluster_service_ports | bool
+        - inventory_hostname in (groups['gluster_nodes'] | default([]))
+
     - name: Сохранить iptables для перезагрузки
       ansible.builtin.command: netfilter-persistent save
       changed_when: false

@@ -1,4 +1,21 @@
 ---
+- name: Probe Gluster mount path accessibility (best-effort)
+  become: true
+  become_method: sudo
+  ansible.builtin.command: ls -ld "{{ gluster_mount_path }}"
+  register: gluster_mount_path_probe
+  changed_when: false
+  failed_when: false
+
+- name: Heal stale Gluster mount endpoint before stat
+  become: true
+  become_method: sudo
+  ansible.builtin.shell: >
+    umount -l "{{ gluster_mount_path }}" >/dev/null 2>&1 || true;
+    mkdir -p "{{ gluster_mount_path }}"
+  when: "'Transport endpoint is not connected' in (gluster_mount_path_probe.stderr | default(''))"
+  changed_when: false
+
 - name: Stat Gluster mount path
   become: true
   become_method: sudo
@@ -31,7 +48,7 @@
 # Том мог не получить start, если init пропустил шаг (brick уже был) — без Started mount всегда падает.
 - name: Ensure Gluster volume {{ gluster_volume_name }} is Started (once on first node)
   run_once: true
-  delegate_to: "{{ groups['gluster_nodes'][0] }}"
+  delegate_to: "{{ gluster_active_nodes[0] }}"
   become: true
   become_method: sudo
   shell: |
@@ -60,7 +77,15 @@
 # Через другой peer стабильнее; auth.allow — по IP клиента.
 - name: Derive Gluster mount peers (не текущий хост)
   set_fact:
-    gluster_mount_peer_list: "{{ groups['gluster_nodes_bricks'] | difference([inventory_hostname]) | list }}"
+    gluster_mount_peer_list: >-
+      {{
+        (
+          groups['gluster_nodes_bricks']
+          | default(groups['gluster_nodes'] | default([]))
+          | difference([inventory_hostname])
+          | list
+        )
+      }}
 
 - name: Fallback mount peer to self (single-node Gluster)
   when: gluster_mount_peer_list | length < 1
@@ -84,6 +109,57 @@
   when: gluster_path_is_mount.rc == 0
   changed_when: false
   failed_when: false
+
+- name: Detect non-empty {{ gluster_mount_path }} when not mounted
+  become: true
+  become_method: sudo
+  shell: |
+    set -u
+    find "{{ gluster_mount_path }}" -mindepth 1 -maxdepth 1 ! -name 'lost+found' -print -quit
+  args:
+    executable: /bin/bash
+  register: gluster_mount_path_has_local_data
+  changed_when: false
+  failed_when: false
+  when: >
+    not (
+      gluster_path_is_mount.rc == 0
+      and ('gluster' in (gluster_path_fstype.stdout | default('') | lower))
+    )
+
+- name: Auto-clean local leftovers under {{ gluster_mount_path }} (backup then empty)
+  become: true
+  become_method: sudo
+  shell: |
+    set -euo pipefail
+    ts="$(date +%Y%m%d-%H%M%S)"
+    bdir="{{ gluster_mount_autoclean_backup_dir | default('/root/gfs-recovery-backup') }}"
+    mkdir -p "$bdir"
+    # Move everything except lost+found out of the way.
+    shopt -s dotglob nullglob
+    for p in "{{ gluster_mount_path }}"/* "{{ gluster_mount_path }}"/.[!.]* "{{ gluster_mount_path }}"/..?*; do
+      base="$(basename "$p")"
+      [ "$base" = "lost+found" ] && continue
+      mv -f "$p" "$bdir/${base}-${ts}" || true
+    done
+  args:
+    executable: /bin/bash
+  changed_when: true
+  when:
+    - gluster_mount_autoclean_unmounted_path | default(false) | bool
+    - (gluster_mount_path_has_local_data.stdout | default('') | trim) != ""
+
+- name: Fail when {{ gluster_mount_path }} contains local data and is not mounted
+  ansible.builtin.fail:
+    msg: >-
+      {{ gluster_mount_path }} is not a Gluster mountpoint, but contains local data.
+      This blocks safe mounting of {{ gluster_volume_name }} over it.
+      Either clean the path manually, or set gluster_mount_autoclean_unmounted_path=true
+      to auto-backup leftovers into {{ gluster_mount_autoclean_backup_dir }} and continue.
+      First found entry: {{ (gluster_mount_path_has_local_data.stdout | default('') | trim) }}
+  when:
+    - not (gluster_mount_autoclean_unmounted_path | default(false) | bool)
+    - (gluster_mount_path_has_local_data.stdout | default('') | trim) != ""
 
 - name: Проверить что точка монтирования пуста (кроме lost+found)
   become: true

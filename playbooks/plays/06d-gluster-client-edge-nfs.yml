@@ -1,0 +1,102 @@
+---
+# ansible-playbook -i inventory-btnxlocal.ini playbooks/plays/06d-gluster-client-edge-nfs.yml
+# Mount GFS on edge nodes via NFSv4 from public gluster_nodes.
+- hosts: haproxy:traefik
+  tags: [gluster-client, gluster-client-edge, gluster-client-edge-nfs]
+  roles:
+    - role: ../roles/cluster-defaults
+  tasks:
+    - name: Assert public gluster gateway exists
+      ansible.builtin.assert:
+        that:
+          - (groups['gluster_nodes'] | default([]) | length) > 0
+        fail_msg: "Inventory group [gluster_nodes] must contain at least one public NFS gateway host."
+
+    - name: Pick NFS gateway host
+      ansible.builtin.set_fact:
+        edge_nfs_gateway_host: "{{ (groups['gluster_nodes'] | default([])) | first }}"
+
+    - name: Derive NFS gateway IP (ansible_host or inventory name)
+      ansible.builtin.set_fact:
+        edge_nfs_gateway_ip: "{{ hostvars[edge_nfs_gateway_host].ansible_host | default(edge_nfs_gateway_host) }}"
+
+    - name: Ensure edge host has ansible_host (public IP) for firewall allowlist
+      ansible.builtin.assert:
+        that:
+          - (ansible_host | default('') | trim | length) > 0
+        fail_msg: >-
+          Edge host {{ inventory_hostname }} must have ansible_host set to its public IP
+          (used for NFS allowlist on gluster_nodes firewall/ganesha).
+
+    - name: Install NFS client utilities
+      become: true
+      become_method: sudo
+      ansible.builtin.apt:
+        name:
+          - nfs-common
+        state: present
+        update_cache: true
+
+    - name: Ensure /mnt/gfs directory exists
+      become: true
+      become_method: sudo
+      ansible.builtin.file:
+        path: "{{ gluster_mount_path }}"
+        state: directory
+        mode: "0755"
+
+    - name: Unmount stale /mnt/gfs (best-effort)
+      become: true
+      become_method: sudo
+      ansible.builtin.command:
+        argv: ["/bin/bash","-lc","umount -l {{ gluster_mount_path }} >/dev/null 2>&1 || true" ]
+      changed_when: false
+      failed_when: false
+
+    - name: Mount /mnt/gfs via NFSv4 from gateway
+      become: true
+      become_method: sudo
+      ansible.builtin.command:
+        argv:
+          - /bin/bash
+          - -lc
+          - >-
+            mount -t nfs4 -o rw,hard,timeo=600,retrans=3,_netdev
+            {{ edge_nfs_gateway_ip }}:/gfs {{ gluster_mount_path }}
+      register: edge_nfs_mount
+      changed_when: (edge_nfs_mount.rc | default(1)) == 0
+      failed_when: false
+
+    - name: Persist edge NFS mount in /etc/fstab
+      become: true
+      become_method: sudo
+      ansible.builtin.lineinfile:
+        path: /etc/fstab
+        create: true
+        mode: "0644"
+        regexp: "^\\S+\\s+{{ (gluster_mount_path | regex_escape) }}\\s+nfs4\\s"
+        line: >-
+          {{ edge_nfs_gateway_ip }}:/gfs {{ gluster_mount_path }} nfs4 rw,hard,timeo=600,retrans=3,_netdev,nofail,x-systemd.automount 0 0
+
+    - name: Ensure fstab mount is active (mount -a)
+      become: true
+      become_method: sudo
+      ansible.builtin.command:
+        argv: ["/bin/bash","-lc","mount -a"]
+      changed_when: false
+      failed_when: false
+
+    - name: Verify /mnt/gfs is a mountpoint (edge)
+      become: true
+      become_method: sudo
+      ansible.builtin.command: mountpoint -q "{{ gluster_mount_path }}"
+      register: edge_mp
+      changed_when: false
+      failed_when: false
+
+    - name: Warn when edge NFS mount is unavailable
+      when: (edge_mp.rc | default(1)) != 0
+      ansible.builtin.debug:
+        msg: >-
+          Edge mount of {{ gluster_mount_path }} via NFSv4 from {{ edge_nfs_gateway_ip }} failed.
+          rc={{ edge_nfs_mount.rc | default('n/a') }}, stderr={{ edge_nfs_mount.stderr | default('') }}

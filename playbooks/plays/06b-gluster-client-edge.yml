@@ -1,0 +1,11 @@
+---
+# ansible-playbook -i inventory-prod.ini playbooks/plays/06b-gluster-client-edge.yml
+# Mount GlusterFS on edge nodes (haproxy/traefik) using public gluster_nodes peers.
+- hosts: haproxy:traefik
+  tags: [gluster-client, gluster-client-edge]
+  roles:
+    - role: ../roles/cluster-defaults
+  tasks:
+    - import_role:
+        name: ../roles/gluster-client
+      tags: [gluster-client, gluster-client-edge]

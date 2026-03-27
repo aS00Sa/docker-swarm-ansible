@@ -1,0 +1,11 @@
+---
+# ansible-playbook -i inventory-prod.ini playbooks/plays/03b-docker-edge.yml
+# Docker on edge nodes (haproxy/traefik) that are not swarm workers.
+- hosts: haproxy:traefik
+  tags: [docker, docker-edge]
+  roles:
+    - role: ../roles/cluster-defaults
+  tasks:
+    - import_role:
+        name: ../roles/docker
+      tags: [docker, docker-edge]

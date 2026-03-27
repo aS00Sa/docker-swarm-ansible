@@ -5,6 +5,13 @@ gluster_volume_path: /glusterfs/bricks
 gluster_volume_name: gfs
 gluster_mount_path: /mnt/gfs
 
+# Если {{ gluster_mount_path }} НЕ является mountpoint-ом GlusterFS, но внутри есть данные
+# (например, локально созданные каталоги от приложений), то серверный этап не сможет
+# безопасно примонтировать volume поверх. По умолчанию это "fail fast" с диагностикой.
+# Включите флаг, чтобы автоматически унести "остатки" в бэкап и продолжить.
+gluster_mount_autoclean_unmounted_path: true
+gluster_mount_autoclean_backup_dir: /root/gfs-recovery-backup
+
 # Ограничить диапазон портов brick-процессов (glusterfsd), чтобы он совпадал с firewall правилами.
 # Эти опции пишутся в /etc/glusterfs/glusterd.vol как:
 #   option base-port <int>

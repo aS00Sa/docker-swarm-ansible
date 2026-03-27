@@ -1,0 +1,52 @@
+---
+# ansible-playbook -i inventory-btnxlocal.ini playbooks/plays/05c-gluster-ganesha.yml
+# Export /mnt/gfs over NFS (ganesha) on public gluster_nodes for edge clients.
+- hosts: gluster_nodes
+  tags: [gluster-ganesha]
+  roles:
+    - role: ../roles/cluster-defaults
+  tasks:
+    - name: Initialize edge NFS client IP allowlist
+      ansible.builtin.set_fact:
+        edge_nfs_client_ips: []
+
+    - name: Add edge host IPs to NFS allowlist
+      ansible.builtin.set_fact:
+        edge_nfs_client_ips: "{{ (edge_nfs_client_ips | default([])) + [ (hostvars[item].ansible_host | default(item)) ] }}"
+      loop: "{{ ((groups['haproxy'] | default([])) + (groups['traefik'] | default([]))) | unique | list }}"
+      loop_control:
+        label: "{{ item }}"
+
+    - name: Assert we have at least one edge client IP
+      ansible.builtin.assert:
+        that:
+          - (edge_nfs_client_ips | length) > 0
+        fail_msg: >-
+          No edge client IPs found from [haproxy]/[traefik]. Ensure those hosts have ansible_host set
+          (public IP) in inventory.
+
+    - name: Install NFS Ganesha packages
+      become: true
+      become_method: sudo
+      ansible.builtin.apt:
+        name:
+          - nfs-ganesha
+          - nfs-ganesha-vfs
+        state: present
+        update_cache: true
+
+    - name: Render ganesha.conf exporting /mnt/gfs
+      become: true
+      become_method: sudo
+      ansible.builtin.template:
+        src: ../templates/ganesha.conf.j2
+        dest: /etc/ganesha/ganesha.conf
+        mode: "0644"
+
+    - name: Enable and restart nfs-ganesha
+      become: true
+      become_method: sudo
+      ansible.builtin.systemd:
+        name: nfs-ganesha
+        enabled: true
+        state: restarted

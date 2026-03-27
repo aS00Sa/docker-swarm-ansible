@@ -1,0 +1,63 @@
+---
+# Enable routing/NAT on public gluster gateway so edge nodes can reach brick subnet.
+# This is required because Gluster volfile contains brick IPs (192.168.25.x).
+- name: Enable IPv4 forwarding (Gluster edge gateway)
+  become: true
+  become_method: sudo
+  ansible.builtin.command:
+    argv:
+      - sysctl
+      - -w
+      - net.ipv4.ip_forward=1
+  changed_when: false
+  failed_when: false
+
+- name: Allow forwarding for established traffic
+  become: true
+  become_method: sudo
+  ansible.builtin.command:
+    argv:
+      - /bin/bash
+      - -lc
+      - "iptables -C FORWARD -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT 2>/dev/null || iptables -A FORWARD -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT"
+  changed_when: true
+  failed_when: false
+
+- name: Allow edge nodes to forward to brick subnet (Gluster ports)
+  vars:
+    edge_hosts: "{{ ((groups['haproxy'] | default([])) + (groups['traefik'] | default([]))) | unique | list }}"
+  become: true
+  become_method: sudo
+  ansible.builtin.command:
+    argv:
+      - /bin/bash
+      - -lc
+      - >-
+        ip="{{ hostvars[item].ansible_host | default(item) }}";
+        iptables -C FORWARD -s "$ip" -d 192.168.25.0/24 -p tcp --dport 24007 -j ACCEPT 2>/dev/null || iptables -A FORWARD -s "$ip" -d 192.168.25.0/24 -p tcp --dport 24007 -j ACCEPT;
+        iptables -C FORWARD -s "$ip" -d 192.168.25.0/24 -p tcp --dport 24008 -j ACCEPT 2>/dev/null || iptables -A FORWARD -s "$ip" -d 192.168.25.0/24 -p tcp --dport 24008 -j ACCEPT;
+        iptables -C FORWARD -s "$ip" -d 192.168.25.0/24 -p tcp --dport 40000:65535 -j ACCEPT 2>/dev/null || iptables -A FORWARD -s "$ip" -d 192.168.25.0/24 -p tcp --dport 40000:65535 -j ACCEPT;
+  loop: "{{ edge_hosts }}"
+  loop_control:
+    label: "{{ item }}"
+  changed_when: true
+  failed_when: false
+
+- name: Masquerade edge traffic to brick subnet
+  vars:
+    edge_hosts: "{{ ((groups['haproxy'] | default([])) + (groups['traefik'] | default([]))) | unique | list }}"
+  become: true
+  become_method: sudo
+  ansible.builtin.command:
+    argv:
+      - /bin/bash
+      - -lc
+      - >-
+        ip="{{ hostvars[item].ansible_host | default(item) }}";
+        iptables -t nat -C POSTROUTING -s "$ip" -d 192.168.25.0/24 -j MASQUERADE 2>/dev/null
+        || iptables -t nat -A POSTROUTING -s "$ip" -d 192.168.25.0/24 -j MASQUERADE
+  loop: "{{ edge_hosts }}"
+  loop_control:
+    label: "{{ item }}"
+  changed_when: true
+  failed_when: false

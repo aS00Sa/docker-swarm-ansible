@@ -20,6 +20,7 @@
 - import_playbook: plays/11-firewall-iptables.yml
 - import_playbook: plays/03-docker-swarm-managers.yml
 - import_playbook: plays/04-docker-swarm-workers.yml
+- import_playbook: plays/03b-docker-edge.yml
 - import_playbook: plays/05-gluster.yml
 - import_playbook: plays/06-gluster-client.yml
 - import_playbook: plays/07-swarm-labels.yml

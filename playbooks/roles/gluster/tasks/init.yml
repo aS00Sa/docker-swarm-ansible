@@ -72,6 +72,39 @@
     - inventory_hostname == gluster_active_nodes[0]
     - (item.rc | default(0)) != 0
 
+- name: Collect Gluster peer status (first node)
+  when: inventory_hostname == gluster_active_nodes[0]
+  become: true
+  become_method: sudo
+  ansible.builtin.command: gluster peer status
+  register: gluster_peer_status_raw
+  changed_when: false
+  failed_when: false
+
+- name: Build disconnected peer list from Gluster peer status
+  when: inventory_hostname == gluster_active_nodes[0]
+  ansible.builtin.set_fact:
+    gluster_disconnected_peers: >-
+      {{
+        (
+          gluster_peer_status_raw.stdout
+          | default('')
+          | regex_findall('Hostname:\\s*([^\\n]+)\\n(?:.|\\n)*?State:\\s*(?!Peer in Cluster).*')
+          | map('trim')
+          | list
+        )
+      }}
+
+- name: Fail early when some Gluster peers are not in cluster state
+  when:
+    - inventory_hostname == gluster_active_nodes[0]
+    - (gluster_disconnected_peers | default([]) | length) > 0
+  ansible.builtin.fail:
+    msg: >-
+      Gluster peer state is inconsistent. The following peers are not in "Peer in Cluster" state:
+      {{ gluster_disconnected_peers | join(', ') }}.
+      Fix peer connectivity/membership first, then rerun.
+
 - name: Create Gluster Volume (on first node)
   when: inventory_hostname == gluster_active_nodes[0] and gluster_volume_missing_in_cluster | default(false)
   become: true
@@ -116,8 +149,12 @@
   vars:
     gluster_auth_allow_ips: >-
       {{
-        ((groups['swarm_nodes'] | default([])) +
-         (gluster_active_nodes | default([])))
+        (
+          (groups['swarm_nodes'] | default([]))
+          + (groups['haproxy'] | default([]))
+          + (groups['traefik'] | default([]))
+          + (gluster_active_nodes | default([]))
+        )
         | unique
       }}
   shell: >

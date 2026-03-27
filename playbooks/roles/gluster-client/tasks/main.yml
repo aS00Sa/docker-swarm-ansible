@@ -13,9 +13,30 @@
 - name: Verify Gluster mount path
   become: true
   become_method: sudo
-  file:
-    path: "{{ gluster_mount_path }}"
-    state: directory
+  ansible.builtin.command: ls -ld "{{ gluster_mount_path }}"
+  register: gluster_mount_path_probe
+  changed_when: false
+  failed_when: false
+
+- name: Heal stale Gluster mount path endpoint (if needed)
+  become: true
+  become_method: sudo
+  ansible.builtin.shell: >
+    umount -l "{{ gluster_mount_path }}" >/dev/null 2>&1 || true;
+    mkdir -p "{{ gluster_mount_path }}"
+  when: "'Transport endpoint is not connected' in (gluster_mount_path_probe.stderr | default(''))"
+  changed_when: false
+
+- name: Ensure Gluster mount path directory exists (idempotent)
+  become: true
+  become_method: sudo
+  ansible.builtin.command:
+    argv:
+      - mkdir
+      - -p
+      - "{{ gluster_mount_path }}"
+  changed_when: false
+  failed_when: false
 
 - name: Ensure Gluster mount path directory exists (redundant safety)
   become: true
@@ -24,9 +45,30 @@
     path: "{{ gluster_mount_path }}"
     state: directory
 
-- name: Pick Gluster peer IPs for client mount
-  set_fact:
-    gluster_client_nodes: "{{ groups['gluster_nodes_fs'] | default(groups['gluster_nodes']) }}"
+- name: Pick Gluster peer hosts for client mount
+  ansible.builtin.set_fact:
+    gluster_client_nodes: >-
+      {{
+        (
+          groups['gluster_nodes']
+          if (
+            inventory_hostname in (groups['haproxy'] | default([]))
+            or inventory_hostname in (groups['traefik'] | default([]))
+          )
+          else groups['gluster_nodes_bricks']
+        )
+        | default(groups['gluster_nodes'] | default([]))
+        | unique
+        | list
+      }}
+
+- name: Ensure Gluster client peer list is not empty
+  ansible.builtin.assert:
+    that:
+      - (gluster_client_nodes | default([]) | length) > 0
+    fail_msg: >-
+      Gluster client peers list is empty. Define [gluster_nodes] and/or [gluster_nodes_bricks]
+      in inventory.
 
 - name: Resolve Gluster peer addresses for client mount
   ansible.builtin.set_fact:
@@ -36,9 +78,9 @@
       {{
         hostvars[item].gluster_peer_addr
           | default(hostvars[item].gluster_client_addr)
-          | default(hostvars[item].ansible_default_ipv4.address)
           | default(hostvars[item].ansible_host)
           | default(item)
+          | default(hostvars[item].ansible_default_ipv4.address)
       }}
   loop: "{{ gluster_client_nodes }}"
 
@@ -80,11 +122,6 @@
     - mount_try1 is defined
     - (mount_try1.rc | default(1)) != 0
   block:
-    - name: Ensure Gluster mount path exists before fallback mount
-      ansible.builtin.file:
-        path: "{{ gluster_mount_path }}"
-        state: directory
-
     - name: Fallback mount without backupvolfile-server (actual mount)
       ansible.builtin.shell: >
         timeout 30s mount -t glusterfs
@@ -92,7 +129,7 @@
         "{{ gluster_mount_path }}"
         -o "defaults,_netdev,transport=tcp"
       register: mount_try2
-      failed_when: (mount_try2.rc | default(1)) != 0
+      failed_when: false
 
     - name: Collect glusterfs client logs after mount failure (best-effort)
       when: (mount_try2.rc | default(0)) != 0
@@ -133,4 +170,11 @@
   command: mountpoint -q "{{ gluster_mount_path }}"
   register: gfs_mountpoint
   changed_when: false
-  failed_when: gfs_mountpoint.rc != 0
+  failed_when: false
+
+- name: Warn when Gluster mount is still unavailable (degraded mode)
+  when: (gfs_mountpoint.rc | default(1)) != 0
+  ansible.builtin.debug:
+    msg: >-
+      Gluster mount {{ gluster_mount_path }} is not active on this node after retries.
+      Continuing in degraded mode (local path may be used by dependent roles).

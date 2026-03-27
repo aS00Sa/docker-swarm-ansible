@@ -1,6 +1,6 @@
 ---
 # ansible-playbook -i inventory-prod.ini playbooks/plays/05-gluster.yml
-- hosts: gluster_nodes
+- hosts: gluster_nodes_bricks
   tags: [gluster]
   roles:
     - role: ../roles/cluster-defaults

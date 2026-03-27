@@ -1,0 +1,36 @@
+---
+# ansible-playbook -i inventory-prod.ini playbooks/plays/06c-edge-route-to-bricks.yml
+# Add route on edge nodes so 192.168.25.0/24 is reachable via public gluster gateway.
+- hosts: haproxy:traefik
+  tags: [gluster-client, gluster-edge-route]
+  roles:
+    - role: ../roles/cluster-defaults
+  tasks:
+    - name: Assert gluster_nodes has at least one gateway
+      ansible.builtin.assert:
+        that:
+          - (groups['gluster_nodes'] | default([]) | length) > 0
+        fail_msg: "Inventory group [gluster_nodes] must contain at least one public gateway host."
+
+    - name: Pick public gluster gateway host
+      ansible.builtin.set_fact:
+        gluster_edge_gateway_host: "{{ (groups['gluster_nodes'] | default([])) | first }}"
+
+    - name: Derive public gateway IP (ansible_host or inventory name)
+      ansible.builtin.set_fact:
+        gluster_edge_gateway_ip: "{{ hostvars[gluster_edge_gateway_host].ansible_host | default(gluster_edge_gateway_host) }}"
+
+    - name: Enable route from edge to brick subnet via gateway
+      become: true
+      become_method: sudo
+      ansible.builtin.command:
+        argv:
+          - /bin/bash
+          - -lc
+          - >-
+            gw="{{ gluster_edge_gateway_ip }}";
+            dev="$(ip route get "$gw" 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i=="dev"){print $(i+1); exit}}')";
+            if [ -z "$dev" ]; then dev="{{ ansible_default_ipv4.interface | default('eth0') }}"; fi;
+            ip route replace 192.168.25.0/24 via "$gw" dev "$dev"
+      changed_when: false
+      failed_when: false
