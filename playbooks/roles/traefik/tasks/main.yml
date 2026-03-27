@@ -428,7 +428,9 @@
     flat: true
 
 - name: Deploy Traefik via docker compose (non-swarm)
-  when: (traefik_effective_deploy_method | default('stack')) == 'compose'
+  when:
+    - (traefik_effective_deploy_method | default('stack')) == 'compose'
+    - inventory_hostname in (groups['traefik'] | default([]))
   become: true
   become_method: sudo
   block:

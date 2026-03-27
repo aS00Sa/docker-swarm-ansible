@@ -1,6 +1,6 @@
 ---
 # ansible-playbook -i inventory-prod.ini playbooks/plays/13-traefik.yml
-- hosts: traefik
+- hosts: swarm_managers:traefik
   tags: [traefik]
   roles:
     - role: ../roles/cluster-defaults

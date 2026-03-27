@@ -1,0 +1,95 @@
+---
+# Debug TLS certificates seen by Traefik on edge host.
+- hosts: haproxy
+  gather_facts: false
+  tags: [manual, traefik-cert-debug]
+  tasks:
+    - name: Show certbot live lineages on GFS
+      ansible.builtin.command:
+        argv: ["ls", "-la", "/mnt/gfs/cert_manager_gfs/letsencrypt/live"]
+      register: live_dirs
+      changed_when: false
+      failed_when: false
+
+    - name: Print certbot live lineages
+      ansible.builtin.debug:
+        var: live_dirs.stdout_lines
+
+    - name: Show Traefik dynamic files
+      ansible.builtin.command:
+        argv: ["ls", "-la", "/mnt/gfs/traefik_gfs/dynamic"]
+      register: dyn_files
+      changed_when: false
+      failed_when: false
+
+    - name: Print Traefik dynamic files
+      ansible.builtin.debug:
+        var: dyn_files.stdout_lines
+
+    - name: Show certs visible inside Traefik container
+      ansible.builtin.command:
+        argv: ["docker", "exec", "traefik_gfs-traefik-1", "ls", "-la", "/etc/traefik/letsencrypt/live"]
+      register: in_container_live
+      changed_when: false
+      failed_when: false
+
+    - name: Print certs visible inside Traefik container
+      ansible.builtin.debug:
+        var: in_container_live.stdout_lines
+
+    - name: Inspect fullchain inside Traefik container
+      ansible.builtin.command:
+        argv:
+          - docker
+          - exec
+          - traefik_gfs-traefik-1
+          - /bin/sh
+          - -lc
+          - >-
+            for d in gitlab.btnxlocal.ru nexus.btnxlocal.ru; do
+              f="/etc/traefik/letsencrypt/live/$d/fullchain.pem";
+              echo "=== in-container $d ===";
+              ls -l "$f" || true;
+              file "$f" || true;
+              sed -n '1,5p' "$f" || true;
+            done
+      register: container_fullchain_inspect
+      changed_when: false
+      failed_when: false
+
+    - name: Print in-container fullchain inspection
+      ansible.builtin.debug:
+        var: container_fullchain_inspect.stdout_lines
+
+    - name: Inspect fullchain file metadata and preview (host path)
+      ansible.builtin.command:
+        argv:
+          - /bin/bash
+          - -lc
+          - >-
+            set -e;
+            for d in gitlab.btnxlocal.ru nexus.btnxlocal.ru; do
+              f="/mnt/gfs/cert_manager_gfs/letsencrypt/live/$d/fullchain.pem";
+              echo "=== $d ===";
+              ls -l "$f" || true;
+              file "$f" || true;
+              sed -n '1,5p' "$f" || true;
+            done
+      register: host_fullchain_inspect
+      changed_when: false
+      failed_when: false
+
+    - name: Print fullchain inspection
+      ansible.builtin.debug:
+        var: host_fullchain_inspect.stdout_lines
+
+    - name: Show Traefik logs related to TLS cert loading
+      ansible.builtin.command:
+        argv: ["docker", "logs", "--tail", "200", "traefik_gfs-traefik-1"]
+      register: traefik_logs
+      changed_when: false
+      failed_when: false
+
+    - name: Print Traefik TLS log hints
+      ansible.builtin.debug:
+        msg: "{{ (traefik_logs.stderr_lines | default([]) + traefik_logs.stdout_lines | default([])) | select('search', '(?i)(cert|tls|acme|default certificate|unable|error)') | list }}"

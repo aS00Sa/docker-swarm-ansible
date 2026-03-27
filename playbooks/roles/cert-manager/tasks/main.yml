@@ -147,6 +147,23 @@
         - (cert_manager_compose_up.rc | default(0)) != 0
         - "'unauthenticated pull rate limit' in (cert_manager_compose_up.stderr | default('') | lower)"
 
+    - name: Restart Traefik compose service to reload issued certificates
+      when:
+        - cert_manager_restart_traefik_after_issue | default(true) | bool
+        - inventory_hostname in (groups['traefik'] | default([]))
+        - cert_manager_compose_up is defined
+        - (cert_manager_compose_up.rc | default(1)) == 0
+      ansible.builtin.command:
+        argv:
+          - docker
+          - compose
+          - -f
+          - "{{ gluster_mount_path }}/{{ traefik_gfs_subdir }}/docker-compose.yml"
+          - restart
+          - traefik
+      changed_when: false
+      failed_when: false
+
 - name: Stop cert-manager on non-master HAProxy nodes (keepalived singleton)
   when:
     - cert_manager_enabled | default(false) | bool

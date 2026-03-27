@@ -1,0 +1,18 @@
+---
+# Force Traefik container restart on edge host (compose mode)
+- hosts: traefik
+  gather_facts: false
+  tags: [manual, traefik-restart]
+  become: true
+  become_method: sudo
+  tasks:
+    - name: Restart Traefik compose service
+      ansible.builtin.command:
+        argv:
+          - docker
+          - compose
+          - -f
+          - /mnt/gfs/traefik_gfs/docker-compose.yml
+          - restart
+          - traefik
+      changed_when: true

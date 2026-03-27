@@ -72,3 +72,7 @@ cert_manager_traefik_router_rule: "PathPrefix(`/.well-known/acme-challenge/`)"
 # (чтобы HAProxy мог брать fullchain/privkey из certbot live/)
 cert_manager_link_to_haproxy_ssl_dir: true
 cert_manager_haproxy_ssl_dir: "/etc/ssl/{{ app_domain_name }}"
+
+# Перезапускать Traefik после cert-manager compose up (compose-mode),
+# чтобы Traefik перечитал обновленные PEM-файлы (live/*/fullchain.pem).
+cert_manager_restart_traefik_after_issue: true
