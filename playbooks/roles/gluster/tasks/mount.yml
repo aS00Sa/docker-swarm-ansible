@@ -60,7 +60,7 @@
 # Через другой peer стабильнее; auth.allow — по IP клиента.
 - name: Derive Gluster mount peers (не текущий хост)
   set_fact:
-    gluster_mount_peer_list: "{{ groups['gluster_nodes_bricks'] | difference([inventory_hostname]) | list }}"
+    gluster_mount_peer_list: "{{ groups['gluster_nodes_local'] | difference([inventory_hostname]) | list }}"
 
 - name: Fallback mount peer to self (single-node Gluster)
   when: gluster_mount_peer_list | length < 1

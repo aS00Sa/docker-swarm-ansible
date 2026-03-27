@@ -34,7 +34,7 @@
     ( gluster_volume_missing_in_cluster | default(false) or glustervolume.stat.exists == false )
   become: true
   become_method: sudo
-  loop: "{{ groups['gluster_nodes_bricks'] }}"
+  loop: "{{ groups['gluster_nodes_local'] }}"
   shell: gluster peer probe {{ item }}
 
 - name: Create Gluster Volume (on first node)
@@ -46,8 +46,8 @@
     gluster_volume_create_force: "{{ 'force' if (device2_hdd_dev | default('') | trim | length) == 0 else '' }}"
     # Replica в Gluster должен соответствовать количеству brick-ов в команде.
     # Если в inventory меньше 3 нод — создаём с replica=1..2.
-    gluster_replica_count: "{{ ([ (groups['gluster_nodes_bricks'] | default([]) | length), 3 ] | min) | int }}"
-    gluster_bricks_for_create: "{{ (groups['gluster_nodes_bricks'] | default([]))[:(gluster_replica_count | int)] }}"
+    gluster_replica_count: "{{ ([ (groups['gluster_nodes_local'] | default([]) | length), 3 ] | min) | int }}"
+    gluster_bricks_for_create: "{{ (groups['gluster_nodes_local'] | default([]))[:(gluster_replica_count | int)] }}"
   shell: >-
     gluster volume create {{ gluster_volume_name }}
     {% if gluster_replica_count | int >= 2 %}
@@ -82,7 +82,7 @@
     gluster_auth_allow_ips: >-
       {{
         ((groups['swarm_nodes'] | default([])) +
-         (groups['gluster_nodes_bricks'] | default([])))
+         (groups['gluster_nodes_local'] | default([])))
         | unique
       }}
   shell: >
