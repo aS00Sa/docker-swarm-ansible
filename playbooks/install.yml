@@ -5,7 +5,7 @@
 #   ansible-playbook ... playbooks/install.yml --skip-tags firewall-iptables
 #
 # Одна стадия (быстрее), тот же состав переменных (defaults ролей + cluster-defaults при наличии + inventory):
-#   ansible-playbook -i inventory-prod.ini playbooks/plays/10-haproxy.yml
+#   ansible-playbook -i inventory-prod.ini playbooks/plays/11-haproxy.yml
 #
 # Несколько стадий по тегам (как раньше):
 #   ansible-playbook -i inventory-prod.ini playbooks/install.yml --tags haproxy
@@ -17,14 +17,14 @@
 # Плейбуки в plays/ указывают роли путём ../roles/… (работает и когда ansible.cfg из-за world-writable cwd не читается).
 - import_playbook: plays/01-host-defaults.yml
 - import_playbook: plays/02-generate-certs.yml
-- import_playbook: plays/11-firewall-iptables.yml
-- import_playbook: plays/03-docker-swarm-managers.yml
-- import_playbook: plays/04-docker-swarm-workers.yml
-- import_playbook: plays/03b-docker-edge.yml
-- import_playbook: plays/05-gluster.yml
-- import_playbook: plays/06-gluster-client.yml
-- import_playbook: plays/07-swarm-labels.yml
-- import_playbook: plays/08-portainer.yml
-- import_playbook: plays/10-haproxy.yml
+- import_playbook: plays/03-firewall-iptables.yml
+- import_playbook: plays/04-docker-swarm-managers.yml
+- import_playbook: plays/05-docker-swarm-workers.yml
+- import_playbook: plays/06-docker-edge.yml
+- import_playbook: plays/07-gluster.yml
+- import_playbook: plays/08-gluster-client.yml
+- import_playbook: plays/09-swarm-labels.yml
+- import_playbook: plays/10-portainer.yml
+- import_playbook: plays/11-haproxy.yml
 - import_playbook: plays/12-cert-manager.yml
-- import_playbook: plays/09-traefik.yml
+- import_playbook: plays/13-traefik.yml

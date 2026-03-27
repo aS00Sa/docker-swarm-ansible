@@ -1,6 +1,6 @@
 ---
-# ansible-playbook -i inventory-prod.ini playbooks/plays/10-haproxy.yml
-# (после Traefik на upstream; см. группу [traefik] и traefik_http_port)
+# ansible-playbook -i inventory-prod.ini playbooks/plays/11-haproxy.yml
+# HAProxy should start before cert-manager and Traefik.
 - hosts: haproxy
   tags: [haproxy]
   roles:

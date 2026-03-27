@@ -95,7 +95,7 @@ flowchart LR
 Пример:
 
 ```bash
-ANSIBLE_CONFIG="$PWD/ansible.cfg" ansible-playbook -i inventory.ini playbooks/plays/11-firewall-iptables.yml \
+ANSIBLE_CONFIG="$PWD/ansible.cfg" ansible-playbook -i inventory.ini playbooks/plays/03-firewall-iptables.yml \
   -u root --private-key ~/.ssh/id_ed25519 \
   -e firewall_lockdown=true \
   --tags lockdown
@@ -144,7 +144,7 @@ firewall_restrict_gluster_tcp_dport_ranges:
 Только firewall на нодах из плейбука (`swarm_managers`, `swarm_workers`, `gluster_nodes`):
 
 ```bash
-ANSIBLE_CONFIG="$PWD/ansible.cfg" ansible-playbook -i inventory.ini playbooks/plays/11-firewall-iptables.yml -u root --private-key ~/.ssh/id_ed25519
+ANSIBLE_CONFIG="$PWD/ansible.cfg" ansible-playbook -i inventory.ini playbooks/plays/03-firewall-iptables.yml -u root --private-key ~/.ssh/id_ed25519
 ```
 
 Полная установка **вместе** с firewall (без `--skip-tags firewall-iptables`):
@@ -271,13 +271,13 @@ ANSIBLE_CONFIG="$PWD/ansible.cfg" ansible-playbook -i inventory.ini playbooks/in
 - **Только часть стадий** — теги (как у ролей):  
   `ansible-playbook -i inventory.ini playbooks/install.yml --tags haproxy`
 - **Отдельный плейбук стадии** (`playbooks/plays/`, см. комментарий в файле):  
-  `ansible-playbook -i inventory.ini playbooks/plays/10-haproxy.yml`
+  `ansible-playbook -i inventory.ini playbooks/plays/11-haproxy.yml`
 - **Произвольная роль**:  
   `ansible-playbook -i inventory.ini playbooks/run-role.yml -e target_role=haproxy -e target_hosts=haproxy`
 - **Каталоги стека на Gluster** (под `gluster_mount_path/stacks/<имя>/`):  
   `ansible-playbook -i inventory.ini playbooks/plays/manual-create-gfs-dirs-for-new-myapps.yml -e stack_name=myapp`
 - **Включить firewall после отладки** (убрать `--skip-tags` или запустить только стадию):  
-  `ansible-playbook -i inventory.ini playbooks/plays/11-firewall-iptables.yml`
+  `ansible-playbook -i inventory.ini playbooks/plays/03-firewall-iptables.yml`
 - **Включить sysctl-high-load-profile** 
   `ansible-playbook -i inventory-prod.ini playbooks/plays/manual-sysctl-high-load-profile.yml`
 - **Отключить sysctl-high-load-profile** 

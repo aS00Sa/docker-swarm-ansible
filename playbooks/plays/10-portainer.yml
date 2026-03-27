@@ -1,5 +1,5 @@
 ---
-# ansible-playbook -i inventory-prod.ini playbooks/plays/08-portainer.yml
+# ansible-playbook -i inventory-prod.ini playbooks/plays/10-portainer.yml
 - hosts: swarm_managers
   tags: [portainer]
   roles:

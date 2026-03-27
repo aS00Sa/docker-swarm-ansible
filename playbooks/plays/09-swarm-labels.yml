@@ -1,5 +1,5 @@
 ---
-# ansible-playbook -i inventory-prod.ini playbooks/plays/07-swarm-labels.yml
+# ansible-playbook -i inventory-prod.ini playbooks/plays/09-swarm-labels.yml
 - hosts: swarm_nodes
   tags: [swarm-labels]
   roles:

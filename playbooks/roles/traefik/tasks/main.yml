@@ -48,18 +48,18 @@
       changed_when: false
       failed_when: false
 
-    - name: Build list of haproxy hosts not ready
+    - name: Initialize list of haproxy hosts not ready
       ansible.builtin.set_fact:
-        traefik_haproxy_not_ready_hosts: >-
-          {{
-            (
-              traefik_haproxy_status.results
-              | default([])
-              | rejectattr('stdout', 'equalto', 'active')
-              | map(attribute='item')
-              | list
-            )
-          }}
+        traefik_haproxy_not_ready_hosts: []
+
+    - name: Append haproxy hosts with non-active status
+      ansible.builtin.set_fact:
+        traefik_haproxy_not_ready_hosts: "{{ traefik_haproxy_not_ready_hosts + [item.item] }}"
+      loop: "{{ traefik_haproxy_status.results | default([]) }}"
+      loop_control:
+        label: "{{ item.item | default('unknown') }}"
+      when:
+        - (item.rc | default(1)) != 0 or ((item.stdout | default('') | trim) != 'active')
 
     - name: Fail if HAProxy is not active (strict mode)
       when:
@@ -79,6 +79,16 @@
   when: traefik_require_cert_manager_ready | default(true) | bool
   run_once: true
   block:
+    - name: Resolve cert-manager compose file path for pre-check
+      ansible.builtin.set_fact:
+        traefik_cert_manager_compose_file: >-
+          {{
+            (
+              cert_manager_compose_project_dir
+              | default(gluster_mount_path ~ '/' ~ (cert_manager_gfs_subdir | default('cert_manager_gfs')))
+            ) ~ '/docker-compose.yml'
+          }}
+
     - name: Fail if cert_manager group is empty (strict mode)
       when:
         - not (traefik_dependency_checks_warn_only | default(false) | bool)
@@ -101,7 +111,7 @@
           - docker
           - compose
           - -f
-          - "{{ cert_manager_compose_project_dir | default('/opt/cert-manager') }}/docker-compose.yml"
+          - "{{ traefik_cert_manager_compose_file }}"
           - ps
           - --status
           - running

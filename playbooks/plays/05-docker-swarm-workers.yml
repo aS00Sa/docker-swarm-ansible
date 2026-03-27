@@ -1,5 +1,5 @@
 ---
-# ansible-playbook -i inventory-prod.ini playbooks/plays/04-docker-swarm-workers.yml
+# ansible-playbook -i inventory-prod.ini playbooks/plays/05-docker-swarm-workers.yml
 - hosts: swarm_workers
   tags: [docker, swarm-workers]
   roles:

@@ -1,6 +1,6 @@
 ---
 # Запуск одной роли с теми же переменными, что и install.yml (cluster-defaults + defaults целевой роли + inventory).
-# Удобнее по отдельным файлам: playbooks/plays/10-haproxy.yml и т.д.
+# Удобнее по отдельным файлам: playbooks/plays/11-haproxy.yml и т.д.
 #
 # Примеры:
 #   ansible-playbook -i inventory-prod.ini playbooks/run-role.yml -e target_role=haproxy -e target_hosts=haproxy
