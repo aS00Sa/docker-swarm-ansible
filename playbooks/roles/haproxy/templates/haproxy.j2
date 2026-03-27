@@ -1,14 +1,14 @@
 {# Upstream стратегия #}
-{% set _traefik_nodes = (groups['traefik'] | default([])) %}
+{% set _upstream_group = haproxy_traefik_upstream_group | default('traefik') %}
+{% set _traefik_nodes = (groups[_upstream_group] | default([])) %}
 {% set _has_traefik = (_traefik_nodes | length) > 0 %}
 {% set _mode = (haproxy_upstream_mode | default('auto')) %}
 {% set _swarm_nodes_count = (groups['swarm_managers'] | default([]) | length) + (groups['swarm_workers'] | default([]) | length) %}
 {% set _swarm_ready = _swarm_nodes_count > 0 %}
-{% set _traefik_on_this_host = inventory_hostname in (groups['traefik'] | default([])) %}
 {% set _traefik_method = traefik_deploy_method | default('auto') %}
 {% set _compose_expected = (_traefik_method == 'compose') or ((_traefik_method == 'auto') and (not _swarm_ready)) %}
 {% set _traefik_ready = _swarm_ready or _compose_expected %}
-{% set _route_to_traefik = (_traefik_ready and _has_traefik) and ((_mode == 'traefik') or (_mode == 'auto' and _traefik_on_this_host)) %}
+{% set _route_to_traefik = (_traefik_ready and _has_traefik) and ((_mode == 'traefik') or (_mode == 'auto')) %}
 
 global
   maxconn 50000

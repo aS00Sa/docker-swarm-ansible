@@ -1,5 +1,6 @@
 {# One file per cert_manager_certs item (http + https backends) #}
-{% set _traefik_nodes = (groups['traefik'] | default([])) %}
+{% set _upstream_group = haproxy_traefik_upstream_group | default('traefik') %}
+{% set _traefik_nodes = (groups[_upstream_group] | default([])) %}
 
 backend {{ backend_name_http }}
   mode http

@@ -36,11 +36,14 @@ haproxy_ssl_fullchain_path: "/etc/ssl/{{ app_domain_name }}/fullchain.pem"
 haproxy_ssl_privkey_path: "/etc/ssl/{{ app_domain_name }}/privkey.pem"
 
 # Upstream стратегия:
-# - auto: есть группа [traefik] и текущий haproxy-хост входит в [traefik];
-#         если Swarm есть → маршрут в stack Traefik, если Swarm нет → маршрут в compose Traefik.
+# - auto: если задана непустая upstream-группа (haproxy_traefik_upstream_group),
+#         проксировать в Traefik-узлы из этой группы (stack/compose определяется готовностью Traefik).
 #         Иначе отдавать 503 (direct_layer7).
-# - traefik: всегда проксировать в Traefik (ошибка/пустой backend если [traefik] пустая).
+# - traefik: всегда проксировать в Traefik (ошибка/пустой backend если upstream-группа пустая).
 haproxy_upstream_mode: auto
+# Группа inventory с адресами нод, куда HAProxy проксирует в Traefik.
+# По умолчанию это [traefik], но для edge-сценария можно указать [gluster_nodes].
+haproxy_traefik_upstream_group: traefik
 
 # Порты Traefik entrypoints, куда проксирует HAProxy (L7).
 # В вашей схеме Traefik слушает 8080 (web) и 8443 (websecure).
