@@ -11,10 +11,26 @@
     path: "{{gluster_volume_path}}/{{inventory_hostname}}/brick"
     state: directory
 
+- name: Build active Gluster nodes list for current play
+  ansible.builtin.set_fact:
+    gluster_active_nodes: >-
+      {{
+        (
+          (groups['gluster_nodes_bricks'] | default([]))
+          | intersect(ansible_play_hosts_all | default([]))
+        )
+        if (
+          ((groups['gluster_nodes_bricks'] | default([]))
+          | intersect(ansible_play_hosts_all | default([]))
+          | length) > 0
+        )
+        else (ansible_play_hosts_all | default([]))
+      }}
+
 # Если каталог brick уже есть, старый when по stat пропускал create — тома в кластере нет (см. лог no_volume).
 - name: Probe Gluster volume in cluster (first node)
   run_once: true
-  delegate_to: "{{ groups['gluster_nodes'][0] }}"
+  delegate_to: "{{ gluster_active_nodes[0] }}"
   become: true
   become_method: sudo
   shell: gluster volume list | grep -qxF '{{ gluster_volume_name }}'
@@ -26,19 +42,38 @@
 
 - name: Set fact — том отсутствует в кластере (на всех нодах плей)
   set_fact:
-    gluster_volume_missing_in_cluster: "{{ hostvars[groups['gluster_nodes'][0]]['gluster_cluster_volume_probe'].rc | default(1) != 0 }}"
+    gluster_volume_missing_in_cluster: "{{ hostvars[gluster_active_nodes[0]]['gluster_cluster_volume_probe'].rc | default(1) != 0 }}"
 
 - name: Initialize Gluster Cluster (on first node)
   when: >-
-    inventory_hostname == groups['gluster_nodes'][0] and
+    inventory_hostname == gluster_active_nodes[0] and
     ( gluster_volume_missing_in_cluster | default(false) or glustervolume.stat.exists == false )
   become: true
   become_method: sudo
-  loop: "{{ groups['gluster_nodes_bricks'] }}"
+  loop: "{{ gluster_active_nodes }}"
   shell: gluster peer probe {{ item }}
+  register: gluster_peer_probe_results
+  failed_when: false
+  changed_when: >
+    (gluster_peer_probe_results.rc | default(1)) == 0 and
+    (
+      'peer probe: success' in (gluster_peer_probe_results.stdout | default('') | lower)
+      or 'probe on localhost not needed' in (gluster_peer_probe_results.stdout | default('') | lower)
+    )
+
+- name: Debug peer probe warnings (best effort mode)
+  ansible.builtin.debug:
+    msg:
+      - "gluster peer probe returned non-fatal rc={{ item.rc | default('n/a') }} for {{ item.item | default('n/a') }}"
+      - "stdout={{ item.stdout | default('') }}"
+      - "stderr={{ item.stderr | default('') }}"
+  loop: "{{ gluster_peer_probe_results.results | default([]) }}"
+  when:
+    - inventory_hostname == gluster_active_nodes[0]
+    - (item.rc | default(0)) != 0
 
 - name: Create Gluster Volume (on first node)
-  when: inventory_hostname == groups['gluster_nodes'][0] and gluster_volume_missing_in_cluster | default(false)
+  when: inventory_hostname == gluster_active_nodes[0] and gluster_volume_missing_in_cluster | default(false)
   become: true
   become_method: sudo
   # Без отдельного диска brick на корне — Gluster требует суффикс force
@@ -46,8 +81,8 @@
     gluster_volume_create_force: "{{ 'force' if (device2_hdd_dev | default('') | trim | length) == 0 else '' }}"
     # Replica в Gluster должен соответствовать количеству brick-ов в команде.
     # Если в inventory меньше 3 нод — создаём с replica=1..2.
-    gluster_replica_count: "{{ ([ (groups['gluster_nodes_bricks'] | default([]) | length), 3 ] | min) | int }}"
-    gluster_bricks_for_create: "{{ (groups['gluster_nodes_bricks'] | default([]))[:(gluster_replica_count | int)] }}"
+    gluster_replica_count: "{{ ([ (gluster_active_nodes | default([]) | length), 3 ] | min) | int }}"
+    gluster_bricks_for_create: "{{ (gluster_active_nodes | default([]))[:(gluster_replica_count | int)] }}"
   shell: >-
     gluster volume create {{ gluster_volume_name }}
     {% if gluster_replica_count | int >= 2 %}
@@ -64,7 +99,7 @@
 
 # Том может отсутствовать при уже существующем каталоге brick — не вызывать volume set без тома
 - name: Check Gluster volume exists (first node)
-  when: inventory_hostname == groups['gluster_nodes'][0]
+  when: inventory_hostname == gluster_active_nodes[0]
   become: true
   become_method: sudo
   shell: gluster volume info {{ gluster_volume_name }}
@@ -74,7 +109,7 @@
 
 - name: Secure Gluster Volume (on first node)
   when:
-    - inventory_hostname == groups['gluster_nodes'][0]
+    - inventory_hostname == gluster_active_nodes[0]
     - gluster_volume_info_check.rc == 0
   become: true
   become_method: sudo
@@ -82,7 +117,7 @@
     gluster_auth_allow_ips: >-
       {{
         ((groups['swarm_nodes'] | default([])) +
-         (groups['gluster_nodes_bricks'] | default([])))
+         (gluster_active_nodes | default([])))
         | unique
       }}
   shell: >
@@ -90,13 +125,13 @@
     {{ gluster_auth_allow_ips | join(',') }},127.0.0.1
 
 - name: Start Gluster Volume (on first node)
-  when: inventory_hostname == groups['gluster_nodes'][0] and gluster_volume_missing_in_cluster | default(false)
+  when: inventory_hostname == gluster_active_nodes[0] and gluster_volume_missing_in_cluster | default(false)
   become: true
   become_method: sudo
   shell: gluster volume start {{gluster_volume_name}}
 
 - name: Wait 60s for Gluster volume to be replicated
-  when: inventory_hostname == groups['gluster_nodes'][0] and gluster_volume_missing_in_cluster | default(false)
+  when: inventory_hostname == gluster_active_nodes[0] and gluster_volume_missing_in_cluster | default(false)
   become: true
   become_method: sudo
   shell: sleep 60

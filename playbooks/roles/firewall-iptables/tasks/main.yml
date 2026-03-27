@@ -20,14 +20,13 @@
     - name: Эффективные CIDR админов (whitelist)
       ansible.builtin.include_tasks: normalize_trusted_admin_cidrs.yml
 
-    - name: Собрать IP нод кластера (как при lockdown)
+    - name: Собрать IP всех нод inventory (кроме test_backend)
       ansible.builtin.set_fact:
         firewall_cluster_hosts: >-
           {{
             (
-              (groups['swarm_nodes'] | default([]))
-              + (groups['gluster_nodes'] | default([]))
-              + (groups['haproxy'] | default([]))
+              (groups['all'] | default([]))
+              | difference(groups['test_backend'] | default([]))
             ) | unique | list
           }}
 
@@ -218,14 +217,13 @@
         fail_msg: >-
           При firewall_allow_ssh_only_admin=true задайте непустой firewall_trusted_admin_cidrs (или отключите only_admin для SSH).
 
-    - name: Собрать IP нод кластера (Swarm + Gluster + HAProxy)
+    - name: Собрать IP всех нод inventory (кроме test_backend)
       ansible.builtin.set_fact:
         firewall_cluster_hosts: >-
           {{
             (
-              (groups['swarm_nodes'] | default([]))
-              + (groups['gluster_nodes'] | default([]))
-              + (groups['haproxy'] | default([]))
+              (groups['all'] | default([]))
+              | difference(groups['test_backend'] | default([]))
             ) | unique | list
           }}
 

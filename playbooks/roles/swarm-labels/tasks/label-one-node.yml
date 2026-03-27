@@ -14,6 +14,10 @@
   become: true
   become_method: sudo
   shell: docker node update --label-add gfs=true "{{ gfs_swarm_node_id.stdout | trim }}"
+  register: gfs_label_update
+  retries: 5
+  delay: 2
+  until: gfs_label_update.rc == 0
   when: gfs_swarm_node_id.stdout | trim | length > 0
 
 - name: "Warn skip labeling for nodes not in Swarm"

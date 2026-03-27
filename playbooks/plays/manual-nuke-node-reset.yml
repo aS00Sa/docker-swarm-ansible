@@ -47,6 +47,12 @@
       failed_when: false
       changed_when: false
 
+    - name: Leave Docker Swarm forcefully on all nodes (best-effort)
+      when: nuke_docker | bool
+      ansible.builtin.command: docker swarm leave --force
+      failed_when: false
+      changed_when: false
+
     - name: Stop Docker service (best-effort)
       when: nuke_docker | bool
       ansible.builtin.systemd:

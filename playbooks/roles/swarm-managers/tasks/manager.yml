@@ -19,9 +19,21 @@
   changed_when: >
     (swarm_join_result.rc | int == 0) and
     ('This node joined a swarm as a manager.' in (swarm_join_result.stdout | default('')))
-  failed_when: >
-    (swarm_join_result.rc | int != 0) and
-    ('Timeout was reached before node joined' not in (swarm_join_result.stderr | default('')))
+  failed_when: false
+  when:
+    - swarm_status.rc != 0
+    - swarm_manager_first | length > 0
+    - inventory_hostname != swarm_manager_first
+
+- name: Wait until manager node becomes active in swarm
+  become: true
+  become_method: sudo
+  shell: docker info --format "{{ '{{' }} .Swarm.LocalNodeState {{ '}}' }}"
+  register: swarm_state_after_join
+  changed_when: false
+  retries: 6
+  delay: 5
+  until: (swarm_state_after_join.stdout | default('') | trim) == "active"
   when:
     - swarm_status.rc != 0
     - swarm_manager_first | length > 0

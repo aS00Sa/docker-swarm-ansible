@@ -54,7 +54,7 @@
   become: true
   become_method: sudo
   shell: >
-    mount -t glusterfs
+    timeout 30s mount -t glusterfs
     "{{ gluster_client_peers[0] }}:/{{ gluster_volume_name }}"
     "{{ gluster_mount_path }}"
     -o "defaults,_netdev,transport=tcp,backupvolfile-server={{ gluster_client_peers[1] | default(gluster_client_peers[0]) }}"
@@ -87,7 +87,7 @@
 
     - name: Fallback mount without backupvolfile-server (actual mount)
       ansible.builtin.shell: >
-        mount -t glusterfs
+        timeout 30s mount -t glusterfs
         "{{ gluster_client_peers[0] }}:/{{ gluster_volume_name }}"
         "{{ gluster_mount_path }}"
         -o "defaults,_netdev,transport=tcp"
