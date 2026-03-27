@@ -7,3 +7,4 @@ inventory*.ini
 playbooks\generated\*
 playbooks/generated/*
 *.txt
+tmp*
