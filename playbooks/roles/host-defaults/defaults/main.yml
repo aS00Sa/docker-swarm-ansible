@@ -1,0 +1,4 @@
+---
+# Auto hostname generation from inventory role groups.
+# Disabled by default; enable per-environment when needed.
+host_defaults_auto_hostname_enabled: false

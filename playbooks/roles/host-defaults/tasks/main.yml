@@ -1,4 +1,59 @@
 ---
+- name: Build auto hostname parts from inventory groups
+  ansible.builtin.set_fact:
+    host_defaults_swarm_part: >-
+      {%- if inventory_hostname in (groups['swarm_managers'] | default([])) -%}
+      manager
+      {%- elif inventory_hostname in (groups['swarm_workers'] | default([])) -%}
+      worker
+      {%- else -%}
+      node
+      {%- endif -%}
+    host_defaults_svc_part: >-
+      {%- set _in_haproxy = inventory_hostname in (groups['haproxy'] | default([])) -%}
+      {%- set _in_traefik = inventory_hostname in (groups['traefik'] | default([])) -%}
+      {%- set _cm_hosts = groups['cert_manager'] | default([]) -%}
+      {%- set _cm_cnt = _cm_hosts | length -%}
+      {%- set _cm_in_traefik = (_cm_hosts | intersect(groups['traefik'] | default([]))) | length -%}
+      {%- set _cm_in_haproxy = (_cm_hosts | intersect(groups['haproxy'] | default([]))) | length -%}
+      {%- if _in_haproxy and _in_traefik -%}
+      {%- if (_cm_cnt > 0) and (_cm_in_traefik == _cm_cnt) and (_cm_in_haproxy != _cm_cnt) -%}traefik
+      {%- elif (_cm_cnt > 0) and (_cm_in_haproxy == _cm_cnt) and (_cm_in_traefik != _cm_cnt) -%}haproxy
+      {%- else -%}traefik{%- endif -%}
+      {%- elif _in_traefik -%}
+      traefik
+      {%- elif _in_haproxy -%}
+      haproxy
+      {%- else -%}
+      node
+      {%- endif -%}
+    host_defaults_swarm_ordinal: >-
+      {%- if inventory_hostname in (groups['swarm_managers'] | default([])) -%}
+      {{ ((groups['swarm_managers'] | default([])).index(inventory_hostname)) + 1 }}
+      {%- elif inventory_hostname in (groups['swarm_workers'] | default([])) -%}
+      {{ ((groups['swarm_workers'] | default([])).index(inventory_hostname)) + 1 }}
+      {%- else -%}
+      1
+      {%- endif -%}
+    host_defaults_auto_hostname: >-
+      {{
+        (
+          (host_defaults_hostname_prefix | default('node'))
+          ~ '-' ~ (host_defaults_swarm_part | trim)
+          ~ '-' ~ (host_defaults_svc_part | trim)
+          ~ '-' ~ ('%02d' | format((host_defaults_swarm_ordinal | int)))
+        )
+        | lower
+      }}
+  when: host_defaults_auto_hostname_enabled | default(false) | bool
+
+- name: Set system hostname from inventory role groups
+  become: true
+  become_method: sudo
+  ansible.builtin.hostname:
+    name: "{{ host_defaults_auto_hostname }}"
+  when: host_defaults_auto_hostname_enabled | default(false) | bool
+
 - name: Check if auto update is enabled
   stat:
     path: /etc/apt/apt.conf.d/20auto-upgrades
