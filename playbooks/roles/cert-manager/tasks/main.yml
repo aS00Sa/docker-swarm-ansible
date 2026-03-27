@@ -21,7 +21,7 @@
       changed_when: false
       failed_when: >-
         cert_manager_findmnt_fstype.rc != 0
-        or (cert_manager_findmnt_fstype.stdout | trim) not in ['glusterfs', 'fuse.glusterfs']
+        or (cert_manager_findmnt_fstype.stdout | trim) not in ['glusterfs', 'fuse.glusterfs', 'nfs4']
       when: (cert_manager_mountpoint.rc | default(1)) == 0
 
     - name: Set cert-manager gluster mount readiness fact
@@ -30,7 +30,7 @@
           {{
             (cert_manager_mountpoint.rc | default(1)) == 0
             and (cert_manager_findmnt_fstype.rc | default(1)) == 0
-            and (cert_manager_findmnt_fstype.stdout | default('') | trim) in ['glusterfs', 'fuse.glusterfs']
+            and (cert_manager_findmnt_fstype.stdout | default('') | trim) in ['glusterfs', 'fuse.glusterfs', 'nfs4']
           }}
 
     - name: Warn when cert-manager path is not a mounted GlusterFS

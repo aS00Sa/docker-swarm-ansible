@@ -14,13 +14,23 @@
             )
           )
           else (
-            [firewall_trusted_admin_cidrs | trim]
-            if firewall_trusted_admin_cidrs is string
-            else firewall_trusted_admin_cidrs
+            (
+              (firewall_trusted_admin_cidrs | trim | from_yaml)
+              if (
+                firewall_trusted_admin_cidrs is string
+                and (firewall_trusted_admin_cidrs | trim) is match('^\\[.*\\]$')
+              )
+              else (
+                [firewall_trusted_admin_cidrs | trim]
+                if firewall_trusted_admin_cidrs is string
+                else firewall_trusted_admin_cidrs
+              )
+            )
           )
         )
         | flatten
         | map('trim')
+        | map('regex_replace', '[\\[\\]]', '')
         | reject('equalto', '')
         | reject('equalto', '[]')
         | unique
