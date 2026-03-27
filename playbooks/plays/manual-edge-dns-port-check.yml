@@ -1,0 +1,42 @@
+---
+# Проверка с edge-ноды: DNS доменов и слушающих портов 80/443.
+# Запуск:
+#   ansible-playbook -i inventory-btnxlocal.ini playbooks/plays/manual-edge-dns-port-check.yml -u root --private-key ~/.ssh/id_ed25519
+- hosts: haproxy
+  gather_facts: false
+  tags: [manual, edge-check]
+  roles:
+    - role: ../roles/cluster-defaults
+  vars:
+    edge_check_domains:
+      - gitlab.btnxlocal.ru
+      - nexus.btnxlocal.ru
+  tasks:
+    - name: DNS resolve (getent ahostsv4)
+      ansible.builtin.command:
+        argv: ["getent", "ahostsv4", "{{ item }}"]
+      loop: "{{ edge_check_domains }}"
+      register: edge_dns
+      changed_when: false
+      failed_when: false
+
+    - name: Show DNS results
+      ansible.builtin.debug:
+        msg: "{{ item.item }} => rc={{ item.rc }}, out={{ (item.stdout_lines | default([]))[:3] }}"
+      loop: "{{ edge_dns.results | default([]) }}"
+
+    - name: List listening TCP ports
+      ansible.builtin.command:
+        argv: ["ss", "-ltnp"]
+      register: edge_listen
+      changed_when: false
+      failed_when: false
+
+    - name: Show listening lines for 80/443
+      ansible.builtin.debug:
+        msg: >-
+          {{
+            (edge_listen.stdout_lines | default([]))
+            | select('search', ':(80|443)\\s')
+            | list
+          }}
