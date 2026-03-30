@@ -159,10 +159,25 @@ backend gitlab_ssh_tcp
   option log-health-checks
   server gitlab_ssh_1 {{ haproxy_gitlab_ssh_upstream_host | default('192.168.25.125') }}:{{ haproxy_gitlab_ssh_upstream_port | default(2222) }} check
 
+{% if _route_to_traefik %}
+backend traefik_gitlab_ssh_tcp
+  mode tcp
+  balance source
+  option tcp-check
+  option log-health-checks
+{% for h in _traefik_nodes %}
+  server traefik_gitlab_ssh_{{ loop.index }} {{ hostvars[h].ansible_host | default(h) }}:{{ haproxy_gitlab_ssh_listen_port | default(2222) }} send-proxy-v2 check port {{ haproxy_gitlab_ssh_listen_port | default(2222) }}
+{% endfor %}
+{% endif %}
+
 frontend gitlab_ssh_in
   bind {{ haproxy_bind_ip | default(ansible_default_ipv4.address) }}:{{ haproxy_gitlab_ssh_listen_port | default(2222) }}
   mode tcp
+{% if _route_to_traefik %}
+  default_backend traefik_gitlab_ssh_tcp
+{% else %}
   default_backend gitlab_ssh_tcp
+{% endif %}
 {% endif %}
 
 {# Safe fallback backend for include-mode / non-swarm mode. #}

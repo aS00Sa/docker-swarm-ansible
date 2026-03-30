@@ -50,6 +50,16 @@ entryPoints:
       respondingTimeouts:
         readTimeout: 0s
         writeTimeout: 0s
+
+  # GitLab SSH entrypoint (используется цепочкой HAProxy -> Traefik -> GitLab).
+  gitlab-ssh:
+    address: ":{{ traefik_gitlab_ssh_port | default(2222) }}"
+    proxyProtocol:
+      insecure: true
+    transport:
+      respondingTimeouts:
+        readTimeout: 0s
+        writeTimeout: 0s
   traefik:
     address: ":{{ traefik_internal_api_port }}"
 

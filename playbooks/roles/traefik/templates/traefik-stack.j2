@@ -32,6 +32,10 @@ services:
         published: {{ traefik_docker_group_port | default(9082) }}
         protocol: tcp
         mode: host
+      - target: {{ traefik_gitlab_ssh_port | default(2222) }}
+        published: {{ traefik_gitlab_ssh_port | default(2222) }}
+        protocol: tcp
+        mode: host
       - target: {{ traefik_internal_api_port }}
         published: {{ traefik_internal_api_port }}
         protocol: tcp

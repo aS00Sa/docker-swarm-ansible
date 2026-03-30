@@ -14,6 +14,7 @@ services:
       - "{{ traefik_docker_hosted_port | default(9080) }}:{{ traefik_docker_hosted_port | default(9080) }}"
       - "{{ traefik_docker_proxy_port | default(9081) }}:{{ traefik_docker_proxy_port | default(9081) }}"
       - "{{ traefik_docker_group_port | default(9082) }}:{{ traefik_docker_group_port | default(9082) }}"
+      - "{{ traefik_gitlab_ssh_port | default(2222) }}:{{ traefik_gitlab_ssh_port | default(2222) }}"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - "{{ gluster_mount_path }}/{{ traefik_gfs_subdir }}/traefik.yml:/etc/traefik/traefik.yml:ro"

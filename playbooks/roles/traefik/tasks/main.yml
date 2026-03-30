@@ -39,6 +39,33 @@
           )
       }}
 
+- name: Resolve GitLab SSH settings from gitlab cert slot (cert_manager_certs*)
+  vars:
+    _gitlab_items: >-
+      {{
+        (cert_manager_certs_effective | default(cert_manager_certs | default([])) | select('mapping') | list)
+        | selectattr('cert_name', 'defined')
+        | selectattr('cert_name', 'equalto', 'gitlab.btnxlocal.ru')
+        | list
+      }}
+    _gitlab_item: "{{ _gitlab_items | first | default({}) }}"
+  ansible.builtin.set_fact:
+    traefik_gitlab_ssh_enabled: "{{ _gitlab_item.traefik_gitlab_ssh_enabled | default(false) | bool }}"
+    traefik_gitlab_ssh_port: "{{ _gitlab_item.traefik_gitlab_ssh_port | default(2222) | int }}"
+    traefik_gitlab_ssh_upstream_host: "{{ _gitlab_item.traefik_gitlab_ssh_upstream_host | default(_gitlab_item.upstream_host | default('')) }}"
+    traefik_gitlab_ssh_upstream_port: "{{ _gitlab_item.traefik_gitlab_ssh_upstream_port | default(2222) | int }}"
+
+- name: Validate GitLab SSH upstream settings from inventory
+  when: traefik_gitlab_ssh_enabled | default(false) | bool
+  ansible.builtin.assert:
+    that:
+      - (traefik_gitlab_ssh_upstream_host | default('') | trim | length) > 0
+      - (traefik_gitlab_ssh_upstream_port | default(0) | int) > 0
+    fail_msg: >-
+      GitLab SSH upstream is not configured. Set
+      traefik_gitlab_ssh_upstream_host/traefik_gitlab_ssh_upstream_port
+      in cert_manager_certs1 (gitlab entry) in inventory.
+
 - name: Verify HAProxy is active before Traefik deploy
   when: traefik_require_haproxy_ready | default(true) | bool
   run_once: true
@@ -337,6 +364,20 @@
   vars:
     cert_item: "{{ item }}"
 
+- name: Deploy GitLab SSH TCP router config to GFS (on first swarm node)
+  when:
+    - (traefik_effective_deploy_method | default('stack')) == 'stack'
+    - inventory_hostname == ((groups['swarm_managers'] | default([])) | first | default(''))
+    - traefik_gitlab_ssh_enabled | default(true) | bool
+  become: true
+  become_method: sudo
+  template:
+    src: dynamic/gitlab_ssh.yml.j2
+    dest: "{{ gluster_mount_path }}/{{ traefik_gfs_subdir }}/{{ traefik_dynamic_subdir }}/gitlab_ssh.yml"
+    mode: "0644"
+    owner: root
+    group: root
+
 - name: Remove legacy generated dynamic file names (on first swarm node)
   when:
     - (traefik_effective_deploy_method | default('stack')) == 'stack'
@@ -536,6 +577,15 @@
         label: "{{ item.cert_name | default(item.domains | first) }}"
       vars:
         cert_item: "{{ item }}"
+
+    - name: Deploy GitLab SSH TCP router config to GFS (compose)
+      when: traefik_gitlab_ssh_enabled | default(true) | bool
+      ansible.builtin.template:
+        src: dynamic/gitlab_ssh.yml.j2
+        dest: "{{ gluster_mount_path }}/{{ traefik_gfs_subdir }}/{{ traefik_dynamic_subdir }}/gitlab_ssh.yml"
+        mode: "0644"
+        owner: root
+        group: root
 
     - name: Remove legacy generated dynamic file names (compose)
       ansible.builtin.file:
