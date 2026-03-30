@@ -18,6 +18,11 @@ firewall_restrict_swarm_ports: true
 firewall_restrict_swarm_tcp_dports: [2377, 7946]
 firewall_restrict_swarm_udp_dports: [7946, 4789]
 
+# Шаблон apply-rpcbind-ports-restrict.sh.j2 — цепочка RPCBIND-NODE-PORTS (portmapper / rpcbind).
+firewall_restrict_rpcbind_ports: true
+firewall_restrict_rpcbind_tcp_dports: [111]
+firewall_restrict_rpcbind_udp_dports: [111]
+
 # Шаблон apply-portainer-ports-restrict.sh.j2 — цепочка PORTAINER-NODE-PORTS (роль portainer: 8000 tunnel, 9001 agent).
 firewall_restrict_portainer_service_ports: true
 firewall_restrict_portainer_tcp_dports: [8000, 9001]

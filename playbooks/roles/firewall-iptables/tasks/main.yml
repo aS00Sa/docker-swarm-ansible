@@ -8,14 +8,14 @@
   become: true
   when: ansible_os_family == 'Debian'
 
-# Без полного lockdown: отдельные шаблоны — Swarm, Portainer, Gluster (свои цепочки INPUT).
-- name: Ограничить служебные порты без lockdown (Swarm / Portainer / Gluster)
+# Без полного lockdown: отдельные шаблоны — Swarm, Portainer, Gluster, rpcbind (свои цепочки INPUT).
+- name: Ограничить служебные порты без lockdown (Swarm / Portainer / Gluster / rpcbind)
   when:
     - not (firewall_lockdown | bool)
     - ansible_os_family == 'Debian'
     - >-
       (firewall_restrict_swarm_ports | bool) or (firewall_restrict_portainer_service_ports | bool)
-      or (firewall_restrict_gluster_service_ports | bool)
+      or (firewall_restrict_gluster_service_ports | bool) or (firewall_restrict_rpcbind_ports | bool)
   block:
     - name: Эффективные CIDR админов (whitelist)
       ansible.builtin.include_tasks: normalize_trusted_admin_cidrs.yml
@@ -65,6 +65,14 @@
           - (firewall_restrict_portainer_tcp_dports | default([8000, 9001]) | map('int') | list | unique | length) <= 15
         fail_msg: Слишком много портов Portainer в одном multiport; сократите списки в defaults/inventory.
       when: firewall_restrict_portainer_service_ports | bool
+
+    - name: Проверка лимита multiport для rpcbind (≤15 на TCP и UDP)
+      ansible.builtin.assert:
+        that:
+          - (firewall_restrict_rpcbind_tcp_dports | default([111]) | map('int') | list | unique | length) <= 15
+          - (firewall_restrict_rpcbind_udp_dports | default([111]) | map('int') | list | unique | length) <= 15
+        fail_msg: Слишком много портов rpcbind в одном multiport; сократите списки в defaults/inventory.
+      when: firewall_restrict_rpcbind_ports | bool
 
     - name: Сгенерировать скрипт ограничения портов Swarm
       ansible.builtin.template:
@@ -128,6 +136,18 @@
     - name: Применить ограничение служебных портов Gluster
       ansible.builtin.command: /root/.ansible-firewall-gluster-ports.sh
       when: firewall_restrict_gluster_service_ports | bool
+      changed_when: true
+
+    - name: Сгенерировать скрипт ограничения портов rpcbind
+      ansible.builtin.template:
+        src: apply-rpcbind-ports-restrict.sh.j2
+        dest: /root/.ansible-firewall-rpcbind-ports.sh
+        mode: "0700"
+      when: firewall_restrict_rpcbind_ports | bool
+
+    - name: Применить ограничение портов rpcbind
+      ansible.builtin.command: /root/.ansible-firewall-rpcbind-ports.sh
+      when: firewall_restrict_rpcbind_ports | bool
       changed_when: true
 
     - name: Allow edge nodes to access NFS (tcp/2049) on public gluster gateway
@@ -197,6 +217,28 @@
       changed_when: true
 
     - name: Сохранить iptables после снятия Portainer-ограничения
+      ansible.builtin.command: netfilter-persistent save
+      changed_when: false
+      failed_when: false
+
+- name: Снять ограничение портов rpcbind (выключено в inventory)
+  when:
+    - not (firewall_restrict_rpcbind_ports | bool)
+    - not (firewall_lockdown | bool)
+    - ansible_os_family == 'Debian'
+  block:
+    - name: Удалить цепочку RPCBIND-NODE-PORTS из INPUT
+      ansible.builtin.shell: |
+        set +e
+        while iptables -D INPUT -j RPCBIND-NODE-PORTS 2>/dev/null; do :; done
+        iptables -F RPCBIND-NODE-PORTS 2>/dev/null
+        iptables -X RPCBIND-NODE-PORTS 2>/dev/null
+        exit 0
+      args:
+        executable: /bin/bash
+      changed_when: true
+
+    - name: Сохранить iptables после снятия rpcbind-ограничения
       ansible.builtin.command: netfilter-persistent save
       changed_when: false
       failed_when: false

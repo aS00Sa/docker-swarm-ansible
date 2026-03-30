@@ -18,6 +18,10 @@ while iptables -D INPUT -j SWARM-NODE-PORTS 2>/dev/null; do :; done
 iptables -F SWARM-NODE-PORTS 2>/dev/null || true
 iptables -X SWARM-NODE-PORTS 2>/dev/null || true
 
+while iptables -D INPUT -j RPCBIND-NODE-PORTS 2>/dev/null; do :; done
+iptables -F RPCBIND-NODE-PORTS 2>/dev/null || true
+iptables -X RPCBIND-NODE-PORTS 2>/dev/null || true
+
 while iptables -D INPUT -j SWARM-INPUT 2>/dev/null; do :; done
 while iptables -D DOCKER-USER -j SWARM-FORWARD 2>/dev/null; do :; done
 iptables -F SWARM-INPUT 2>/dev/null || true

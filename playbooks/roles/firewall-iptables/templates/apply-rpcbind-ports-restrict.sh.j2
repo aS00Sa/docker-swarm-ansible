@@ -1,0 +1,31 @@
+#!/bin/bash
+set -euo pipefail
+# INPUT: rpcbind (portmapper) — только с IP нод кластера и admin CIDR; с остальных DROP.
+# Цепочка RPCBIND-NODE-PORTS.
+
+{% set _tcp_blocked = firewall_restrict_rpcbind_tcp_dports | default([111]) | map('int') | list | unique | sort %}
+{% set _udp_blocked = firewall_restrict_rpcbind_udp_dports | default([111]) | map('int') | list | unique | sort %}
+
+while iptables -D INPUT -j RPCBIND-NODE-PORTS 2>/dev/null; do :; done
+iptables -F RPCBIND-NODE-PORTS 2>/dev/null || true
+iptables -X RPCBIND-NODE-PORTS 2>/dev/null || true
+
+iptables -N RPCBIND-NODE-PORTS
+
+iptables -A RPCBIND-NODE-PORTS -i lo -j RETURN
+iptables -A RPCBIND-NODE-PORTS -m conntrack --ctstate RELATED,ESTABLISHED -j RETURN
+{% for ip in firewall_cluster_ips | unique %}
+iptables -A RPCBIND-NODE-PORTS -s {{ ip }} -j RETURN
+{% endfor %}
+{% for cidr in firewall_effective_admin_cidrs | unique %}
+iptables -A RPCBIND-NODE-PORTS -s {{ cidr }} -j RETURN
+{% endfor %}
+{% if _tcp_blocked | length > 0 %}
+iptables -A RPCBIND-NODE-PORTS -p tcp -m multiport --dports {{ _tcp_blocked | join(',') }} -j DROP
+{% endif %}
+{% if _udp_blocked | length > 0 %}
+iptables -A RPCBIND-NODE-PORTS -p udp -m multiport --dports {{ _udp_blocked | join(',') }} -j DROP
+{% endif %}
+iptables -A RPCBIND-NODE-PORTS -j RETURN
+
+iptables -I INPUT 1 -j RPCBIND-NODE-PORTS
