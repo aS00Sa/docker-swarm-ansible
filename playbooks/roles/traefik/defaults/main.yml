@@ -52,8 +52,9 @@ traefik_acme_email: "admin@{{ app_domain_name }}"
 traefik_acme_storage_path: "/etc/traefik/acme.json"
 traefik_acme_resolver_name: letsencrypt
 
-# Генерация upstream-сайтов Traefik происходит из cert_manager_certs.
-# В cert_manager_certs можно задавать опционально:
+# Генерация upstream-сайтов Traefik происходит из cert_manager_certs_effective
+# (см. роль cert-manager: tasks/resolve_cert_manager_certs.yml — legacy cert_manager_certs или cert_manager_certs1..N).
+# В элементе можно задавать опционально:
 # - upstream_servers: ["http://10.0.0.10:8081", "http://10.0.0.11:8081"]
 # - upstream_port: 8081
 # - upstream_scheme: http

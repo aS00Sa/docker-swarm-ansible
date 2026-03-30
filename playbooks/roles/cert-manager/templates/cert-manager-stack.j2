@@ -11,7 +11,7 @@ services:
       - |
         umask 077
         echo "cert-manager: initial obtain/renew (webroot)"
-        {% set _cm_certs = cert_manager_certs | default([]) %}
+        {% set _cm_certs = cert_manager_certs_effective | default(cert_manager_certs | default([])) %}
         {% if _cm_certs | length == 0 %}
         certbot certonly --webroot \
           -w /var/www/certbot \

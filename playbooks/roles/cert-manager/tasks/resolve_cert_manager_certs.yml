@@ -1,0 +1,26 @@
+---
+# Итоговый список сертификатов/сайтов: cert_manager_certs_effective.
+# 1) Если задан непустой cert_manager_certs — используется он (как раньше).
+# 2) Иначе собирается по порядку из cert_manager_certs1, cert_manager_certs2, … (до 32 слотов).
+#    Каждый слот — один объект (dict) или JSON-строка с одним объектом (удобно для inventory .ini).
+
+- name: Effective cert list from legacy cert_manager_certs
+  ansible.builtin.set_fact:
+    cert_manager_certs_effective: "{{ cert_manager_certs | default([]) }}"
+  when: (cert_manager_certs | default([]) | length) > 0
+
+- name: Merge cert_manager_certs1..N when legacy list is empty
+  when: (cert_manager_certs | default([]) | length) == 0
+  block:
+    - name: Accumulate numbered cert slots
+      ansible.builtin.set_fact:
+        cert_manager_certs_effective: "{{ cert_manager_certs_effective | default([]) + [_slot_dict] }}"
+      loop: "{{ range(1, 33) | list }}"
+      when: hostvars[inventory_hostname].get('cert_manager_certs' ~ (item | string), none) is not none
+      vars:
+        _raw: "{{ hostvars[inventory_hostname]['cert_manager_certs' ~ (item | string)] }}"
+        _slot_dict: "{{ _raw | from_json if _raw is string else _raw }}"
+
+    - name: Ensure effective list when no numbered slots matched
+      ansible.builtin.set_fact:
+        cert_manager_certs_effective: "{{ cert_manager_certs_effective | default([]) }}"

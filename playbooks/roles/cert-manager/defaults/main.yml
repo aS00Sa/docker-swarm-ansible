@@ -39,6 +39,10 @@ cert_manager_cert_name: "{{ app_domain_name }}"
 # Если задан непустым — роль выпустит отдельные lineage по каждому элементу
 # и будет продлевать их в одном renew-loop.
 # Элемент: { cert_name: <lineage-name>, domains: [<domain>], email: <optional> }.
+#
+# Читаемость в inventory: вместо одной длинной строки можно оставить cert_manager_certs: []
+# и задать по одному сайту на переменную: cert_manager_certs1, cert_manager_certs2, …
+# (каждый слот — dict или JSON-строка с одним объектом). См. tasks/resolve_cert_manager_certs.yml.
 cert_manager_certs: []
 # Где хранить данные certbot (на общем GFS)
 cert_manager_gfs_subdir: cert_manager_gfs

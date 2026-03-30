@@ -1,4 +1,7 @@
 ---
+- name: Resolve cert_manager_certs_effective (legacy list or cert_manager_certs1..N)
+  ansible.builtin.include_tasks: resolve_cert_manager_certs.yml
+
 - name: Skip cert-manager when disabled
   when: not (cert_manager_enabled | default(false) | bool)
   ansible.builtin.debug:
