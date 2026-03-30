@@ -151,6 +151,20 @@ frontend docker_group_in
   default_backend direct_layer7_tcp
 {% endif %}
 
+{% if haproxy_gitlab_ssh_proxy_enabled | default(false) | bool %}
+backend gitlab_ssh_tcp
+  mode tcp
+  balance source
+  option tcp-check
+  option log-health-checks
+  server gitlab_ssh_1 {{ haproxy_gitlab_ssh_upstream_host | default('192.168.25.125') }}:{{ haproxy_gitlab_ssh_upstream_port | default(2222) }} check
+
+frontend gitlab_ssh_in
+  bind {{ haproxy_bind_ip | default(ansible_default_ipv4.address) }}:{{ haproxy_gitlab_ssh_listen_port | default(2222) }}
+  mode tcp
+  default_backend gitlab_ssh_tcp
+{% endif %}
+
 {# Safe fallback backend for include-mode / non-swarm mode. #}
 backend direct_layer7
   mode http

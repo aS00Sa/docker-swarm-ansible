@@ -305,6 +305,7 @@
                haproxy_docker_hosted_port | default(9080) | int,
                haproxy_docker_proxy_port | default(9081) | int,
                haproxy_docker_group_port | default(9082) | int,
+               haproxy_gitlab_ssh_listen_port | default(2222) | int,
                8081]
             ) | unique | sort | list
           }}

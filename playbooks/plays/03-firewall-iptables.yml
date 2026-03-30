@@ -1,6 +1,6 @@
 ---
 # ansible-playbook -i inventory-prod.ini playbooks/plays/03-firewall-iptables.yml
-- hosts: swarm_managers:swarm_workers:gluster_nodes
+- hosts: swarm_managers:swarm_workers:gluster_nodes:haproxy
   tags: [firewall-iptables]
   roles:
     - role: ../roles/cluster-defaults
