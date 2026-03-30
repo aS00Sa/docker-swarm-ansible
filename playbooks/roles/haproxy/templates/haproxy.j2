@@ -86,12 +86,79 @@ backend traefik_websecure_tcp
 {% for h in _traefik_nodes %}
   server traefik_websecure_tcp_{{ loop.index }} {{ hostvars[h].ansible_host | default(h) }}:{{ haproxy_traefik_websecure_port | default(8443) }} send-proxy-v2 check port {{ haproxy_traefik_websecure_port | default(8443) }}
 {% endfor %}
+
+{# docker registry (nexus docker-hosted/proxy/group) #}
+backend traefik_docker_hosted_tcp
+  mode tcp
+  balance source
+  option tcp-check
+  option log-health-checks
+{% for h in _traefik_nodes %}
+  server traefik_docker_hosted_{{ loop.index }} {{ hostvars[h].ansible_host | default(h) }}:{{ haproxy_docker_hosted_port | default(9080) }} send-proxy-v2 check port {{ haproxy_docker_hosted_port | default(9080) }}
+{% endfor %}
+
+backend traefik_docker_proxy_tcp
+  mode tcp
+  balance source
+  option tcp-check
+  option log-health-checks
+{% for h in _traefik_nodes %}
+  server traefik_docker_proxy_{{ loop.index }} {{ hostvars[h].ansible_host | default(h) }}:{{ haproxy_docker_proxy_port | default(9081) }} send-proxy-v2 check port {{ haproxy_docker_proxy_port | default(9081) }}
+{% endfor %}
+
+backend traefik_docker_group_tcp
+  mode tcp
+  balance source
+  option tcp-check
+  option log-health-checks
+{% for h in _traefik_nodes %}
+  server traefik_docker_group_{{ loop.index }} {{ hostvars[h].ansible_host | default(h) }}:{{ haproxy_docker_group_port | default(9082) }} send-proxy-v2 check port {{ haproxy_docker_group_port | default(9082) }}
+{% endfor %}
+{% endif %}
+
+{# --- Docker registry TCP (HAProxy -> Traefik) --- #}
+{# 9080 = docker-hosted, 9081 = docker-proxy, 9082 = docker-group #}
+frontend docker_hosted_in
+  bind {{ haproxy_bind_ip | default(ansible_default_ipv4.address) }}:{{ haproxy_docker_hosted_port | default(9080) }}
+  mode tcp
+  tcp-request inspect-delay 5s
+  tcp-request content accept if { req_ssl_hello_type 1 }
+{% if _route_to_traefik %}
+  default_backend traefik_docker_hosted_tcp
+{% else %}
+  default_backend direct_layer7_tcp
+{% endif %}
+
+frontend docker_proxy_in
+  bind {{ haproxy_bind_ip | default(ansible_default_ipv4.address) }}:{{ haproxy_docker_proxy_port | default(9081) }}
+  mode tcp
+  tcp-request inspect-delay 5s
+  tcp-request content accept if { req_ssl_hello_type 1 }
+{% if _route_to_traefik %}
+  default_backend traefik_docker_proxy_tcp
+{% else %}
+  default_backend direct_layer7_tcp
+{% endif %}
+
+frontend docker_group_in
+  bind {{ haproxy_bind_ip | default(ansible_default_ipv4.address) }}:{{ haproxy_docker_group_port | default(9082) }}
+  mode tcp
+  tcp-request inspect-delay 5s
+  tcp-request content accept if { req_ssl_hello_type 1 }
+{% if _route_to_traefik %}
+  default_backend traefik_docker_group_tcp
+{% else %}
+  default_backend direct_layer7_tcp
 {% endif %}
 
 {# Safe fallback backend for include-mode / non-swarm mode. #}
 backend direct_layer7
   mode http
   http-request return status 503 content-type text/plain string "No upstream configured\n"
+
+backend direct_layer7_tcp
+  mode tcp
+  tcp-request content reject
 
 {# ACME HTTP-01 challenge backend (cert-manager) #}
 backend certmanager_acme_http01

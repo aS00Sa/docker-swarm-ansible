@@ -11,6 +11,9 @@ services:
       - "{{ haproxy_traefik_web_port | default(8080) }}:{{ haproxy_traefik_web_port | default(8080) }}"
       - "{{ haproxy_traefik_websecure_port | default(8443) }}:{{ haproxy_traefik_websecure_port | default(8443) }}"
       - "{{ traefik_internal_api_port }}:{{ traefik_internal_api_port }}"
+      - "{{ traefik_docker_hosted_port | default(9080) }}:{{ traefik_docker_hosted_port | default(9080) }}"
+      - "{{ traefik_docker_proxy_port | default(9081) }}:{{ traefik_docker_proxy_port | default(9081) }}"
+      - "{{ traefik_docker_group_port | default(9082) }}:{{ traefik_docker_group_port | default(9082) }}"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - "{{ gluster_mount_path }}/{{ traefik_gfs_subdir }}/traefik.yml:/etc/traefik/traefik.yml:ro"

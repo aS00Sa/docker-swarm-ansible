@@ -302,6 +302,9 @@
                haproxy_stats_port | default(80) | int,
                traefik_http_port | default(8080) | int,
                traefik_https_port | default(8443) | int,
+               haproxy_docker_hosted_port | default(9080) | int,
+               haproxy_docker_proxy_port | default(9081) | int,
+               haproxy_docker_group_port | default(9082) | int,
                8081]
             ) | unique | sort | list
           }}

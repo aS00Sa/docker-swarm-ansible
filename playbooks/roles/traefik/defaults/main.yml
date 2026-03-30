@@ -2,6 +2,12 @@
 traefik_http_port: 8080
 traefik_https_port: 8443
 traefik_internal_api_port: 9091
+
+# Docker registry entrypoints (через HAProxy -> Traefik).
+# 9080 = docker-hosted, 9081 = docker-proxy, 9082 = docker-group
+traefik_docker_hosted_port: 9080
+traefik_docker_proxy_port: 9081
+traefik_docker_group_port: 9082
 traefik_network_name: traefik_network
 traefik_app_name: traefik_app
 traefik_admin_user: traefik_admin

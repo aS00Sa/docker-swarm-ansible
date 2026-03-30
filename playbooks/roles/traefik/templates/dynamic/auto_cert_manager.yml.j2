@@ -9,6 +9,16 @@
 {% set _router_name = _c.router_name | default('site-' ~ _name) %}
 {% set _service_name = _c.service_name | default('svc-' ~ _name) %}
 {% set _middlewares = _c.middlewares | default([]) %}
+{% set _entrypoints = _c.entrypoints | default([]) %}
+{% if _entrypoints | length == 0 %}
+{% if _c.entrypoint is defined %}
+{% set _entrypoints = [_c.entrypoint] %}
+{% else %}
+{% set _entrypoints = ['websecure'] %}
+{% endif %}
+{% endif %}
+{% set _ports_by_entrypoint = _c.upstream_ports_by_entrypoint | default(_c.upstream_ports_by_entrypoints | default({})) %}
+{% set _has_ports_map = (_ports_by_entrypoint | default({}) | length) > 0 %}
 {% set _mw_compress_name = _name ~ '-compress' %}
 {% set _mw_hsts_name = _name ~ '-hsts' %}
 {% set _mw_retry_name = _name ~ '-retry' %}
@@ -51,16 +61,52 @@ http:
         idleConnTimeout: 0s
 
   routers:
-    {{ _router_name }}:
+{% if _has_ports_map %}
+{% for ep in _entrypoints %}
+{% set _ep_safe = (ep | regex_replace('[^a-zA-Z0-9_-]', '-') ) %}
+    {{ _router_name }}-{{ _ep_safe }}:
       rule: "{% for d in (_c.domains | default([])) %}Host(`{{ d }}`){% if not loop.last %} || {% endif %}{% endfor %}"
-      service: {{ _service_name }}
-      entryPoints: [websecure]
+      service: {{ _service_name }}-{{ _ep_safe }}
+      entryPoints: [{{ ep }}]
       tls: {}
 {% if _middlewares | length > 0 %}
       middlewares: [{% if 'compress' in _middlewares %}{{ _mw_compress_name }}{% endif %}{% if 'compress' in _middlewares and ('hsts' in _middlewares or 'retry' in _middlewares) %}, {% endif %}{% if 'hsts' in _middlewares %}{{ _mw_hsts_name }}{% endif %}{% if 'hsts' in _middlewares and 'retry' in _middlewares %}, {% endif %}{% if 'retry' in _middlewares %}{{ _mw_retry_name }}{% endif %}]
 {% endif %}
+{% endfor %}
+{% else %}
+    {{ _router_name }}:
+      rule: "{% for d in (_c.domains | default([])) %}Host(`{{ d }}`){% if not loop.last %} || {% endif %}{% endfor %}"
+      service: {{ _service_name }}
+      entryPoints: [{% for ep in _entrypoints %}{{ ep }}{% if not loop.last %}, {% endif %}{% endfor %}]
+      tls: {}
+{% if _middlewares | length > 0 %}
+      middlewares: [{% if 'compress' in _middlewares %}{{ _mw_compress_name }}{% endif %}{% if 'compress' in _middlewares and ('hsts' in _middlewares or 'retry' in _middlewares) %}, {% endif %}{% if 'hsts' in _middlewares %}{{ _mw_hsts_name }}{% endif %}{% if 'hsts' in _middlewares and 'retry' in _middlewares %}, {% endif %}{% if 'retry' in _middlewares %}{{ _mw_retry_name }}{% endif %}]
+{% endif %}
+{% endif %}
 
   services:
+{% if _has_ports_map %}
+{% for ep in _entrypoints %}
+{% set _ep_safe = (ep | regex_replace('[^a-zA-Z0-9_-]', '-') ) %}
+{% set _port_for_ep = _ports_by_entrypoint.get(ep, _c_port) %}
+    {{ _service_name }}-{{ _ep_safe }}:
+      loadBalancer:
+        serversTransport: {{ _servers_transport }}
+        servers:
+{% if _c_servers | length > 0 %}
+{% for u in _c_servers %}
+          - { url: "{{ u }}" }
+{% endfor %}
+{% elif _c_host | length > 0 %}
+          - { url: "{{ _c_scheme }}://{{ _c_host }}:{{ _port_for_ep }}" }
+{% else %}
+{% for h in _backend_hosts %}
+          - { url: "{{ _c_scheme }}://{{ hostvars[h].ansible_host | default(h) }}:{{ _port_for_ep }}" }
+{% endfor %}
+{% endif %}
+        passHostHeader: true
+{% endfor %}
+{% else %}
     {{ _service_name }}:
       loadBalancer:
         serversTransport: {{ _servers_transport }}
@@ -77,3 +123,4 @@ http:
 {% endfor %}
 {% endif %}
         passHostHeader: true
+{% endif %}

@@ -50,6 +50,12 @@ haproxy_traefik_upstream_group: traefik
 haproxy_traefik_web_port: 8080
 haproxy_traefik_websecure_port: 8443
 
+# Docker registry ports (через HAProxy -> Traefik).
+# Требуются для nexus.btnxlocal.ru: 9080 docker-hosted, 9081 docker-proxy, 9082 docker-group.
+haproxy_docker_hosted_port: 9080
+haproxy_docker_proxy_port: 9081
+haproxy_docker_group_port: 9082
+
 # 443 passthrough (TCP) вместо TLS termination на HAProxy.
 haproxy_https_mode: tcp_passthrough
 

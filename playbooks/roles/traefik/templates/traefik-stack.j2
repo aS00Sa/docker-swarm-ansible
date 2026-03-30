@@ -20,6 +20,18 @@ services:
         published: {{ haproxy_traefik_websecure_port | default(8443) }}
         protocol: tcp
         mode: host
+      - target: {{ traefik_docker_hosted_port | default(9080) }}
+        published: {{ traefik_docker_hosted_port | default(9080) }}
+        protocol: tcp
+        mode: host
+      - target: {{ traefik_docker_proxy_port | default(9081) }}
+        published: {{ traefik_docker_proxy_port | default(9081) }}
+        protocol: tcp
+        mode: host
+      - target: {{ traefik_docker_group_port | default(9082) }}
+        published: {{ traefik_docker_group_port | default(9082) }}
+        protocol: tcp
+        mode: host
       - target: {{ traefik_internal_api_port }}
         published: {{ traefik_internal_api_port }}
         protocol: tcp
