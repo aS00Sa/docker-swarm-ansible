@@ -81,47 +81,41 @@ backend nexus_websecure_tcp
   server nexus_websecure_1 {{ haproxy_nexus_upstream_host | default('192.168.25.126') }}:{{ haproxy_nexus_websecure_upstream_port | default(8081) }} check
 
 backend nexus_docker_hosted_tcp
-  mode tcp
+  mode http
   balance source
-  option tcp-check
-  option log-health-checks
+  option httplog
   server nexus_docker_hosted_1 {{ haproxy_nexus_upstream_host | default('192.168.25.126') }}:{{ haproxy_nexus_docker_hosted_upstream_port | default(9080) }} check
 
 backend nexus_docker_proxy_tcp
-  mode tcp
+  mode http
   balance source
-  option tcp-check
-  option log-health-checks
+  option httplog
   server nexus_docker_proxy_1 {{ haproxy_nexus_upstream_host | default('192.168.25.126') }}:{{ haproxy_nexus_docker_proxy_upstream_port | default(9081) }} check
 
 backend nexus_docker_group_tcp
-  mode tcp
+  mode http
   balance source
-  option tcp-check
-  option log-health-checks
+  option httplog
   server nexus_docker_group_1 {{ haproxy_nexus_upstream_host | default('192.168.25.126') }}:{{ haproxy_nexus_docker_group_upstream_port | default(9082) }} check
 
 {# --- Docker registry TCP (HAProxy -> Nexus) --- #}
 {# 9080 = docker-hosted, 9081 = docker-proxy, 9082 = docker-group #}
 frontend docker_hosted_in
-  bind {{ haproxy_bind_ip | default(ansible_default_ipv4.address) }}:{{ haproxy_docker_hosted_port | default(9080) }}
-  mode tcp
-  tcp-request inspect-delay 5s
-  tcp-request content accept if { req_ssl_hello_type 1 }
+  bind {{ haproxy_bind_ip | default(ansible_default_ipv4.address) }}:{{ haproxy_docker_hosted_port | default(9080) }} ssl crt {{ haproxy_ssl_fullchain_path }}
+  mode http
+  http-request set-header X-Forwarded-Proto https
   default_backend nexus_docker_hosted_tcp
 
 frontend docker_proxy_in
-  bind {{ haproxy_bind_ip | default(ansible_default_ipv4.address) }}:{{ haproxy_docker_proxy_port | default(9081) }}
-  mode tcp
-  tcp-request inspect-delay 5s
-  tcp-request content accept if { req_ssl_hello_type 1 }
+  bind {{ haproxy_bind_ip | default(ansible_default_ipv4.address) }}:{{ haproxy_docker_proxy_port | default(9081) }} ssl crt {{ haproxy_ssl_fullchain_path }}
+  mode http
+  http-request set-header X-Forwarded-Proto https
   default_backend nexus_docker_proxy_tcp
 
 frontend docker_group_in
-  bind {{ haproxy_bind_ip | default(ansible_default_ipv4.address) }}:{{ haproxy_docker_group_port | default(9082) }}
-  mode tcp
-  tcp-request inspect-delay 5s
-  tcp-request content accept if { req_ssl_hello_type 1 }
+  bind {{ haproxy_bind_ip | default(ansible_default_ipv4.address) }}:{{ haproxy_docker_group_port | default(9082) }} ssl crt {{ haproxy_ssl_fullchain_path }}
+  mode http
+  http-request set-header X-Forwarded-Proto https
   default_backend nexus_docker_group_tcp
 
 {% if haproxy_gitlab_ssh_proxy_enabled | default(false) | bool %}
