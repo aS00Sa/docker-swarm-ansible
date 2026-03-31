@@ -31,8 +31,9 @@ haproxy_enabled: true
 haproxy_service_enabled: true
 
 # Пути к TLS материалам для bind ssl.
-# По умолчанию ожидаем, что `generate-certs` или `cert-manager` (symlink) положит файлы сюда.
-haproxy_ssl_fullchain_path: "/etc/ssl/{{ app_domain_name }}/fullchain.pem"
+# Для SNI-каталога cert-manager кладет per-site *.pem в /etc/ssl/<domain>/certs.d.
+# HAProxy может принимать каталог в параметре `crt`.
+haproxy_ssl_fullchain_path: "/etc/ssl/{{ app_domain_name }}/certs.d"
 haproxy_ssl_privkey_path: "/etc/ssl/{{ app_domain_name }}/privkey.pem"
 
 # Upstream стратегия:
