@@ -61,10 +61,9 @@ defaults
 {# Прямые L7-бэкенды до GitLab и Nexus (без Traefik) #}
 
 backend gitlab_https_tcp
-  mode tcp
+  mode http
   balance source
-  option tcp-check
-  option log-health-checks
+  option httpchk GET /users/sign_in
   server gitlab_https_1 {{ haproxy_gitlab_https_upstream_host | default('192.168.25.125') }}:{{ haproxy_gitlab_https_upstream_port | default(8443) }} check
 
 backend gitlab_ssh_tcp
@@ -205,16 +204,15 @@ frontend http-in
 
 {% if haproxy_https_enabled | default(true) | bool %}
 frontend https_in
-  bind {{ haproxy_bind_ip | default(ansible_default_ipv4.address) }}:{{ haproxy_https_port | default(443) }}
-  mode tcp
-  tcp-request inspect-delay 5s
-  tcp-request content accept if { req_ssl_hello_type 1 }
+  bind {{ haproxy_bind_ip | default(ansible_default_ipv4.address) }}:{{ haproxy_https_port | default(443) }} ssl crt {{ haproxy_ssl_fullchain_path }} key {{ haproxy_ssl_privkey_path }}
+  mode http
+  http-request set-header X-Forwarded-Proto https
 {% if firewall_lockdown | default(false) | bool %}
 {% if _stats_cidrs | length > 0 %}
   acl stats_from_trusted_ssl src -f /etc/haproxy/stats-trusted.cidr
-  tcp-request content reject if !stats_from_trusted_ssl
+  http-request deny deny_status 403 if !stats_from_trusted_ssl
 {% else %}
-  tcp-request content reject
+  http-request deny deny_status 403
 {% endif %}
 {% endif %}
   default_backend gitlab_https_tcp
