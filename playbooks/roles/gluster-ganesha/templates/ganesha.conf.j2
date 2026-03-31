@@ -5,9 +5,9 @@ NFS_CORE_PARAM {
 }
 
 EXPORT {
-  Export_Id = 77;
-  Path = /mnt/gfs;
-  Pseudo = /gfs;
+  Export_Id = {{ gluster_ganesha_export_id }};
+  Path = {{ gluster_ganesha_export_path }};
+  Pseudo = {{ gluster_ganesha_export_pseudo }};
   Access_Type = RW;
   Squash = No_root_squash;
   Protocols = 4;

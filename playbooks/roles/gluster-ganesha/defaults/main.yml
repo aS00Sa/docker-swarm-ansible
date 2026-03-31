@@ -1,0 +1,5 @@
+---
+# NFS Ganesha export defaults for Gluster gateway.
+gluster_ganesha_export_id: 77
+gluster_ganesha_export_path: "/mnt/gfs"
+gluster_ganesha_export_pseudo: "/gfs"
