@@ -74,10 +74,9 @@ backend gitlab_ssh_tcp
   server gitlab_ssh_1 {{ haproxy_gitlab_ssh_upstream_host | default('192.168.25.125') }}:{{ haproxy_gitlab_ssh_upstream_port | default(2222) }} check
 
 backend nexus_websecure_tcp
-  mode tcp
+  mode http
   balance source
-  option tcp-check
-  option log-health-checks
+  option httpchk GET /
   server nexus_websecure_1 {{ haproxy_nexus_upstream_host | default('192.168.25.126') }}:{{ haproxy_nexus_websecure_upstream_port | default(8081) }} check
 
 backend nexus_docker_hosted_tcp
@@ -201,6 +200,8 @@ frontend https_in
   bind {{ haproxy_bind_ip | default(ansible_default_ipv4.address) }}:{{ haproxy_https_port | default(443) }} ssl crt {{ haproxy_ssl_fullchain_path }}
   mode http
   http-request set-header X-Forwarded-Proto https
+  acl host_gitlab hdr(host) -i gitlab.{{ app_domain_name }}
+  acl host_nexus hdr(host) -i nexus.{{ app_domain_name }}
 {% if firewall_lockdown | default(false) | bool %}
 {% if _stats_cidrs | length > 0 %}
   acl stats_from_trusted_ssl src -f /etc/haproxy/stats-trusted.cidr
@@ -209,6 +210,8 @@ frontend https_in
   http-request deny deny_status 403
 {% endif %}
 {% endif %}
+  use_backend nexus_websecure_tcp if host_nexus
+  use_backend gitlab_https_tcp if host_gitlab
   default_backend gitlab_https_tcp
 {% endif %}
 
