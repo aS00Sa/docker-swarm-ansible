@@ -204,7 +204,7 @@ frontend http-in
 
 {% if haproxy_https_enabled | default(true) | bool %}
 frontend https_in
-  bind {{ haproxy_bind_ip | default(ansible_default_ipv4.address) }}:{{ haproxy_https_port | default(443) }} ssl crt {{ haproxy_ssl_fullchain_path }} key {{ haproxy_ssl_privkey_path }}
+  bind {{ haproxy_bind_ip | default(ansible_default_ipv4.address) }}:{{ haproxy_https_port | default(443) }} ssl crt {{ haproxy_ssl_fullchain_path }}
   mode http
   http-request set-header X-Forwarded-Proto https
 {% if firewall_lockdown | default(false) | bool %}

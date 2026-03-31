@@ -241,23 +241,32 @@
         state: directory
         mode: "0755"
 
-    - name: Symlink fullchain.pem from cert-manager (GFS)
-      ansible.builtin.file:
-        src: "{{ cert_manager_storage_base_dir }}/{{ cert_manager_letsencrypt_subdir }}/live/{{ cert_manager_cert_name | default(app_domain_name) }}/fullchain.pem"
-        dest: "{{ cert_manager_haproxy_ssl_dir }}/fullchain.pem"
-        state: link
-        force: true
+    - name: Build cert name list for HAProxy cert directory
+      ansible.builtin.set_fact:
+        cert_manager_haproxy_cert_names: >-
+          {{
+            (
+              cert_manager_certs_effective
+              | default(cert_manager_certs | default([]))
+              | select('mapping')
+              | selectattr('cert_name', 'defined')
+              | map(attribute='cert_name')
+              | map('string')
+              | map('trim')
+              | reject('equalto', '')
+              | list
+            ) | unique
+          }}
 
-    - name: Symlink privkey.pem from cert-manager (GFS)
-      ansible.builtin.file:
-        src: "{{ cert_manager_storage_base_dir }}/{{ cert_manager_letsencrypt_subdir }}/live/{{ cert_manager_cert_name | default(app_domain_name) }}/privkey.pem"
-        dest: "{{ cert_manager_haproxy_ssl_dir }}/privkey.pem"
-        state: link
-        force: true
-
-    - name: Symlink fullchain.pem.key from cert-manager (HAProxy expects *.key)
-      ansible.builtin.file:
-        src: "{{ cert_manager_storage_base_dir }}/{{ cert_manager_letsencrypt_subdir }}/live/{{ cert_manager_cert_name | default(app_domain_name) }}/privkey.pem"
-        dest: "{{ cert_manager_haproxy_ssl_dir }}/fullchain.pem.key"
-        state: link
-        force: true
+    - name: Build per-site PEM bundles for HAProxy TLS bind
+      ansible.builtin.shell: |
+        set -euo pipefail
+        cat \
+          "{{ cert_manager_storage_base_dir }}/{{ cert_manager_letsencrypt_subdir }}/live/{{ item }}/fullchain.pem" \
+          "{{ cert_manager_storage_base_dir }}/{{ cert_manager_letsencrypt_subdir }}/live/{{ item }}/privkey.pem" \
+          > "{{ cert_manager_haproxy_ssl_dir }}/{{ item }}.pem"
+        chmod 0600 "{{ cert_manager_haproxy_ssl_dir }}/{{ item }}.pem"
+      args:
+        executable: /bin/bash
+      changed_when: true
+      loop: "{{ cert_manager_haproxy_cert_names }}"
