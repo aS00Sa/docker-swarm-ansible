@@ -12,11 +12,17 @@
   become: true
   become_method: sudo
   block:
+    - name: Mark storage ready in standalone mode (no shared mount required)
+      ansible.builtin.set_fact:
+        cert_manager_gluster_ok: true
+      when: not (cert_manager_use_shared_storage | default(true) | bool)
+
     - name: Check gluster mountpoint exists
       ansible.builtin.command: mountpoint -q "{{ gluster_mount_path }}"
       register: cert_manager_mountpoint
       changed_when: false
       failed_when: false
+      when: cert_manager_use_shared_storage | default(true) | bool
 
     - name: Verify fstype of gluster mount
       ansible.builtin.command: findmnt -n -o FSTYPE --target "{{ gluster_mount_path }}"
@@ -25,7 +31,9 @@
       failed_when: >-
         cert_manager_findmnt_fstype.rc != 0
         or (cert_manager_findmnt_fstype.stdout | trim) not in ['glusterfs', 'fuse.glusterfs', 'nfs4']
-      when: (cert_manager_mountpoint.rc | default(1)) == 0
+      when:
+        - cert_manager_use_shared_storage | default(true) | bool
+        - (cert_manager_mountpoint.rc | default(1)) == 0
 
     - name: Set cert-manager gluster mount readiness fact
       ansible.builtin.set_fact:
@@ -35,6 +43,7 @@
             and (cert_manager_findmnt_fstype.rc | default(1)) == 0
             and (cert_manager_findmnt_fstype.stdout | default('') | trim) in ['glusterfs', 'fuse.glusterfs', 'nfs4']
           }}
+      when: cert_manager_use_shared_storage | default(true) | bool
 
     - name: Warn when cert-manager path is not a mounted GlusterFS
       ansible.builtin.debug:
@@ -42,7 +51,9 @@
           {{ gluster_mount_path }} is not a valid GlusterFS mountpoint on this host.
           GFS-backed cert-manager storage will be skipped to avoid writing files into a local directory
           that can later be hidden by a mount.
-      when: not (cert_manager_gluster_ok | default(false) | bool)
+      when:
+        - cert_manager_use_shared_storage | default(true) | bool
+        - not (cert_manager_gluster_ok | default(false) | bool)
 
 - name: Ensure cert-manager dirs exist on GFS
   when:
@@ -55,9 +66,9 @@
     state: directory
     mode: "0775"
   loop:
-    - "{{ gluster_mount_path }}/{{ cert_manager_gfs_subdir }}"
-    - "{{ gluster_mount_path }}/{{ cert_manager_gfs_subdir }}/{{ cert_manager_letsencrypt_subdir }}"
-    - "{{ gluster_mount_path }}/{{ cert_manager_gfs_subdir }}/{{ cert_manager_webroot_subdir }}"
+    - "{{ cert_manager_storage_base_dir }}"
+    - "{{ cert_manager_storage_base_dir }}/{{ cert_manager_letsencrypt_subdir }}"
+    - "{{ cert_manager_storage_base_dir }}/{{ cert_manager_webroot_subdir }}"
 
 - name: Compute cert-manager VIP IP (keepalived)
   when:
@@ -119,7 +130,9 @@
         mode: "0644"
 
     - name: Render docker-compose.yml to fixed GFS path
-      when: cert_manager_gluster_ok | default(false) | bool
+      when:
+        - cert_manager_use_shared_storage | default(true) | bool
+        - cert_manager_gluster_ok | default(false) | bool
       ansible.builtin.template:
         src: docker-compose.yml.j2
         dest: "{{ gluster_mount_path }}/{{ cert_manager_gfs_subdir }}/docker-compose.yml"
@@ -217,8 +230,8 @@
   when:
     - cert_manager_enabled | default(false) | bool
     - cert_manager_link_to_haproxy_ssl_dir | default(false) | bool
-    - inventory_hostname in (groups['haproxy'] | default([]))
-    - cert_manager_gluster_ok | default(false) | bool
+    - ((groups['haproxy'] | default([])) | intersect([inventory_hostname]) | length) > 0
+        - cert_manager_gluster_ok | default(false) | bool
   become: true
   become_method: sudo
   block:
@@ -230,21 +243,21 @@
 
     - name: Symlink fullchain.pem from cert-manager (GFS)
       ansible.builtin.file:
-        src: "{{ gluster_mount_path }}/{{ cert_manager_gfs_subdir }}/{{ cert_manager_letsencrypt_subdir }}/live/{{ cert_manager_cert_name | default(app_domain_name) }}/fullchain.pem"
+        src: "{{ cert_manager_storage_base_dir }}/{{ cert_manager_letsencrypt_subdir }}/live/{{ cert_manager_cert_name | default(app_domain_name) }}/fullchain.pem"
         dest: "{{ cert_manager_haproxy_ssl_dir }}/fullchain.pem"
         state: link
         force: true
 
     - name: Symlink privkey.pem from cert-manager (GFS)
       ansible.builtin.file:
-        src: "{{ gluster_mount_path }}/{{ cert_manager_gfs_subdir }}/{{ cert_manager_letsencrypt_subdir }}/live/{{ cert_manager_cert_name | default(app_domain_name) }}/privkey.pem"
+        src: "{{ cert_manager_storage_base_dir }}/{{ cert_manager_letsencrypt_subdir }}/live/{{ cert_manager_cert_name | default(app_domain_name) }}/privkey.pem"
         dest: "{{ cert_manager_haproxy_ssl_dir }}/privkey.pem"
         state: link
         force: true
 
     - name: Symlink fullchain.pem.key from cert-manager (HAProxy expects *.key)
       ansible.builtin.file:
-        src: "{{ gluster_mount_path }}/{{ cert_manager_gfs_subdir }}/{{ cert_manager_letsencrypt_subdir }}/live/{{ cert_manager_cert_name | default(app_domain_name) }}/privkey.pem"
+        src: "{{ cert_manager_storage_base_dir }}/{{ cert_manager_letsencrypt_subdir }}/live/{{ cert_manager_cert_name | default(app_domain_name) }}/privkey.pem"
         dest: "{{ cert_manager_haproxy_ssl_dir }}/fullchain.pem.key"
         state: link
         force: true

@@ -58,100 +58,15 @@ defaults
   stats realm Haproxy\ Statistics
   stats auth {{haproxy_stats_user}}:{{haproxy_stats_password}}
 
-{# Default L7 backends to Traefik (8080/8443) #}
-{% if _route_to_traefik %}
-backend traefik_web
-  mode http
-  balance source
-  option tcp-check
-  option log-health-checks
-{% for h in _traefik_nodes %}
-  server traefik_web_{{ loop.index }} {{ hostvars[h].ansible_host | default(h) }}:{{ haproxy_traefik_web_port | default(8080) }} check port {{ haproxy_traefik_web_port | default(8080) }}
-{% endfor %}
+{# Прямые L7-бэкенды до GitLab и Nexus (без Traefik) #}
 
-backend traefik_websecure
-  mode http
-  balance source
-  option tcp-check
-  option log-health-checks
-{% for h in _traefik_nodes %}
-  server traefik_websecure_{{ loop.index }} {{ hostvars[h].ansible_host | default(h) }}:{{ haproxy_traefik_websecure_port | default(8443) }} ssl verify none check port {{ haproxy_traefik_websecure_port | default(8443) }}
-{% endfor %}
-
-backend traefik_websecure_tcp
+backend gitlab_https_tcp
   mode tcp
   balance source
   option tcp-check
   option log-health-checks
-{% for h in _traefik_nodes %}
-  server traefik_websecure_tcp_{{ loop.index }} {{ hostvars[h].ansible_host | default(h) }}:{{ haproxy_traefik_websecure_port | default(8443) }} send-proxy-v2 check port {{ haproxy_traefik_websecure_port | default(8443) }}
-{% endfor %}
+  server gitlab_https_1 {{ haproxy_gitlab_https_upstream_host | default('192.168.25.125') }}:{{ haproxy_gitlab_https_upstream_port | default(8443) }} check
 
-{# docker registry (nexus docker-hosted/proxy/group) #}
-backend traefik_docker_hosted_tcp
-  mode tcp
-  balance source
-  option tcp-check
-  option log-health-checks
-{% for h in _traefik_nodes %}
-  server traefik_docker_hosted_{{ loop.index }} {{ hostvars[h].ansible_host | default(h) }}:{{ haproxy_docker_hosted_port | default(9080) }} send-proxy-v2 check port {{ haproxy_docker_hosted_port | default(9080) }}
-{% endfor %}
-
-backend traefik_docker_proxy_tcp
-  mode tcp
-  balance source
-  option tcp-check
-  option log-health-checks
-{% for h in _traefik_nodes %}
-  server traefik_docker_proxy_{{ loop.index }} {{ hostvars[h].ansible_host | default(h) }}:{{ haproxy_docker_proxy_port | default(9081) }} send-proxy-v2 check port {{ haproxy_docker_proxy_port | default(9081) }}
-{% endfor %}
-
-backend traefik_docker_group_tcp
-  mode tcp
-  balance source
-  option tcp-check
-  option log-health-checks
-{% for h in _traefik_nodes %}
-  server traefik_docker_group_{{ loop.index }} {{ hostvars[h].ansible_host | default(h) }}:{{ haproxy_docker_group_port | default(9082) }} send-proxy-v2 check port {{ haproxy_docker_group_port | default(9082) }}
-{% endfor %}
-{% endif %}
-
-{# --- Docker registry TCP (HAProxy -> Traefik) --- #}
-{# 9080 = docker-hosted, 9081 = docker-proxy, 9082 = docker-group #}
-frontend docker_hosted_in
-  bind {{ haproxy_bind_ip | default(ansible_default_ipv4.address) }}:{{ haproxy_docker_hosted_port | default(9080) }}
-  mode tcp
-  tcp-request inspect-delay 5s
-  tcp-request content accept if { req_ssl_hello_type 1 }
-{% if _route_to_traefik %}
-  default_backend traefik_docker_hosted_tcp
-{% else %}
-  default_backend direct_layer7_tcp
-{% endif %}
-
-frontend docker_proxy_in
-  bind {{ haproxy_bind_ip | default(ansible_default_ipv4.address) }}:{{ haproxy_docker_proxy_port | default(9081) }}
-  mode tcp
-  tcp-request inspect-delay 5s
-  tcp-request content accept if { req_ssl_hello_type 1 }
-{% if _route_to_traefik %}
-  default_backend traefik_docker_proxy_tcp
-{% else %}
-  default_backend direct_layer7_tcp
-{% endif %}
-
-frontend docker_group_in
-  bind {{ haproxy_bind_ip | default(ansible_default_ipv4.address) }}:{{ haproxy_docker_group_port | default(9082) }}
-  mode tcp
-  tcp-request inspect-delay 5s
-  tcp-request content accept if { req_ssl_hello_type 1 }
-{% if _route_to_traefik %}
-  default_backend traefik_docker_group_tcp
-{% else %}
-  default_backend direct_layer7_tcp
-{% endif %}
-
-{% if haproxy_gitlab_ssh_proxy_enabled | default(false) | bool %}
 backend gitlab_ssh_tcp
   mode tcp
   balance source
@@ -159,25 +74,62 @@ backend gitlab_ssh_tcp
   option log-health-checks
   server gitlab_ssh_1 {{ haproxy_gitlab_ssh_upstream_host | default('192.168.25.125') }}:{{ haproxy_gitlab_ssh_upstream_port | default(2222) }} check
 
-{% if _route_to_traefik %}
-backend traefik_gitlab_ssh_tcp
+backend nexus_websecure_tcp
   mode tcp
   balance source
   option tcp-check
   option log-health-checks
-{% for h in _traefik_nodes %}
-  server traefik_gitlab_ssh_{{ loop.index }} {{ hostvars[h].ansible_host | default(h) }}:{{ haproxy_gitlab_ssh_listen_port | default(2222) }} send-proxy-v2 check port {{ haproxy_gitlab_ssh_listen_port | default(2222) }}
-{% endfor %}
-{% endif %}
+  server nexus_websecure_1 {{ haproxy_nexus_upstream_host | default('192.168.25.126') }}:{{ haproxy_nexus_websecure_upstream_port | default(8081) }} check
 
+backend nexus_docker_hosted_tcp
+  mode tcp
+  balance source
+  option tcp-check
+  option log-health-checks
+  server nexus_docker_hosted_1 {{ haproxy_nexus_upstream_host | default('192.168.25.126') }}:{{ haproxy_nexus_docker_hosted_upstream_port | default(9080) }} check
+
+backend nexus_docker_proxy_tcp
+  mode tcp
+  balance source
+  option tcp-check
+  option log-health-checks
+  server nexus_docker_proxy_1 {{ haproxy_nexus_upstream_host | default('192.168.25.126') }}:{{ haproxy_nexus_docker_proxy_upstream_port | default(9081) }} check
+
+backend nexus_docker_group_tcp
+  mode tcp
+  balance source
+  option tcp-check
+  option log-health-checks
+  server nexus_docker_group_1 {{ haproxy_nexus_upstream_host | default('192.168.25.126') }}:{{ haproxy_nexus_docker_group_upstream_port | default(9082) }} check
+
+{# --- Docker registry TCP (HAProxy -> Nexus) --- #}
+{# 9080 = docker-hosted, 9081 = docker-proxy, 9082 = docker-group #}
+frontend docker_hosted_in
+  bind {{ haproxy_bind_ip | default(ansible_default_ipv4.address) }}:{{ haproxy_docker_hosted_port | default(9080) }}
+  mode tcp
+  tcp-request inspect-delay 5s
+  tcp-request content accept if { req_ssl_hello_type 1 }
+  default_backend nexus_docker_hosted_tcp
+
+frontend docker_proxy_in
+  bind {{ haproxy_bind_ip | default(ansible_default_ipv4.address) }}:{{ haproxy_docker_proxy_port | default(9081) }}
+  mode tcp
+  tcp-request inspect-delay 5s
+  tcp-request content accept if { req_ssl_hello_type 1 }
+  default_backend nexus_docker_proxy_tcp
+
+frontend docker_group_in
+  bind {{ haproxy_bind_ip | default(ansible_default_ipv4.address) }}:{{ haproxy_docker_group_port | default(9082) }}
+  mode tcp
+  tcp-request inspect-delay 5s
+  tcp-request content accept if { req_ssl_hello_type 1 }
+  default_backend nexus_docker_group_tcp
+
+{% if haproxy_gitlab_ssh_proxy_enabled | default(false) | bool %}
 frontend gitlab_ssh_in
   bind {{ haproxy_bind_ip | default(ansible_default_ipv4.address) }}:{{ haproxy_gitlab_ssh_listen_port | default(2222) }}
   mode tcp
-{% if _route_to_traefik %}
-  default_backend traefik_gitlab_ssh_tcp
-{% else %}
   default_backend gitlab_ssh_tcp
-{% endif %}
 {% endif %}
 
 {# Safe fallback backend for include-mode / non-swarm mode. #}
@@ -248,14 +200,8 @@ frontend http-in
 {% endif %}
 {% endif %}
 
-  # uncomment to redirect http connects to https
-  #redirect scheme https
-
-{% if _route_to_traefik %}
-  default_backend traefik_web
-{% else %}
+  # Базовый HTTP upstream можно настроить отдельно при необходимости.
   default_backend direct_layer7
-{% endif %}
 
 {% if haproxy_https_enabled | default(true) | bool %}
 frontend https_in
@@ -271,10 +217,6 @@ frontend https_in
   tcp-request content reject
 {% endif %}
 {% endif %}
-{% if _route_to_traefik %}
-  default_backend traefik_websecure_tcp
-{% else %}
-  default_backend direct_layer7
-{% endif %}
+  default_backend gitlab_https_tcp
 {% endif %}
 

@@ -41,8 +41,8 @@ services:
           sleep 12h
         done
     volumes:
-      - "{{ gluster_mount_path }}/{{ cert_manager_gfs_subdir }}/{{ cert_manager_letsencrypt_subdir }}:/etc/letsencrypt"
-      - "{{ gluster_mount_path }}/{{ cert_manager_gfs_subdir }}/{{ cert_manager_webroot_subdir }}:/var/www/certbot"
+      - "{{ cert_manager_storage_base_dir }}/{{ cert_manager_letsencrypt_subdir }}:/etc/letsencrypt"
+      - "{{ cert_manager_storage_base_dir }}/{{ cert_manager_webroot_subdir }}:/var/www/certbot"
 
   certbot-web:
     image: nginx:alpine
@@ -69,7 +69,7 @@ services:
         EOF
         nginx -g 'daemon off;'
     volumes:
-      - "{{ gluster_mount_path }}/{{ cert_manager_gfs_subdir }}/{{ cert_manager_webroot_subdir }}:/var/www/certbot:ro"
+      - "{{ cert_manager_storage_base_dir }}/{{ cert_manager_webroot_subdir }}:/var/www/certbot:ro"
 {% if cert_manager_publish_http | default(false) %}
     ports:
       - "{{ cert_manager_compose_bind_ip | default('127.0.0.1') }}:{{ cert_manager_publish_http_port | default(8088) }}:80"

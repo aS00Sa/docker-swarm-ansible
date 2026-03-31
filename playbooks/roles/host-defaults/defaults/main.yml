@@ -2,3 +2,12 @@
 # Auto hostname generation from inventory role groups.
 # Disabled by default; enable per-environment when needed.
 host_defaults_auto_hostname_enabled: false
+
+# DNS defaults for hosts with unstable local resolver (e.g. VPN environments).
+host_defaults_resolved_dns_enabled: true
+host_defaults_resolved_dns_servers:
+  - "1.1.1.1"
+  - "8.8.8.8"
+host_defaults_resolved_fallback_dns:
+  - "9.9.9.9"
+host_defaults_resolved_dns_stub_listener: "no"

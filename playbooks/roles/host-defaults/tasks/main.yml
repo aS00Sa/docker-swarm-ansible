@@ -243,6 +243,50 @@
   loop_control:
     label: "{{ item.path | default('unknown') }}"
 
+- name: Ensure systemd-resolved drop-in directory exists
+  become: true
+  become_method: sudo
+  ansible.builtin.file:
+    path: /etc/systemd/resolved.conf.d
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  when: host_defaults_resolved_dns_enabled | default(true) | bool
+
+- name: Configure systemd-resolved DNS defaults
+  become: true
+  become_method: sudo
+  ansible.builtin.copy:
+    dest: /etc/systemd/resolved.conf.d/99-dns.conf
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      [Resolve]
+      DNS={{ host_defaults_resolved_dns_servers | default(['1.1.1.1','8.8.8.8']) | join(' ') }}
+      FallbackDNS={{ host_defaults_resolved_fallback_dns | default(['9.9.9.9']) | join(' ') }}
+      DNSStubListener={{ host_defaults_resolved_dns_stub_listener | default('no') }}
+  when: host_defaults_resolved_dns_enabled | default(true) | bool
+  register: host_defaults_resolved_dns_cfg
+
+- name: Restart systemd-resolved after DNS config change
+  become: true
+  become_method: sudo
+  ansible.builtin.systemd:
+    name: systemd-resolved
+    state: restarted
+  when:
+    - host_defaults_resolved_dns_enabled | default(true) | bool
+    - host_defaults_resolved_dns_cfg is changed
+
+- name: Ensure systemd-resolved is active
+  become: true
+  become_method: sudo
+  ansible.builtin.command: systemctl is-active systemd-resolved
+  changed_when: false
+  when: host_defaults_resolved_dns_enabled | default(true) | bool
+
 - name: Verify system dependencies
   become: true
   become_method: sudo
