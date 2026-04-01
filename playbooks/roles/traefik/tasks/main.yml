@@ -39,32 +39,24 @@
           )
       }}
 
-- name: Resolve GitLab SSH settings from gitlab cert slot (cert_manager_certs*)
-  vars:
-    _gitlab_items: >-
-      {{
-        (cert_manager_certs_effective | default(cert_manager_certs | default([])) | select('mapping') | list)
-        | selectattr('cert_name', 'defined')
-        | selectattr('cert_name', 'equalto', 'gitlab.btnxlocal.ru')
-        | list
-      }}
-    _gitlab_item: "{{ _gitlab_items | first | default({}) }}"
+- name: Resolve Traefik and cert-manager storage paths (shared/local)
   ansible.builtin.set_fact:
-    traefik_gitlab_ssh_enabled: "{{ _gitlab_item.traefik_gitlab_ssh_enabled | default(false) | bool }}"
-    traefik_gitlab_ssh_port: "{{ _gitlab_item.traefik_gitlab_ssh_port | default(2222) | int }}"
-    traefik_gitlab_ssh_upstream_host: "{{ _gitlab_item.traefik_gitlab_ssh_upstream_host | default(_gitlab_item.upstream_host | default('')) }}"
-    traefik_gitlab_ssh_upstream_port: "{{ _gitlab_item.traefik_gitlab_ssh_upstream_port | default(2222) | int }}"
-
-- name: Validate GitLab SSH upstream settings from inventory
-  when: traefik_gitlab_ssh_enabled | default(false) | bool
-  ansible.builtin.assert:
-    that:
-      - (traefik_gitlab_ssh_upstream_host | default('') | trim | length) > 0
-      - (traefik_gitlab_ssh_upstream_port | default(0) | int) > 0
-    fail_msg: >-
-      GitLab SSH upstream is not configured. Set
-      traefik_gitlab_ssh_upstream_host/traefik_gitlab_ssh_upstream_port
-      in cert_manager_certs1 (gitlab entry) in inventory.
+    traefik_use_shared_storage: "{{ cert_manager_use_shared_storage | default(false) | bool }}"
+    traefik_storage_base_dir: >-
+      {{
+        ((gluster_mount_path | default('/mnt/gfs')) ~ '/' ~ (traefik_gfs_subdir | default('traefik_gfs')))
+        if (cert_manager_use_shared_storage | default(false) | bool)
+        else (traefik_compose_project_dir | default('/opt/traefik'))
+      }}
+    traefik_cert_manager_letsencrypt_host_dir: >-
+      {{
+        (
+          ((gluster_mount_path | default('/mnt/gfs')) ~ '/' ~ (cert_manager_gfs_subdir | default('cert_manager_gfs')))
+          if (cert_manager_use_shared_storage | default(false) | bool)
+          else (cert_manager_compose_project_dir | default('/opt/cert_manager_gfs'))
+        )
+        ~ '/' ~ (cert_manager_letsencrypt_subdir | default('letsencrypt'))
+      }}
 
 - name: Verify HAProxy is active before Traefik deploy
   when: traefik_require_haproxy_ready | default(true) | bool
@@ -131,10 +123,7 @@
       ansible.builtin.set_fact:
         traefik_cert_manager_compose_file: >-
           {{
-            (
-              cert_manager_compose_project_dir
-              | default(gluster_mount_path ~ '/' ~ (cert_manager_gfs_subdir | default('cert_manager_gfs')))
-            ) ~ '/docker-compose.yml'
+            (cert_manager_compose_project_dir | default('/opt/cert_manager_gfs')) ~ '/docker-compose.yml'
           }}
 
     - name: Fail if cert_manager group is empty (strict mode)
@@ -214,6 +203,7 @@
           {{ traefik_cert_manager_not_ready_hosts | join(', ') }}
 
 - name: Verify shared storage mount exists on Traefik hosts
+  when: traefik_use_shared_storage | default(false) | bool
   run_once: true
   block:
     - name: Check mountpoint on traefik hosts
@@ -248,6 +238,7 @@
           Mount shared storage (GlusterFS/Ganesha) before Traefik deploy.
 
 - name: Verify cert-manager certificates exist in shared storage
+  when: traefik_use_shared_storage | default(false) | bool
   run_once: true
   vars:
     traefik_expected_cert_names: >-
@@ -269,7 +260,7 @@
       become: true
       become_method: sudo
       ansible.builtin.stat:
-        path: "{{ gluster_mount_path }}/{{ cert_manager_gfs_subdir | default('cert_manager_gfs') }}/{{ cert_manager_letsencrypt_subdir | default('letsencrypt') }}/live/{{ item }}"
+        path: "{{ traefik_cert_manager_letsencrypt_host_dir }}/live/{{ item }}"
       loop: "{{ traefik_expected_cert_names }}"
       loop_control:
         label: "{{ item }}"
@@ -396,30 +387,6 @@
     state: directory
     mode: "0775"
 
-- name: Cleanup legacy nexus-docker dynamic configs (stack mode)
-  when:
-    - (traefik_effective_deploy_method | default('stack')) == 'stack'
-    - inventory_hostname == ((groups['swarm_managers'] | default([])) | first | default(''))
-  become: true
-  become_method: sudo
-  ansible.builtin.file:
-    path: "{{ gluster_mount_path }}/{{ traefik_gfs_subdir }}/{{ traefik_dynamic_subdir }}/{{ (item | regex_replace('[^A-Za-z0-9_.-]', '_') | replace('.', '_')) }}.yml"
-    state: absent
-  loop:
-    - nexus-docker-hosted.btnxlocal.ru
-    - nexus-docker-proxy.btnxlocal.ru
-    - nexus-docker-group.btnxlocal.ru
-
-- name: Cleanup legacy nexus-docker dynamic sites (stack mode)
-  when:
-    - (traefik_effective_deploy_method | default('stack')) == 'stack'
-    - inventory_hostname == ((groups['swarm_managers'] | default([])) | first | default(''))
-  become: true
-  become_method: sudo
-  ansible.builtin.file:
-    path: "{{ gluster_mount_path }}/{{ traefik_gfs_subdir }}/{{ traefik_dynamic_subdir }}/{{ traefik_dynamic_sites_subdir | default('sites') }}/{{ (item.0 | regex_replace('[^A-Za-z0-9_.-]', '_') | replace('.', '_') ) }}{{ item.1 }}"
-    state: absent
-  loop: "{{ (['nexus-docker-hosted.btnxlocal.ru','nexus-docker-proxy.btnxlocal.ru','nexus-docker-group.btnxlocal.ru'] | product(['.yml', '.example.yml']) | list) }}"
 
 - name: Ensure Traefik ACME storage file exists with strict mode (on first swarm node)
   when:
@@ -454,19 +421,6 @@
   vars:
     cert_item: "{{ item }}"
 
-- name: Deploy GitLab SSH TCP router config to GFS (on first swarm node)
-  when:
-    - (traefik_effective_deploy_method | default('stack')) == 'stack'
-    - inventory_hostname == ((groups['swarm_managers'] | default([])) | first | default(''))
-    - traefik_gitlab_ssh_enabled | default(true) | bool
-  become: true
-  become_method: sudo
-  template:
-    src: dynamic/gitlab_ssh.yml.j2
-    dest: "{{ gluster_mount_path }}/{{ traefik_gfs_subdir }}/{{ traefik_dynamic_subdir }}/gitlab_ssh.yml"
-    mode: "0644"
-    owner: root
-    group: root
 
 - name: Remove legacy generated dynamic file names (on first swarm node)
   when:
@@ -629,36 +583,22 @@
   block:
     - name: Ensure Traefik data dir exists on GFS (compose)
       ansible.builtin.file:
-        path: "{{ gluster_mount_path }}/{{ traefik_gfs_subdir }}"
+        path: "{{ traefik_storage_base_dir }}"
         state: directory
         mode: "0775"
 
     - name: Ensure Traefik dynamic dir exists on GFS (compose)
       ansible.builtin.file:
-        path: "{{ gluster_mount_path }}/{{ traefik_gfs_subdir }}/{{ traefik_dynamic_subdir }}"
+        path: "{{ traefik_storage_base_dir }}/{{ traefik_dynamic_subdir }}"
         state: directory
         mode: "0775"
 
-    - name: Cleanup legacy nexus-docker dynamic configs (compose mode)
-      ansible.builtin.file:
-        path: "{{ gluster_mount_path }}/{{ traefik_gfs_subdir }}/{{ traefik_dynamic_subdir }}/{{ (item | regex_replace('[^A-Za-z0-9_.-]', '_') | replace('.', '_')) }}.yml"
-        state: absent
-      loop:
-        - nexus-docker-hosted.btnxlocal.ru
-        - nexus-docker-proxy.btnxlocal.ru
-        - nexus-docker-group.btnxlocal.ru
-
-    - name: Cleanup legacy nexus-docker dynamic sites (compose mode)
-      ansible.builtin.file:
-        path: "{{ gluster_mount_path }}/{{ traefik_gfs_subdir }}/{{ traefik_dynamic_subdir }}/{{ traefik_dynamic_sites_subdir | default('sites') }}/{{ (item.0 | regex_replace('[^A-Za-z0-9_.-]', '_') | replace('.', '_') ) }}{{ item.1 }}"
-        state: absent
-      loop: "{{ (['nexus-docker-hosted.btnxlocal.ru','nexus-docker-proxy.btnxlocal.ru','nexus-docker-group.btnxlocal.ru'] | product(['.yml', '.example.yml']) | list) }}"
 
     - name: Deploy per-site Traefik dynamic config to GFS (compose)
       when: (cert_manager_certs_effective | default(cert_manager_certs | default([])) | select('mapping') | list | length) > 0
       ansible.builtin.template:
         src: dynamic/auto_cert_manager.yml.j2
-        dest: "{{ gluster_mount_path }}/{{ traefik_gfs_subdir }}/{{ traefik_dynamic_subdir }}/{{ (item.cert_name | default(item.domains | first)) | regex_replace('[^A-Za-z0-9_.-]', '_') | replace('.', '_') }}.yml"
+        dest: "{{ traefik_storage_base_dir }}/{{ traefik_dynamic_subdir }}/{{ (item.cert_name | default(item.domains | first)) | regex_replace('[^A-Za-z0-9_.-]', '_') | replace('.', '_') }}.yml"
         mode: "0644"
         owner: root
         group: root
@@ -668,18 +608,10 @@
       vars:
         cert_item: "{{ item }}"
 
-    - name: Deploy GitLab SSH TCP router config to GFS (compose)
-      when: traefik_gitlab_ssh_enabled | default(true) | bool
-      ansible.builtin.template:
-        src: dynamic/gitlab_ssh.yml.j2
-        dest: "{{ gluster_mount_path }}/{{ traefik_gfs_subdir }}/{{ traefik_dynamic_subdir }}/gitlab_ssh.yml"
-        mode: "0644"
-        owner: root
-        group: root
 
     - name: Remove legacy generated dynamic file names (compose)
       ansible.builtin.file:
-        path: "{{ gluster_mount_path }}/{{ traefik_gfs_subdir }}/{{ traefik_dynamic_subdir }}/{{ item }}"
+        path: "{{ traefik_storage_base_dir }}/{{ traefik_dynamic_subdir }}/{{ item }}"
         state: absent
       loop:
         - generated-upstreams.yml
@@ -687,7 +619,7 @@
 
     - name: Remove legacy per-site active/example files in dynamic/sites (compose)
       ansible.builtin.file:
-        path: "{{ gluster_mount_path }}/{{ traefik_gfs_subdir }}/{{ traefik_dynamic_subdir }}/{{ traefik_dynamic_sites_subdir | default('sites') }}/{{ (item.0.cert_name | default(item.0.domains | first)) | regex_replace('[^A-Za-z0-9_.-]', '_') | replace('.', '_') }}{{ item.1 }}"
+        path: "{{ traefik_storage_base_dir }}/{{ traefik_dynamic_subdir }}/{{ traefik_dynamic_sites_subdir | default('sites') }}/{{ (item.0.cert_name | default(item.0.domains | first)) | regex_replace('[^A-Za-z0-9_.-]', '_') | replace('.', '_') }}{{ item.1 }}"
         state: absent
       loop: "{{ (cert_manager_certs_effective | default(cert_manager_certs | default([])) | select('mapping') | list) | product(['.yml', '.example.yml']) | list }}"
       loop_control:
@@ -697,7 +629,7 @@
     - name: Create Traefik static configuration on GFS (compose)
       ansible.builtin.template:
         src: traefik.yml.j2
-        dest: "{{ gluster_mount_path }}/{{ traefik_gfs_subdir }}/traefik.yml"
+        dest: "{{ traefik_storage_base_dir }}/traefik.yml"
         mode: "0644"
         owner: root
         group: root

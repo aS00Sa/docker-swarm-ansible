@@ -11,15 +11,11 @@ services:
       - "{{ haproxy_traefik_web_port | default(8080) }}:{{ haproxy_traefik_web_port | default(8080) }}"
       - "{{ haproxy_traefik_websecure_port | default(8443) }}:{{ haproxy_traefik_websecure_port | default(8443) }}"
       - "{{ traefik_internal_api_port }}:{{ traefik_internal_api_port }}"
-      - "{{ traefik_docker_hosted_port | default(9080) }}:{{ traefik_docker_hosted_port | default(9080) }}"
-      - "{{ traefik_docker_proxy_port | default(9081) }}:{{ traefik_docker_proxy_port | default(9081) }}"
-      - "{{ traefik_docker_group_port | default(9082) }}:{{ traefik_docker_group_port | default(9082) }}"
-      - "{{ traefik_gitlab_ssh_port | default(2222) }}:{{ traefik_gitlab_ssh_port | default(2222) }}"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - "{{ gluster_mount_path }}/{{ traefik_gfs_subdir }}/traefik.yml:/etc/traefik/traefik.yml:ro"
-      - "{{ gluster_mount_path }}/{{ traefik_gfs_subdir }}/{{ traefik_dynamic_subdir }}:/etc/traefik/dynamic:ro"
-      - "{{ gluster_mount_path }}/{{ cert_manager_gfs_subdir | default('cert_manager_gfs') }}/{{ cert_manager_letsencrypt_subdir | default('letsencrypt') }}:/etc/traefik/letsencrypt:ro"
-      - "{{ gluster_mount_path }}/{{ traefik_gfs_subdir }}:/etc/traefik"
+      - "{{ traefik_storage_base_dir }}/traefik.yml:/etc/traefik/traefik.yml:ro"
+      - "{{ traefik_storage_base_dir }}/{{ traefik_dynamic_subdir }}:/etc/traefik/dynamic:ro"
+      - "{{ traefik_cert_manager_letsencrypt_host_dir }}:/etc/traefik/letsencrypt:ro"
+      - "{{ traefik_storage_base_dir }}:/etc/traefik"
     restart: unless-stopped
 
