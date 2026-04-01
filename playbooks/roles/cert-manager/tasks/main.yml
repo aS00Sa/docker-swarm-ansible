@@ -55,6 +55,15 @@
         - cert_manager_use_shared_storage | default(false) | bool
         - not (cert_manager_gluster_ok | default(false) | bool)
 
+    - name: Fail when shared storage is required but mount is not ready
+      ansible.builtin.fail:
+        msg: >-
+          cert_manager_use_shared_storage=true requires mounted shared storage on {{ gluster_mount_path }}.
+          cert-manager deployment is blocked until mountpoint/fstype is valid (glusterfs/fuse.glusterfs/nfs4).
+      when:
+        - cert_manager_use_shared_storage | default(false) | bool
+        - not (cert_manager_gluster_ok | default(false) | bool)
+
 - name: Ensure cert-manager dirs exist on GFS
   when:
     - cert_manager_enabled | default(false) | bool

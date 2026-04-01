@@ -1,6 +1,6 @@
 ---
 # ansible-playbook -i inventory-prod.ini playbooks/plays/08-gluster-client.yml
-- hosts: swarm_managers:swarm_workers:!haproxy:!traefik
+- hosts: swarm_managers:swarm_workers:haproxy:traefik
   tags: [gluster-client]
   roles:
     - role: ../roles/cluster-defaults

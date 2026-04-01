@@ -47,10 +47,10 @@
 
 - name: Pick Gluster peer hosts for client mount
   ansible.builtin.set_fact:
-    gluster_client_nodes: >-
+    gluster_client_primary_nodes: >-
       {{
         (
-          groups['gluster_nodes']
+          groups['gluster_nodes_bricks']
           if (
             inventory_hostname in (groups['haproxy'] | default([]))
             or inventory_hostname in (groups['traefik'] | default([]))
@@ -61,18 +61,40 @@
         | unique
         | list
       }}
+    gluster_client_fallback_nodes: >-
+      {{
+        (
+          groups['gluster_nodes']
+          if (
+            inventory_hostname in (groups['haproxy'] | default([]))
+            or inventory_hostname in (groups['traefik'] | default([]))
+          )
+          else []
+        )
+        | default([])
+        | unique
+        | list
+      }}
+
+- name: Mark edge client role (haproxy/traefik)
+  ansible.builtin.set_fact:
+    gluster_client_is_edge: >-
+      {{
+        inventory_hostname in (groups['haproxy'] | default([]))
+        or inventory_hostname in (groups['traefik'] | default([]))
+      }}
 
 - name: Ensure Gluster client peer list is not empty
   ansible.builtin.assert:
     that:
-      - (gluster_client_nodes | default([]) | length) > 0
+      - (gluster_client_primary_nodes | default([]) | length) > 0
     fail_msg: >-
       Gluster client peers list is empty. Define [gluster_nodes] and/or [gluster_nodes_bricks]
       in inventory.
 
 - name: Resolve Gluster peer addresses for client mount
   ansible.builtin.set_fact:
-    gluster_client_peers: "{{ (gluster_client_peers | default([])) + [ gluster_peer_addr_resolved ] }}"
+    gluster_client_primary_peers: "{{ (gluster_client_primary_peers | default([])) + [ gluster_peer_addr_resolved ] }}"
   vars:
     gluster_peer_addr_resolved: >-
       {{
@@ -82,7 +104,67 @@
           | default(item)
           | default(hostvars[item].ansible_default_ipv4.address)
       }}
-  loop: "{{ gluster_client_nodes }}"
+  loop: "{{ gluster_client_primary_nodes }}"
+
+- name: Resolve fallback peer addresses for edge NFS mount
+  when: (gluster_client_fallback_nodes | default([]) | length) > 0
+  ansible.builtin.set_fact:
+    gluster_client_fallback_peers: "{{ (gluster_client_fallback_peers | default([])) + [ gluster_peer_addr_resolved ] }}"
+  vars:
+    gluster_peer_addr_resolved: >-
+      {{
+        hostvars[item].gluster_peer_addr
+          | default(hostvars[item].gluster_client_addr)
+          | default(hostvars[item].ansible_host)
+          | default(item)
+          | default(hostvars[item].ansible_default_ipv4.address)
+      }}
+  loop: "{{ gluster_client_fallback_nodes }}"
+
+- name: Probe local gluster connectivity for edge nodes (primary peers)
+  when: gluster_client_is_edge | default(false) | bool
+  ansible.builtin.wait_for:
+    host: "{{ item }}"
+    port: 24007
+    timeout: 2
+    connect_timeout: 1
+    state: started
+  loop: "{{ gluster_client_primary_peers | default([]) }}"
+  loop_control:
+    label: "{{ item }}:24007"
+  register: gluster_client_primary_connectivity
+  failed_when: false
+  changed_when: false
+
+- name: Decide whether edge node should use primary gluster peers
+  when: gluster_client_is_edge | default(false) | bool
+  ansible.builtin.set_fact:
+    gluster_client_use_primary_gluster: >-
+      {{
+        (gluster_client_primary_connectivity.results | default([]))
+        | selectattr('failed', 'defined')
+        | rejectattr('failed', 'equalto', true)
+        | list
+        | length > 0
+      }}
+
+- name: Non-edge nodes always use primary gluster peers
+  when: not (gluster_client_is_edge | default(false) | bool)
+  ansible.builtin.set_fact:
+    gluster_client_use_primary_gluster: true
+
+- name: Ensure NFS client package for edge fallback
+  when:
+    - gluster_client_enable_nfs_fallback | default(true) | bool
+    - gluster_client_is_edge | default(false) | bool
+  become: true
+  become_method: sudo
+  ansible.builtin.apt:
+    pkg:
+      - nfs-common
+    state: present
+    force_apt_get: true
+    update_cache: yes
 
 - name: Check if {{ gluster_mount_path }} already mounted
   become: true
@@ -97,12 +179,14 @@
   become_method: sudo
   shell: >
     timeout 30s mount -t glusterfs
-    "{{ gluster_client_peers[0] }}:/{{ gluster_volume_name }}"
+    "{{ gluster_client_primary_peers[0] }}:/{{ gluster_volume_name }}"
     "{{ gluster_mount_path }}"
-    -o "defaults,_netdev,transport=tcp,backupvolfile-server={{ gluster_client_peers[1] | default(gluster_client_peers[0]) }}"
+    -o "defaults,_netdev,transport=tcp,backupvolfile-server={{ gluster_client_primary_peers[1] | default(gluster_client_primary_peers[0]) }}"
   register: mount_try1
   failed_when: false
-  when: (gfs_already_mounted.rc | default(1)) != 0
+  when:
+    - (gfs_already_mounted.rc | default(1)) != 0
+    - gluster_client_use_primary_gluster | default(true) | bool
 
 - name: Debug gluster mount try1 failure (if any)
   when:
@@ -125,7 +209,7 @@
     - name: Fallback mount without backupvolfile-server (actual mount)
       ansible.builtin.shell: >
         timeout 30s mount -t glusterfs
-        "{{ gluster_client_peers[0] }}:/{{ gluster_volume_name }}"
+        "{{ gluster_client_primary_peers[0] }}:/{{ gluster_volume_name }}"
         "{{ gluster_mount_path }}"
         -o "defaults,_netdev,transport=tcp"
       register: mount_try2
@@ -136,7 +220,7 @@
       ansible.builtin.shell: |
         set -o pipefail
         echo "=== mount command ==="
-        echo 'mount -t glusterfs "{{ gluster_client_peers[0] }}:/{{ gluster_volume_name }}" "{{ gluster_mount_path }}" -o "defaults,_netdev,transport=tcp"'
+        echo 'mount -t glusterfs "{{ gluster_client_primary_peers[0] }}:/{{ gluster_volume_name }}" "{{ gluster_mount_path }}" -o "defaults,_netdev,transport=tcp"'
         echo
         echo "=== /var/log/glusterfs (ls) ==="
         ls -la /var/log/glusterfs 2>&1 || true
@@ -148,6 +232,8 @@
           tail -n 200 "$f" 2>&1 || true
           echo
         done
+      args:
+        executable: /bin/bash
       register: gluster_client_logs
       changed_when: false
       failed_when: false
@@ -163,6 +249,34 @@
       - "gluster-client mount_try2 stderr={{ mount_try2.stderr | default('') }}"
       - "gluster-client mount_try2 stdout={{ mount_try2.stdout | default('') }}"
       - "gluster-client logs (truncated)=\n{{ gluster_client_logs.stdout | default('') }}"
+
+- name: Fallback mount via NFS Ganesha for edge nodes
+  when:
+    - gluster_client_enable_nfs_fallback | default(true) | bool
+    - gluster_client_is_edge | default(false) | bool
+    - (gfs_already_mounted.rc | default(1)) != 0
+    - not (gluster_client_use_primary_gluster | default(false) | bool) or (mount_try2 is defined and (mount_try2.rc | default(0)) != 0)
+  become: true
+  become_method: sudo
+  ansible.builtin.shell: |
+    umount -l "{{ gluster_mount_path }}" >/dev/null 2>&1 || true
+    mkdir -p "{{ gluster_mount_path }}"
+    timeout 30s mount -t nfs4 \
+      "{{ (gluster_client_fallback_peers | default(gluster_client_primary_peers))[0] }}:{{ gluster_client_nfs_export_path }}" \
+      "{{ gluster_mount_path }}" \
+      -o "{{ gluster_client_nfs_mount_opts }}"
+  register: mount_nfs_fallback
+  failed_when: false
+
+- name: Debug NFS fallback mount failure (if any)
+  when:
+    - mount_nfs_fallback is defined
+    - (mount_nfs_fallback.rc | default(0)) != 0
+  ansible.builtin.debug:
+    msg:
+      - "gluster-client nfs_fallback rc={{ mount_nfs_fallback.rc | default('n/a') }}"
+      - "gluster-client nfs_fallback stderr={{ mount_nfs_fallback.stderr | default('') }}"
+      - "gluster-client nfs_fallback stdout={{ mount_nfs_fallback.stdout | default('') }}"
 
 - name: Verify {{ gluster_mount_path }} is a mountpoint
   become: true

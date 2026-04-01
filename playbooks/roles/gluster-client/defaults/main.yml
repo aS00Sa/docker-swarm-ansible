@@ -1,0 +1,5 @@
+---
+# Fallback to NFS (Ganesha) for edge nodes when direct glusterfs mount fails.
+gluster_client_enable_nfs_fallback: true
+gluster_client_nfs_export_path: "{{ gluster_ganesha_export_pseudo | default('/gfs') }}"
+gluster_client_nfs_mount_opts: "defaults,_netdev,proto=tcp,timeo=600,retrans=2"
