@@ -24,7 +24,7 @@
 - import_playbook: plays/07-gluster.yml
 - import_playbook: plays/08-gluster-client.yml
 - import_playbook: plays/09-swarm-labels.yml
-- import_playbook: plays/10-portainer.yml
 - import_playbook: plays/11-haproxy.yml
 - import_playbook: plays/12-cert-manager.yml
+- import_playbook: plays/10-portainer.yml
 - import_playbook: plays/13-traefik.yml
