@@ -17,6 +17,7 @@ traefik_gfs_subdir: traefik_gfs
 
 # Подкаталог на GFS с динамическими конфигами Traefik
 traefik_dynamic_subdir: dynamic
+traefik_dynamic_sites_subdir: sites
 
 # Выгружать сгенерированный compose-файл на контроллер (Ansible controller)
 traefik_export_stack_local: true
