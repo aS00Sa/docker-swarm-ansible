@@ -274,16 +274,8 @@
         label: "{{ item }}"
       register: cert_manager_privkey_stats
 
-    - name: Build list of certs eligible for PEM build
+    - name: Build list of certs missing fullchain/privkey
       ansible.builtin.set_fact:
-        cert_manager_haproxy_cert_names_ready: >-
-          {{
-            (
-              cert_manager_haproxy_cert_names
-              | reject('in', cert_manager_haproxy_cert_names_missing | default([]))
-              | list
-            )
-          }}
         cert_manager_haproxy_cert_names_missing: >-
           {{
             (
@@ -301,6 +293,17 @@
                 | list
               )
             ) | unique
+          }}
+
+    - name: Build list of certs eligible for PEM build
+      ansible.builtin.set_fact:
+        cert_manager_haproxy_cert_names_ready: >-
+          {{
+            (
+              cert_manager_haproxy_cert_names
+              | reject('in', cert_manager_haproxy_cert_names_missing | default([]))
+              | list
+            )
           }}
 
     - name: Warn about certs missing fullchain/privkey (PEM build skipped)
