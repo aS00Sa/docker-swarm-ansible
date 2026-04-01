@@ -239,8 +239,15 @@
 
 - name: Generate admin password hash
   when:
-    - (traefik_effective_deploy_method | default('stack')) == 'stack'
-    - inventory_hostname == ((groups['swarm_managers'] | default([])) | first | default(''))
+    - (
+        (traefik_effective_deploy_method | default('stack')) == 'stack'
+        and inventory_hostname == ((groups['swarm_managers'] | default([])) | first | default(''))
+      )
+      or
+      (
+        (traefik_effective_deploy_method | default('stack')) == 'compose'
+        and inventory_hostname in (groups['traefik'] | default([]))
+      )
   shell: echo $(htpasswd -nb {{traefik_admin_user}} {{traefik_admin_password}}) | sed -e s/\\$/\\$\\$/g
   register: traefikpassword
 
@@ -622,6 +629,12 @@
       ansible.builtin.template:
         src: traefik-compose.yml.j2
         dest: "{{ traefik_compose_project_dir | default('/opt/traefik') }}/docker-compose.yml"
+        mode: "0644"
+
+    - name: Render Traefik stack file for Swarm deploy (reference)
+      ansible.builtin.template:
+        src: traefik-stack.j2
+        dest: "{{ traefik_compose_project_dir | default('/opt/traefik') }}/traefik-stack.yml"
         mode: "0644"
 
     - name: Start/Update Traefik with docker compose

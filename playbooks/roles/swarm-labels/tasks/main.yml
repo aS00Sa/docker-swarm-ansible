@@ -4,6 +4,7 @@
   run_once: true
   vars:
     gfs_nodes: "{{ (groups['swarm_managers'] | default([])) + (groups['swarm_workers'] | default([])) }}"
+    swarm_label_kv: "gfs=true"
   include_tasks: label-one-node.yml
   loop: "{{ gfs_nodes | unique }}"
   loop_control:

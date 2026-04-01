@@ -10,10 +10,10 @@
   changed_when: false
   failed_when: false
 
-- name: Apply gfs=true label by node ID (on manager)
+- name: Apply node label by node ID (on manager)
   become: true
   become_method: sudo
-  shell: docker node update --label-add gfs=true "{{ gfs_swarm_node_id.stdout | trim }}"
+  shell: docker node update --label-add {{ swarm_label_kv | default('gfs=true') | quote }} "{{ gfs_swarm_node_id.stdout | trim }}"
   register: gfs_label_update
   retries: 5
   delay: 2

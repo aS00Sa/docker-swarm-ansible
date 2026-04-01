@@ -64,9 +64,12 @@ services:
 {% endif %}
       placement:
 {% if (traefik_deploy_mode | default('global')) == 'replicated' and (traefik_replicas | default(1) | int) == 1 and (traefik_pin_to_leader | default(true)) %}
-        constraints: ["node.hostname == {{ traefik_deploy_constraint_hostname }}"]
+        constraints:
+          - "node.labels.traefik == true"
+          - "node.hostname == {{ traefik_deploy_constraint_hostname }}"
 {% else %}
-        constraints: [node.role == manager]
+        constraints:
+          - "node.labels.traefik == true"
 {% endif %}
 
 networks:
