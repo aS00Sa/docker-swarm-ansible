@@ -7,5 +7,5 @@ docker_log_max_size: "100m"
 docker_log_max_file: "5"
 
 # Raise default file descriptor limits for containers using Docker API heavily
-docker_default_nofile_soft: 262144
-docker_default_nofile_hard: 262144
+docker_default_nofile_soft: 1048576
+docker_default_nofile_hard: 1048576
