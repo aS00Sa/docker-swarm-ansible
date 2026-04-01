@@ -14,3 +14,15 @@ portainer_admin_user: admin
 #portainer_agent_secret: portaineragenttocken
 portainer_admin_password: HR8n4H8Y6v3JgFU
 portainer_agent_secret: HR8n4H8Y6v3JgFU
+
+# Optional Portainer Edge Agent stack (separate from default portainer stack).
+# Enable when you need Edge polling mode in addition to classic swarm agent mode.
+portainer_edge_enabled: false
+portainer_edge_stack_name: portainer-edge-agent
+portainer_edge_service_name: portainer_edge_agent
+portainer_edge_network_name: portainer_agent_network
+portainer_edge_agent_data_volume: portainer_agent_data
+portainer_edge_insecure_poll: true
+# Set these in inventory when portainer_edge_enabled=true.
+portainer_edge_id: ""
+portainer_edge_key: ""

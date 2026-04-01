@@ -59,3 +59,40 @@
   register: portainer_stack_deploy
   changed_when: false
   failed_when: portainer_stack_deploy.rc != 0
+
+- name: Validate required Edge vars
+  when:
+    - inventory_hostname == ((groups['swarm_managers'] | default([])) | first | default(''))
+    - portainer_edge_enabled | default(false) | bool
+  ansible.builtin.assert:
+    that:
+      - (portainer_edge_id | default('') | trim | length) > 0
+      - (portainer_edge_key | default('') | trim | length) > 0
+    fail_msg: >-
+      portainer_edge_enabled=true requires portainer_edge_id and portainer_edge_key in inventory.
+
+- name: Create Portainer Edge Agent stack file (on first swarm node)
+  when:
+    - inventory_hostname == ((groups['swarm_managers'] | default([])) | first | default(''))
+    - portainer_edge_enabled | default(false) | bool
+  template:
+    src: portainer-edge-agent-stack.j2
+    dest: /home/{{ansible_user}}/stacks/portainer-edge-agent-stack.yml
+    mode: 0775
+
+- name: Deploy Portainer Edge Agent stack (on first swarm node)
+  when:
+    - inventory_hostname == ((groups['swarm_managers'] | default([])) | first | default(''))
+    - portainer_edge_enabled | default(false) | bool
+  ansible.builtin.command:
+    argv:
+      - docker
+      - stack
+      - deploy
+      - --detach
+      - -c
+      - /home/{{ ansible_user }}/stacks/portainer-edge-agent-stack.yml
+      - "{{ portainer_edge_stack_name }}"
+  register: portainer_edge_stack_deploy
+  changed_when: false
+  failed_when: portainer_edge_stack_deploy.rc != 0
