@@ -97,24 +97,57 @@ backend nexus_docker_group_tcp
   option httplog
   server nexus_docker_group_1 {{ haproxy_nexus_upstream_host | default('192.168.25.126') }}:{{ haproxy_nexus_docker_group_upstream_port | default(9082) }} check
 
+backend traefik_web_upstream
+  mode http
+  balance roundrobin
+{% for h in _traefik_nodes %}
+  server traefik_web_{{ loop.index }} {{ hostvars[h].ansible_host | default(h) }}:{{ haproxy_traefik_web_port | default(8080) }} check
+{% endfor %}
+
+backend traefik_websecure_upstream
+  mode tcp
+  balance roundrobin
+  option tcp-check
+{% for h in _traefik_nodes %}
+  server traefik_websecure_{{ loop.index }} {{ hostvars[h].ansible_host | default(h) }}:{{ haproxy_traefik_websecure_port | default(8443) }} check
+{% endfor %}
+
 {# --- Docker registry TCP (HAProxy -> Nexus) --- #}
 {# 9080 = docker-hosted, 9081 = docker-proxy, 9082 = docker-group #}
 frontend docker_hosted_in
+{% if haproxy_docker_tls_termination | default(false) | bool %}
   bind {{ haproxy_bind_ip | default(ansible_default_ipv4.address) }}:{{ haproxy_docker_hosted_port | default(9080) }} ssl crt {{ haproxy_ssl_fullchain_path }}
+{% else %}
+  bind {{ haproxy_bind_ip | default(ansible_default_ipv4.address) }}:{{ haproxy_docker_hosted_port | default(9080) }}
+{% endif %}
   mode http
+{% if haproxy_docker_tls_termination | default(false) | bool %}
   http-request set-header X-Forwarded-Proto https
+{% endif %}
   default_backend nexus_docker_hosted_tcp
 
 frontend docker_proxy_in
+{% if haproxy_docker_tls_termination | default(false) | bool %}
   bind {{ haproxy_bind_ip | default(ansible_default_ipv4.address) }}:{{ haproxy_docker_proxy_port | default(9081) }} ssl crt {{ haproxy_ssl_fullchain_path }}
+{% else %}
+  bind {{ haproxy_bind_ip | default(ansible_default_ipv4.address) }}:{{ haproxy_docker_proxy_port | default(9081) }}
+{% endif %}
   mode http
+{% if haproxy_docker_tls_termination | default(false) | bool %}
   http-request set-header X-Forwarded-Proto https
+{% endif %}
   default_backend nexus_docker_proxy_tcp
 
 frontend docker_group_in
+{% if haproxy_docker_tls_termination | default(false) | bool %}
   bind {{ haproxy_bind_ip | default(ansible_default_ipv4.address) }}:{{ haproxy_docker_group_port | default(9082) }} ssl crt {{ haproxy_ssl_fullchain_path }}
+{% else %}
+  bind {{ haproxy_bind_ip | default(ansible_default_ipv4.address) }}:{{ haproxy_docker_group_port | default(9082) }}
+{% endif %}
   mode http
+{% if haproxy_docker_tls_termination | default(false) | bool %}
   http-request set-header X-Forwarded-Proto https
+{% endif %}
   default_backend nexus_docker_group_tcp
 
 {% if haproxy_gitlab_ssh_proxy_enabled | default(false) | bool %}
@@ -192,11 +225,24 @@ frontend http-in
 {% endif %}
 {% endif %}
 
+{% if _route_to_traefik %}
+  default_backend traefik_web_upstream
+{% else %}
   # Базовый HTTP upstream можно настроить отдельно при необходимости.
   default_backend direct_layer7
+{% endif %}
 
 {% if haproxy_https_enabled | default(true) | bool %}
 frontend https_in
+{% if (haproxy_https_mode | default('http_terminate')) == 'tcp_passthrough' %}
+  bind {{ haproxy_bind_ip | default(ansible_default_ipv4.address) }}:{{ haproxy_https_port | default(443) }}
+  mode tcp
+{% if _route_to_traefik %}
+  default_backend traefik_websecure_upstream
+{% else %}
+  default_backend direct_layer7_tcp
+{% endif %}
+{% else %}
   bind {{ haproxy_bind_ip | default(ansible_default_ipv4.address) }}:{{ haproxy_https_port | default(443) }} ssl crt {{ haproxy_ssl_fullchain_path }}
   mode http
   http-request set-header X-Forwarded-Proto https
@@ -213,5 +259,6 @@ frontend https_in
   use_backend nexus_websecure_tcp if host_nexus
   use_backend gitlab_https_tcp if host_gitlab
   default_backend gitlab_https_tcp
+{% endif %}
 {% endif %}
 

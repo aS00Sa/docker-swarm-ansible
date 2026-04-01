@@ -213,6 +213,89 @@
           WARNING: pre-check: cert-manager compose has no running services on:
           {{ traefik_cert_manager_not_ready_hosts | join(', ') }}
 
+- name: Verify shared storage mount exists on Traefik hosts
+  run_once: true
+  block:
+    - name: Check mountpoint on traefik hosts
+      become: true
+      become_method: sudo
+      ansible.builtin.command: mountpoint -q "{{ gluster_mount_path }}"
+      loop: "{{ groups['traefik'] | default([]) }}"
+      loop_control:
+        label: "{{ item }}"
+      delegate_to: "{{ item }}"
+      register: traefik_storage_mountpoint_status
+      changed_when: false
+      failed_when: false
+
+    - name: Build list of traefik hosts without mounted shared storage
+      ansible.builtin.set_fact:
+        traefik_storage_mount_missing_hosts: >-
+          {{
+            traefik_storage_mountpoint_status.results
+            | default([])
+            | rejectattr('rc', 'equalto', 0)
+            | map(attribute='item')
+            | list
+          }}
+
+    - name: Fail if shared storage mount is missing on traefik hosts
+      when: (traefik_storage_mount_missing_hosts | default([]) | length) > 0
+      ansible.builtin.fail:
+        msg: >-
+          Pre-check failed: shared storage mount {{ gluster_mount_path }} is missing on:
+          {{ traefik_storage_mount_missing_hosts | join(', ') }}.
+          Mount shared storage (GlusterFS/Ganesha) before Traefik deploy.
+
+- name: Verify cert-manager certificates exist in shared storage
+  run_once: true
+  vars:
+    traefik_expected_cert_names: >-
+      {{
+        (
+          cert_manager_certs_effective
+          | default(cert_manager_certs | default([]))
+          | select('mapping')
+          | selectattr('cert_name', 'defined')
+          | map(attribute='cert_name')
+          | map('string')
+          | map('trim')
+          | reject('equalto', '')
+          | list
+        ) | unique
+      }}
+  block:
+    - name: Check cert-manager live cert directories on first traefik host
+      become: true
+      become_method: sudo
+      ansible.builtin.stat:
+        path: "{{ gluster_mount_path }}/{{ cert_manager_gfs_subdir | default('cert_manager_gfs') }}/{{ cert_manager_letsencrypt_subdir | default('letsencrypt') }}/live/{{ item }}"
+      loop: "{{ traefik_expected_cert_names }}"
+      loop_control:
+        label: "{{ item }}"
+      delegate_to: "{{ (groups['traefik'] | default([]) | first) }}"
+      register: traefik_cert_dirs_status
+
+    - name: Build list of missing cert-manager live cert directories
+      ansible.builtin.set_fact:
+        traefik_missing_cert_dirs: >-
+          {{
+            traefik_cert_dirs_status.results
+            | default([])
+            | selectattr('stat.exists', 'defined')
+            | rejectattr('stat.exists', 'equalto', true)
+            | map(attribute='item')
+            | list
+          }}
+
+    - name: Fail if cert-manager certificates are missing in shared storage
+      when: (traefik_missing_cert_dirs | default([]) | length) > 0
+      ansible.builtin.fail:
+        msg: >-
+          Pre-check failed: missing cert-manager live certificates in shared storage:
+          {{ traefik_missing_cert_dirs | join(', ') }}.
+          Run cert-manager successfully before Traefik deploy.
+
 - name: Verify stacks directory exists (on first swarm node)
   when:
     - (traefik_effective_deploy_method | default('stack')) == 'stack'

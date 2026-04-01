@@ -258,6 +258,61 @@
             ) | unique
           }}
 
+    - name: Check fullchain.pem presence for each cert
+      ansible.builtin.stat:
+        path: "{{ cert_manager_storage_base_dir }}/{{ cert_manager_letsencrypt_subdir }}/live/{{ item }}/fullchain.pem"
+      loop: "{{ cert_manager_haproxy_cert_names }}"
+      loop_control:
+        label: "{{ item }}"
+      register: cert_manager_fullchain_stats
+
+    - name: Check privkey.pem presence for each cert
+      ansible.builtin.stat:
+        path: "{{ cert_manager_storage_base_dir }}/{{ cert_manager_letsencrypt_subdir }}/live/{{ item }}/privkey.pem"
+      loop: "{{ cert_manager_haproxy_cert_names }}"
+      loop_control:
+        label: "{{ item }}"
+      register: cert_manager_privkey_stats
+
+    - name: Build list of certs eligible for PEM build
+      ansible.builtin.set_fact:
+        cert_manager_haproxy_cert_names_ready: >-
+          {{
+            (
+              cert_manager_haproxy_cert_names
+              | reject('in', cert_manager_haproxy_cert_names_missing | default([]))
+              | list
+            )
+          }}
+        cert_manager_haproxy_cert_names_missing: >-
+          {{
+            (
+              (
+                cert_manager_fullchain_stats.results
+                | rejectattr('stat.exists', 'equalto', true)
+                | map(attribute='item')
+                | list
+              )
+              +
+              (
+                cert_manager_privkey_stats.results
+                | rejectattr('stat.exists', 'equalto', true)
+                | map(attribute='item')
+                | list
+              )
+            ) | unique
+          }}
+
+    - name: Warn about certs missing fullchain/privkey (PEM build skipped)
+      ansible.builtin.debug:
+        msg: >-
+          Skipping HAProxy PEM build for certs with missing files:
+          {{ cert_manager_haproxy_cert_names_missing | join(', ') }}.
+          Expected files under:
+          {{ cert_manager_storage_base_dir }}/{{ cert_manager_letsencrypt_subdir }}/live/<cert_name>/fullchain.pem
+          and privkey.pem.
+      when: (cert_manager_haproxy_cert_names_missing | default([]) | length) > 0
+
     - name: Build per-site PEM bundles for HAProxy TLS bind
       ansible.builtin.shell: |
         set -euo pipefail
@@ -269,4 +324,4 @@
       args:
         executable: /bin/bash
       changed_when: true
-      loop: "{{ cert_manager_haproxy_cert_names }}"
+      loop: "{{ cert_manager_haproxy_cert_names_ready | default([]) }}"
