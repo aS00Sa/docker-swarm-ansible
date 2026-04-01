@@ -63,12 +63,12 @@ haproxy_docker_tls_termination: false
 # 443 passthrough (TCP) вместо TLS termination на HAProxy.
 haproxy_https_mode: tcp_passthrough
 
-# GitLab SSH forwarding (HAProxy -> GitLab)
-# Публичный доступ на 2222/tcp должен доставляться в GitLab (upstream:192.168.x.y:22).
+# Адреса GitLab/Nexus — из cert_manager (resolve_upstream_from_cert_manager.yml). Здесь только режимы:
+# TLS к GitLab upstream (8443 и т.д.); false если там plain HTTP.
+haproxy_gitlab_https_server_ssl: true
+# Прокси GitLab SSH на haproxy_gitlab_ssh_listen_port; upstream из записи gitlab.* в cert_manager.
 haproxy_gitlab_ssh_proxy_enabled: true
 haproxy_gitlab_ssh_listen_port: 2222
-haproxy_gitlab_ssh_upstream_host: "192.168.25.125"
-haproxy_gitlab_ssh_upstream_port: 2222
 
 # Явные regex для Host (одна строка acl hdr_reg — несколько шаблонов через пробел = ИЛИ).
 # Пустой список при haproxy_acl_enabled=true → шаблон из app_domain_name (поддомены + bare domain).

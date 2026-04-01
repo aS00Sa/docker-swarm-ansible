@@ -76,6 +76,9 @@
   ansible.builtin.set_fact:
     haproxy_https_enabled: true
 
+- name: Derive GitLab/Nexus HAProxy upstreams from cert_manager (cert_name gitlab.* / nexus.*)
+  ansible.builtin.import_tasks: resolve_upstream_from_cert_manager.yml
+
 - name: Create HAProxy config file
   become: true
   become_method: sudo

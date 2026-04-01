@@ -58,44 +58,68 @@ defaults
   stats realm Haproxy\ Statistics
   stats auth {{haproxy_stats_user}}:{{haproxy_stats_password}}
 
-{# Прямые L7-бэкенды до GitLab и Nexus (без Traefik) #}
+{# Прямые L7-бэкенды до GitLab и Nexus (адреса из cert_manager: cert_name gitlab.* / nexus.*) #}
 
 backend gitlab_https_tcp
   mode http
+{% if haproxy_gitlab_upstream_configured | default(false) | bool %}
   balance source
   option httpchk GET /users/sign_in
-  server gitlab_https_1 {{ haproxy_gitlab_https_upstream_host | default('192.168.25.125') }}:{{ haproxy_gitlab_https_upstream_port | default(8443) }} check
+  server gitlab_https_1 {{ haproxy_gitlab_https_upstream_host }}:{{ haproxy_gitlab_https_upstream_port }} check inter 3s fall 3 rise 2{% if haproxy_gitlab_https_server_ssl | default(true) | bool %} ssl verify none{% endif %}
+{% else %}
+  http-request return status 503 content-type text/plain string "Add cert_manager site cert_name gitlab.<domain> with upstream_host/upstream_port\n"
+{% endif %}
 
 backend gitlab_ssh_tcp
   mode tcp
+{% if haproxy_gitlab_upstream_configured | default(false) | bool %}
   balance source
   option tcp-check
   option log-health-checks
-  server gitlab_ssh_1 {{ haproxy_gitlab_ssh_upstream_host | default('192.168.25.125') }}:{{ haproxy_gitlab_ssh_upstream_port | default(2222) }} check
+  server gitlab_ssh_1 {{ haproxy_gitlab_ssh_upstream_host }}:{{ haproxy_gitlab_ssh_upstream_port }} check
+{% else %}
+  tcp-request connection reject
+{% endif %}
 
 backend nexus_websecure_tcp
   mode http
+{% if haproxy_nexus_upstream_configured | default(false) | bool %}
   balance source
   option httpchk GET /
-  server nexus_websecure_1 {{ haproxy_nexus_upstream_host | default('192.168.25.126') }}:{{ haproxy_nexus_websecure_upstream_port | default(8081) }} check
+  server nexus_websecure_1 {{ haproxy_nexus_upstream_host }}:{{ haproxy_nexus_websecure_upstream_port }} check
+{% else %}
+  http-request return status 503 content-type text/plain string "Add cert_manager site cert_name nexus.<domain> with upstream_host and ports\n"
+{% endif %}
 
 backend nexus_docker_hosted_tcp
   mode http
+{% if haproxy_nexus_upstream_configured | default(false) | bool %}
   balance source
   option httplog
-  server nexus_docker_hosted_1 {{ haproxy_nexus_upstream_host | default('192.168.25.126') }}:{{ haproxy_nexus_docker_hosted_upstream_port | default(9080) }} check
+  server nexus_docker_hosted_1 {{ haproxy_nexus_upstream_host }}:{{ haproxy_nexus_docker_hosted_upstream_port }} check
+{% else %}
+  http-request return status 503 content-type text/plain string "Nexus upstream not configured in cert_manager\n"
+{% endif %}
 
 backend nexus_docker_proxy_tcp
   mode http
+{% if haproxy_nexus_upstream_configured | default(false) | bool %}
   balance source
   option httplog
-  server nexus_docker_proxy_1 {{ haproxy_nexus_upstream_host | default('192.168.25.126') }}:{{ haproxy_nexus_docker_proxy_upstream_port | default(9081) }} check
+  server nexus_docker_proxy_1 {{ haproxy_nexus_upstream_host }}:{{ haproxy_nexus_docker_proxy_upstream_port }} check
+{% else %}
+  http-request return status 503 content-type text/plain string "Nexus upstream not configured in cert_manager\n"
+{% endif %}
 
 backend nexus_docker_group_tcp
   mode http
+{% if haproxy_nexus_upstream_configured | default(false) | bool %}
   balance source
   option httplog
-  server nexus_docker_group_1 {{ haproxy_nexus_upstream_host | default('192.168.25.126') }}:{{ haproxy_nexus_docker_group_upstream_port | default(9082) }} check
+  server nexus_docker_group_1 {{ haproxy_nexus_upstream_host }}:{{ haproxy_nexus_docker_group_upstream_port }} check
+{% else %}
+  http-request return status 503 content-type text/plain string "Nexus upstream not configured in cert_manager\n"
+{% endif %}
 
 backend traefik_web_upstream
   mode http
@@ -150,7 +174,7 @@ frontend docker_group_in
 {% endif %}
   default_backend nexus_docker_group_tcp
 
-{% if haproxy_gitlab_ssh_proxy_enabled | default(false) | bool %}
+{% if (haproxy_gitlab_ssh_proxy_enabled | default(false) | bool) and (haproxy_gitlab_upstream_configured | default(false) | bool) %}
 frontend gitlab_ssh_in
   bind {{ haproxy_bind_ip | default(ansible_default_ipv4.address) }}:{{ haproxy_gitlab_ssh_listen_port | default(2222) }}
   mode tcp

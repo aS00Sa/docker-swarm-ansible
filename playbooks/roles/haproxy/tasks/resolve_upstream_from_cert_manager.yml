@@ -1,0 +1,54 @@
+---
+# Апстримы GitLab/Nexus для HAProxy берутся только из cert_manager (без отдельных haproxy_* host в inventory).
+# Ищем записи в cert_manager_certs_effective с cert_name вида gitlab.* и nexus.* (любой слот cert_manager_certsN).
+
+- name: Resolve cert_manager_certs_effective (numbered slots or legacy list)
+  ansible.builtin.include_tasks:
+    file: "{{ (role_path | dirname) }}/cert-manager/tasks/resolve_cert_manager_certs.yml"
+
+- name: Pick GitLab / Nexus site dicts by cert_name prefix
+  ansible.builtin.set_fact:
+    _haproxy_gitlab_site: >-
+      {{
+        (
+          cert_manager_certs_effective | default([])
+          | selectattr('cert_name', 'defined')
+          | selectattr('cert_name', 'match', '^gitlab\.')
+          | list
+          | first
+        ) | default({})
+      }}
+    _haproxy_nexus_site: >-
+      {{
+        (
+          cert_manager_certs_effective | default([])
+          | selectattr('cert_name', 'defined')
+          | selectattr('cert_name', 'match', '^nexus\.')
+          | list
+          | first
+        ) | default({})
+      }}
+
+- name: Flag GitLab / Nexus upstream configured (from cert_manager only)
+  ansible.builtin.set_fact:
+    haproxy_gitlab_upstream_configured: "{{ ((_haproxy_gitlab_site.upstream_host | default('') | trim | length) > 0) | bool }}"
+    haproxy_nexus_upstream_configured: "{{ ((_haproxy_nexus_site.upstream_host | default('') | trim | length) > 0) | bool }}"
+
+- name: Set HAProxy GitLab upstream facts from cert_manager site
+  when: haproxy_gitlab_upstream_configured | default(false) | bool
+  ansible.builtin.set_fact:
+    haproxy_gitlab_https_upstream_host: "{{ _haproxy_gitlab_site.upstream_host | trim }}"
+    haproxy_gitlab_https_upstream_port: "{{ _haproxy_gitlab_site.upstream_port | default(8443) | int }}"
+    # true только если в слоте явно https; иначе plain HTTP на upstream_port (часто 8080/8443 без TLS).
+    haproxy_gitlab_https_server_ssl: "{{ (_haproxy_gitlab_site.upstream_scheme | default('https') | lower) == 'https' }}"
+    haproxy_gitlab_ssh_upstream_host: "{{ _haproxy_gitlab_site.traefik_gitlab_ssh_upstream_host | default(_haproxy_gitlab_site.upstream_host) | trim }}"
+    haproxy_gitlab_ssh_upstream_port: "{{ _haproxy_gitlab_site.traefik_gitlab_ssh_upstream_port | default(2222) | int }}"
+
+- name: Set HAProxy Nexus upstream facts from cert_manager site
+  when: haproxy_nexus_upstream_configured | default(false) | bool
+  ansible.builtin.set_fact:
+    haproxy_nexus_upstream_host: "{{ _haproxy_nexus_site.upstream_host | trim }}"
+    haproxy_nexus_websecure_upstream_port: "{{ (_haproxy_nexus_site.upstream_ports_by_entrypoint | default({})).websecure | default(_haproxy_nexus_site.upstream_port | default(8081), true) | int }}"
+    haproxy_nexus_docker_hosted_upstream_port: "{{ (_haproxy_nexus_site.upstream_ports_by_entrypoint | default({}))['docker-hosted'] | default(9080, true) | int }}"
+    haproxy_nexus_docker_proxy_upstream_port: "{{ (_haproxy_nexus_site.upstream_ports_by_entrypoint | default({}))['docker-proxy'] | default(9081, true) | int }}"
+    haproxy_nexus_docker_group_upstream_port: "{{ (_haproxy_nexus_site.upstream_ports_by_entrypoint | default({}))['docker-group'] | default(9082, true) | int }}"
