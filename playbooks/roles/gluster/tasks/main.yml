@@ -1,6 +1,8 @@
 ---
 - import_tasks: install.yml
 - import_tasks: xfs.yml
-  when: (device2_hdd_dev | default('') | trim | length) > 0
+  when: >-
+    (device2_hdd_dev | default('') | trim | length) > 0
+    or (gluster_brick_mount_src | default('') | trim | length) > 0
 - import_tasks: init.yml
 - import_tasks: mount.yml

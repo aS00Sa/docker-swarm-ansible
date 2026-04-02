@@ -9,8 +9,15 @@ Prepare Bricks (Run on all nodes)
 Format and mount the brick storage:
 sudo mkfs.xfs -i size=512 /dev/sdb
 sudo mkdir -p /glusterfs/bricks/10.20.10.5
-echo '/dev/sdb /glusterfs/bricks/10.20.10.5 xfs defaults 0 0' | sudo tee -a /etc/fstab
+UUID="$(sudo blkid -s UUID -o value /dev/sdb)"
+echo "UUID=${UUID} /glusterfs/bricks/10.20.10.5 xfs defaults,nofail 0 0" | sudo tee -a /etc/fstab
 sudo mount -a
+
+Проверка дисков и UUID на ноде (как у обычных дисков в fstab):
+lsblk -f
+sudo blkid /dev/sdX
+
+В Ansible: при `device2_hdd_dev=/dev/sdX` роль сама вызывает `blkid` и монтирует с `UUID=...` в fstab (см. `gluster_brick_fstab_use_uuid`). Явный UUID: `gluster_brick_mount_src: "UUID=...."` в `host_vars`.
 
 Create a subdirectory (brick) for the volume: sudo mkdir -p /glusterfs/bricks/10.20.10.5/gfs
 Create the Trusted Storage Pool (Run on Node 1 only)

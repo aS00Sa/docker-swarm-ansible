@@ -1,23 +1,65 @@
 ---
-- name: Create XFS Path {{gluster_volume_path}}/{{inventory_hostname}}
+- name: Create XFS Path {{ gluster_volume_path }}/{{ inventory_hostname }}
   become: true
   become_method: sudo
   file:
-    path: "{{gluster_volume_path}}/{{inventory_hostname}}"
+    path: "{{ gluster_volume_path }}/{{ inventory_hostname }}"
     state: directory
 
-- name: Create a XFS filesystem on {{device2_hdd_dev}}
+# mkfs только по реальному пути /dev/... (не по UUID=).
+- name: Create a XFS filesystem on {{ device2_hdd_dev }}
   become: true
   become_method: sudo
+  when:
+    - (device2_hdd_dev | default('') | trim | length) > 0
+    - device2_hdd_dev | default('') | trim is match('^/dev/')
   filesystem:
     fstype: xfs
-    dev: "{{device2_hdd_dev}}"
+    dev: "{{ device2_hdd_dev }}"
 
-- name: Mount XFS volume {{device2_hdd_dev}} to {{gluster_volume_path}}/{{inventory_hostname}}
+# После mkfs (или уже существующей ФС) — стабильная запись в fstab.
+- name: Read UUID of brick device for fstab
+  become: true
+  command:
+    argv:
+      - blkid
+      - -s
+      - UUID
+      - -o
+      - value
+      - "{{ device2_hdd_dev }}"
+  register: gluster_brick_blkid
+  changed_when: false
+  failed_when: false
+  when:
+    - (device2_hdd_dev | default('') | trim | length) > 0
+    - device2_hdd_dev | default('') | trim is match('^/dev/')
+    - (gluster_brick_mount_src | default('') | trim | length) == 0
+    - gluster_brick_fstab_use_uuid | default(true) | bool
+
+- name: Resolve brick mount source for fstab
+  set_fact:
+    gluster_brick_fs_src: >-
+      {{
+        gluster_brick_mount_src | default('', true) | trim
+        if (gluster_brick_mount_src | default('', true) | trim | length) > 0
+        else (
+          ('UUID=' ~ (gluster_brick_blkid.stdout | default('') | trim))
+          if (
+            (gluster_brick_fstab_use_uuid | default(true) | bool)
+            and (gluster_brick_blkid is defined)
+            and (gluster_brick_blkid.rc | default(1) == 0)
+            and ((gluster_brick_blkid.stdout | default('') | trim) | length > 0)
+          )
+          else device2_hdd_dev | default('', true) | trim
+        )
+      }}
+
+- name: Mount XFS volume to {{ gluster_volume_path }}/{{ inventory_hostname }}
   become: true
   become_method: sudo
   mount:
-    path: "{{gluster_volume_path}}/{{inventory_hostname}}"
-    src: "{{device2_hdd_dev}}"
+    path: "{{ gluster_volume_path }}/{{ inventory_hostname }}"
+    src: "{{ gluster_brick_fs_src }}"
     fstype: xfs
     state: mounted

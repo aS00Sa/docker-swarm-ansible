@@ -1,6 +1,12 @@
 ---
 # Совпадает с типичным inventory; пустой device2_hdd_dev — bricks на локальной ФС под gluster_volume_path.
+# Сырой блочный диск только для mkfs.xfs (например /dev/sdb). В fstab по умолчанию тот же путь.
 device2_hdd_dev: ""
+# Явный источник для fstab (UUID=... или /dev/disk/by-uuid/...). Пусто — при device2_hdd_dev=/dev/... UUID
+# берётся автоматически (blkid после mkfs). Переопределение вручную: host_vars или gluster_brick_mount_src.
+gluster_brick_mount_src: ""
+# Если true и задан /dev/... — в fstab пишется UUID=... (blkid). false — как раньше, путь /dev/...
+gluster_brick_fstab_use_uuid: true
 gluster_volume_path: /glusterfs/bricks
 gluster_volume_name: gfs
 gluster_mount_path: /mnt/gfs
