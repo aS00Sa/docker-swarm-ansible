@@ -1,0 +1,185 @@
+---
+# Второй том Gluster на тех же brick-нодах: каталоги brick в другом пути на текущей ФС
+# (как при пустом device2_hdd_dev в inventory — в команде create используется force).
+#
+# Пример (preprod, мастера = gluster_nodes_bricks):
+#   ansible-playbook -i inventory-preprod.ini playbooks/plays/manual-gluster-add-volume.yml \
+#     -e gluster_additional_volume_name=gfs2 \
+#     -e gluster_additional_bricks_base=/glusterfs/bricks_gfs2 \
+#     -e gluster_additional_mount_path=/mnt/gfs2
+#
+# Имя тома не должно совпадать с существующим gluster_volume_name (например gfs).
+# gluster_additional_bricks_base — корень: на каждой ноде создаётся …/<inventory_hostname>/brick
+#
+- name: Gluster — каталоги brick и создание дополнительного тома
+  hosts: gluster_nodes_bricks
+  gather_facts: true
+  roles:
+    - role: ../roles/cluster-defaults
+  tasks:
+    - name: Проверить обязательные extra vars
+      ansible.builtin.assert:
+        that:
+          - gluster_additional_volume_name is defined
+          - (gluster_additional_volume_name | length) > 0
+          - gluster_additional_bricks_base is defined
+          - (gluster_additional_bricks_base | length) > 0
+          - gluster_additional_mount_path is defined
+          - (gluster_additional_mount_path | length) > 0
+        fail_msg: >-
+          Задайте -e gluster_additional_volume_name=... -e gluster_additional_bricks_base=... -e gluster_additional_mount_path=...
+      run_once: true
+
+    - name: Список нод для тома (порядок как в inventory)
+      ansible.builtin.set_fact:
+        gluster_addvol_nodes: "{{ groups['gluster_nodes_bricks'] | default([]) }}"
+
+    - name: Каталог brick для дополнительного тома
+      become: true
+      become_method: sudo
+      ansible.builtin.file:
+        path: "{{ gluster_additional_bricks_base }}/{{ inventory_hostname }}/brick"
+        state: directory
+        mode: "0755"
+
+    - name: Проверить, есть ли том в кластере
+      ansible.builtin.shell: set -o pipefail && gluster volume list | grep -qxF '{{ gluster_additional_volume_name }}'
+      args:
+        executable: /bin/bash
+      register: gluster_addvol_probe
+      changed_when: false
+      failed_when: false
+      run_once: true
+      delegate_to: "{{ gluster_addvol_nodes[0] }}"
+      become: true
+      become_method: sudo
+
+    - name: Флаг — том ещё не создан
+      ansible.builtin.set_fact:
+        gluster_addvol_missing: "{{ (gluster_addvol_probe.rc | default(1)) != 0 }}"
+      run_once: true
+
+    - name: Собрать peer status (перед create)
+      when: gluster_addvol_missing | default(false) | bool
+      ansible.builtin.command: gluster peer status
+      register: gluster_addvol_peer_status_raw
+      changed_when: false
+      failed_when: false
+      run_once: true
+      delegate_to: "{{ gluster_addvol_nodes[0] }}"
+      become: true
+      become_method: sudo
+
+    - name: Распарсить отключённых peer
+      when: gluster_addvol_missing | default(false) | bool
+      ansible.builtin.set_fact:
+        gluster_addvol_bad_peers: >-
+          {{
+            (
+              gluster_addvol_peer_status_raw.stdout
+              | default('')
+              | regex_findall('Hostname:\\s*([^\\n]+)\\n(?:.|\\n)*?State:\\s*(?!Peer in Cluster).*')
+              | map('trim')
+              | list
+            )
+          }}
+      run_once: true
+
+    - name: Fail при неконсистентных peer
+      when:
+        - gluster_addvol_missing | default(false) | bool
+        - (gluster_addvol_bad_peers | default([]) | length) > 0
+      ansible.builtin.fail:
+        msg: >-
+          Gluster peer state inconsistent: {{ gluster_addvol_bad_peers | join(', ') }}.
+          Исправьте кластер и повторите.
+      run_once: true
+
+    - name: Создать дополнительный том Gluster
+      when:
+        - inventory_hostname == gluster_addvol_nodes[0]
+        - gluster_addvol_missing | default(false) | bool
+      become: true
+      become_method: sudo
+      vars:
+        gluster_volume_create_force: "{{ 'force' if (device2_hdd_dev | default('') | trim | length) == 0 else '' }}"
+        gluster_replica_count: "{{ ([ (gluster_addvol_nodes | length), 3 ] | min) | int }}"
+        gluster_bricks_for_create: "{{ gluster_addvol_nodes[:gluster_replica_count | int] }}"
+      ansible.builtin.shell: >-
+        gluster volume create {{ gluster_additional_volume_name }}
+        {% if gluster_replica_count | int >= 2 %}
+        replica {{ gluster_replica_count }}
+        {% endif %}
+        {{ gluster_bricks_for_create[0] }}:{{ gluster_additional_bricks_base }}/{{ gluster_bricks_for_create[0] }}/brick
+        {% if gluster_replica_count | int >= 2 %}
+        {{ gluster_bricks_for_create[1] }}:{{ gluster_additional_bricks_base }}/{{ gluster_bricks_for_create[1] }}/brick
+        {% endif %}
+        {% if gluster_replica_count | int >= 3 %}
+        {{ gluster_bricks_for_create[2] }}:{{ gluster_additional_bricks_base }}/{{ gluster_bricks_for_create[2] }}/brick
+        {% endif %}
+        {{ gluster_volume_create_force }}
+      args:
+        executable: /bin/bash
+
+    - name: Проверить том после create
+      when: inventory_hostname == gluster_addvol_nodes[0]
+      ansible.builtin.shell: gluster volume info {{ gluster_additional_volume_name }}
+      register: gluster_addvol_info_check
+      changed_when: false
+      failed_when: false
+      become: true
+      become_method: sudo
+
+    - name: auth.allow для дополнительного тома
+      when:
+        - inventory_hostname == gluster_addvol_nodes[0]
+        - gluster_addvol_info_check.rc == 0
+      become: true
+      become_method: sudo
+      vars:
+        gluster_auth_allow_ips: >-
+          {{
+            (
+              (groups['swarm_nodes'] | default([]))
+              + (groups['haproxy'] | default([]))
+              + (groups['traefik'] | default([]))
+              + (gluster_addvol_nodes | default([]))
+            )
+            | unique
+          }}
+      ansible.builtin.shell: >
+        gluster volume set {{ gluster_additional_volume_name }} auth.allow
+        {{ gluster_auth_allow_ips | join(',') }},127.0.0.1
+
+    - name: Запустить дополнительный том
+      when:
+        - inventory_hostname == gluster_addvol_nodes[0]
+        - gluster_addvol_missing | default(false) | bool
+      become: true
+      become_method: sudo
+      ansible.builtin.command: gluster volume start {{ gluster_additional_volume_name }}
+
+    - name: Пауза после старта тома
+      when:
+        - inventory_hostname == gluster_addvol_nodes[0]
+        - gluster_addvol_missing | default(false) | bool
+      become: true
+      become_method: sudo
+      ansible.builtin.command: sleep 60
+      changed_when: false
+
+- name: Монтирование дополнительного тома на мастерах (узлы из gluster_nodes_bricks)
+  hosts: swarm_managers
+  gather_facts: true
+  roles:
+    - role: ../roles/cluster-defaults
+  vars:
+    gluster_volume_name: "{{ gluster_additional_volume_name }}"
+    gluster_mount_path: "{{ gluster_additional_mount_path }}"
+    gluster_active_nodes: "{{ groups['gluster_nodes_bricks'] | default([]) }}"
+  tasks:
+    - name: Смонтировать том (только там, где brick-ноды = эти мастера)
+      when: inventory_hostname in (groups['gluster_nodes_bricks'] | default([]))
+      ansible.builtin.import_role:
+        name: ../roles/gluster
+        tasks_from: mount.yml
