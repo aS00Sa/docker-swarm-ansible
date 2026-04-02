@@ -1,0 +1,7 @@
+---
+# Каталоги под bind-mount на GFS: gluster_mount_path/<app_name>/<subdir>/
+# Список как у приложений в dynamic — дополняйте при новых сервисах; прогон: create-gfs-app-dirs-from-dynamic-list.yml
+gfs_default_app_bind_paths:
+  - app_name: rabbitmq-shared
+    subdirs:
+      - data

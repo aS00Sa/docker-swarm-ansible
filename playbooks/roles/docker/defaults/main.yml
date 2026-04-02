@@ -9,3 +9,7 @@ docker_log_max_file: "5"
 # Raise default file descriptor limits for containers using Docker API heavily
 docker_default_nofile_soft: 1048576
 docker_default_nofile_hard: 1048576
+
+# Список registry host:port без проверки TLS (HTTP или self-signed). Пустой список — ключ не пишется.
+# Пример: ["nexus.example.com:9082","192.168.1.10:9082"]
+docker_insecure_registries: []

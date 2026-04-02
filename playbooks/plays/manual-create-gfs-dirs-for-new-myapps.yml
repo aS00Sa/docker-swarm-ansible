@@ -1,5 +1,6 @@
 ---
 # Создать подкаталоги стека на смонтированном Gluster (gluster_mount_path/stacks/<stack_name>/…).
+# Пути вида …/<app>/data для bind — список в playbooks/dynamic/gfs_default_app_bind_paths.yml + create-gfs-app-dirs-from-dynamic-list.yml
 # ansible-playbook -i inventory-prod.ini playbooks/plays/manual-create-gfs-dirs-for-new-myapps.yml -e stack_name=myapp
 # Опционально: -e 'stack_dirs=["app-data","db","logs"]'
 - hosts: swarm_managers:swarm_workers

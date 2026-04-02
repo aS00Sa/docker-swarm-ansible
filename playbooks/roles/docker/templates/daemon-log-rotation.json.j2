@@ -10,5 +10,7 @@
       "Soft": {{ docker_default_nofile_soft }},
       "Hard": {{ docker_default_nofile_hard }}
     }
-  }
+  }{% if docker_insecure_registries | default([]) | length > 0 %},
+  "insecure-registries": {{ docker_insecure_registries | to_json }}
+{% endif %}
 }

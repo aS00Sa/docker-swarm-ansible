@@ -1,0 +1,18 @@
+---
+# Каталоги под bind на GFS по списку playbooks/dynamic/gfs_default_app_bind_paths.yml (без -e).
+# ansible-playbook -i inventory-dvsprtbt.ini playbooks/plays/create-gfs-app-dirs-from-dynamic-list.yml -u root
+- hosts: swarm_managers:swarm_workers
+  gather_facts: true
+  vars_files:
+    - ../dynamic/gfs_default_app_bind_paths.yml
+  roles:
+    - role: ../roles/cluster-defaults
+  tasks:
+    - name: Create GFS bind paths from gfs_default_app_bind_paths
+      become: true
+      become_method: sudo
+      ansible.builtin.file:
+        path: "{{ gluster_mount_path }}/{{ item.0.app_name }}/{{ item.1 }}"
+        state: directory
+        mode: "0775"
+      loop: "{{ gfs_default_app_bind_paths | subelements('subdirs') }}"
