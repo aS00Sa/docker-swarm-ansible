@@ -1,0 +1,384 @@
+version: "3.8"
+
+services:
+  bethome-redis:
+    image: redis:latest
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+          - node.labels.betradar.vpn != yes
+        preferences:
+          - spread: node.role
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+      update_config:
+        order: start-first
+        failure_action: rollback
+    ports:
+      - "${REDIS_PORT_DOCKER:-}:6379"
+    volumes:
+      - redis-data:/data
+    environment:
+      - TZ=Europe/Moscow
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+    command:
+      - redis-server
+      - --replica-read-only
+      - "no"
+      - --requirepass
+      - "${REDIS_PASSWORD}"
+      # активный sync на диск: AOF + fsync каждую секунду
+      - --appendonly
+      - "yes"
+      - --appendfsync
+      - everysec
+      # плюс более частые RDB-снэпшоты
+      - --save
+      - "300"
+      - "1"
+      - --save
+      - "60"
+      - "1000"
+    networks:
+      - bethome-network
+
+  bethome-postgres:
+    image: postgres:17
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+          - node.labels.betradar.vpn != yes
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+      update_config:
+        order: stop-first
+        failure_action: rollback
+      resources:
+        limits:
+          memory: 4G
+        reservations:
+          memory: 2G
+    shm_size: "1gb"
+    ports:
+      - "${DATABASE_PORT_DOCKER:-}:5432"
+    volumes:
+      - data:/var/lib/postgresql/data
+    environment:
+      - TZ=Europe/Moscow
+      - POSTGRES_PASSWORD=${DATABASE_PASSWORD}
+      - POSTGRES_DB=db
+    command:
+      - postgres
+      - -c
+      - max_connections=1000
+      - -c
+      - shared_buffers=512MB
+      - -c
+      - work_mem=64MB
+      - -c
+      - maintenance_work_mem=512MB
+      - -c
+      - effective_cache_size=2GB
+      - -c
+      - wal_buffers=64MB
+      - -c
+      - min_wal_size=512MB
+      - -c
+      - max_wal_size=2GB
+      - -c
+      - checkpoint_completion_target=0.9
+      - -c
+      - random_page_cost=1.1
+      - -c
+      - effective_io_concurrency=200
+      - -c
+      - default_statistics_target=100
+      - -c
+      - max_parallel_workers_per_gather=4
+      - -c
+      - max_parallel_workers=8
+      - -c
+      - min_parallel_table_scan_size=8MB
+      - -c
+      - min_parallel_index_scan_size=512kB
+      - -c
+      - autovacuum_max_workers=4
+      - -c
+      - autovacuum_naptime=30s
+      - -c
+      - autovacuum_vacuum_scale_factor=0.05
+      - -c
+      - autovacuum_analyze_scale_factor=0.025
+      - -c
+      - autovacuum_vacuum_cost_limit=2000
+      # сжатие WAL (уменьшает объём WAL на диске/в репликации)
+      - -c
+      - wal_compression=on
+    networks:
+      - bethome-network
+
+  bethome-rabbitmq:
+    image: rabbitmq:3-management
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+          - node.labels.betradar.vpn != yes
+        preferences:
+          - spread: node.role
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+      update_config:
+        order: stop-first
+        failure_action: rollback
+    ports:
+      - "${RABBITMQ_PORT_DOCKER:-}:5672"
+      - "${RABBITMQ_MANAGEMENT_PORT_DOCKER:-}:15672"
+    environment:
+      - TZ=Europe/Moscow
+      - RABBITMQ_DEFAULT_USER=${RABBITMQ_USERNAME:-}
+      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_PASSWORD:-}
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    networks:
+      - bethome-network
+
+  balancer-rabbitmq:
+    image: rabbitmq:3-management
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+          - node.labels.betradar.vpn != yes
+        preferences:
+          - spread: node.role
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+      update_config:
+        order: stop-first
+        failure_action: rollback
+    ports:
+      - "${RABBITMQ_BALANCER_PORT_DOCKER:-}:5672"
+      - "${RABBITMQ_BALANCER_MANAGEMENT_PORT_DOCKER:-}:15672"
+    environment:
+      - TZ=Europe/Moscow
+      - RABBITMQ_DEFAULT_USER=${RABBITMQ_BALANCER_USERNAME:-}
+      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_BALANCER_PASSWORD:-}
+    volumes:
+      - rabbitmq-balancer-data:/var/lib/rabbitmq
+    networks:
+      - balancer-network
+
+  bethome-minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9005"
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+          - node.labels.betradar.vpn != yes
+        preferences:
+          - spread: node.role
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+      update_config:
+        order: stop-first
+        failure_action: rollback
+    environment:
+      - TZ=Europe/Moscow
+      - MINIO_ROOT_PASSWORD=${MINIO_PASSWORD}
+      - MINIO_ROOT_USER=${MINIO_USER}
+    ports:
+      - "${MINIO_API_PORT:-}:9000"
+      - "${MINIO_WEBUI_PORT:-}:9005"
+    networks:
+      - bethome-network
+    volumes:
+      - minio-data:/data
+
+  # Экспорт базы в файлы каждые 15 минут (удобно забирать rsync'ом).
+  # Важно: дампы пишем на ЛОКАЛЬНЫЙ диск manager-ноды, не в GFS.
+  bethome-infra-postgres-backup:
+    image: postgres:17
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+          - node.labels.betradar.vpn != yes
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+      update_config:
+        order: stop-first
+        failure_action: rollback
+    command:
+      - sh
+      - -ceu
+      - |
+        mkdir -p /backups
+        while true; do
+          ts="$(date -u +%Y%m%dT%H%M%SZ)"
+          out="/backups/${PGDATABASE}-${ts}.sql.gz"
+          echo "[$(date -u +%FT%TZ)] dumping to ${out}"
+          pg_dump --no-owner --no-privileges | gzip -c > "${out}.tmp"
+          mv "${out}.tmp" "${out}"
+          # ротация: оставляем последние 7 дней при интервале 15 минут (672 файлов)
+          (ls -1t /backups/*.sql.gz 2>/dev/null || true) | tail -n +673 | xargs -r rm -f
+          sleep 900
+        done
+    environment:
+      - TZ=Europe/Moscow
+      - PGHOST=bethome-postgres
+      - PGPORT=5432
+      - PGUSER=postgres
+      - PGPASSWORD=${DATABASE_PASSWORD}
+      - PGDATABASE=db
+    volumes:
+      - postgres-backups:/backups
+    networks:
+      - bethome-network
+
+  pushgateway:
+    image: prom/pushgateway:v1.11.2
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+          - node.labels.betradar.vpn != yes
+        preferences:
+          - spread: node.role
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+      update_config:
+        order: stop-first
+        failure_action: rollback
+    ports:
+      - "${PUSHGATEWAY_PORT_DOCKER:-10093}:9091"
+    restart: unless-stopped
+    environment:
+      - TZ=Europe/Moscow
+    networks:
+      - bethome-network
+
+  prometheus:
+    image: prom/prometheus:v3.10.0
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+          - node.labels.betradar.vpn != yes
+        preferences:
+          - spread: node.role
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+      update_config:
+        order: stop-first
+        failure_action: rollback
+    ports:
+      - "${PROMETHEUS_PORT_DOCKER:-10092}:9090"
+    volumes:
+      - prometheus_data:/prometheus
+    environment:
+      - TZ=Europe/Moscow
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        cat <<'EOF' >/tmp/prometheus.yml
+        global:
+          scrape_interval: 15s
+          evaluation_interval: 15s
+        scrape_configs:
+          - job_name: 'prometheus'
+            static_configs:
+              - targets: ['localhost:9090']
+          - job_name: 'pushgateway'
+            static_configs:
+              - targets: ['pushgateway:9091']
+            honor_labels: true
+        EOF
+        exec /bin/prometheus \
+          --config.file=/tmp/prometheus.yml \
+          --storage.tsdb.path=/prometheus \
+          --web.enable-lifecycle
+    restart: unless-stopped
+    depends_on:
+      - pushgateway
+    networks:
+      - bethome-network
+
+networks:
+  bethome-network:
+    external: true
+  balancer-network:
+    external: true
+
+volumes:
+  redis-data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /mnt/gfs/bethome-redis/data
+  data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /mnt/gfs/bethome-postgres/data
+  rabbitmq-data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /mnt/gfs/bethome-rabbitmq/data
+  rabbitmq-balancer-data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /mnt/gfs/bethome-rabbitmq-balancer/data
+  minio-data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /mnt/gfs/bethome-minio/data
+  prometheus_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /mnt/gfs/bethome-prometheus/data
+
+  postgres-backups:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /var/backups/bethome-infra/postgres-backups
+
