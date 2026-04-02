@@ -135,6 +135,47 @@ ansible -i inventory.ini swarm_managers -m file -a "path=/var/backups/bethome-in
 docker stack deploy -c examples/bethome-infra/docker-compose.yml bethome-infra
 ```
 
+## Пример: InHome infra (postgres/redis/rabbitmq/minio) + экспорт Postgres
+
+Файл: `examples/inhome-infra/docker-compose.yml`
+
+Подготовка каталогов (данные сервисов в GFS):
+
+```bash
+ansible -i inventory.ini gluster_nodes -m file -a "path=/mnt/gfs/inhome-postgres/data state=directory mode=0775"
+ansible -i inventory.ini gluster_nodes -m file -a "path=/mnt/gfs/inhome-redis/data state=directory mode=0775"
+ansible -i inventory.ini gluster_nodes -m file -a "path=/mnt/gfs/inhome-rabbitmq/data state=directory mode=0775"
+ansible -i inventory.ini gluster_nodes -m file -a "path=/mnt/gfs/inhome-minio/data state=directory mode=0775"
+```
+
+Каталог для дампов Postgres (на локальный диск manager-ноды, не в GFS):
+
+```bash
+ansible -i inventory.ini swarm_managers -m file -a "path=/var/backups/inhome-infra/postgres-backups state=directory mode=0775"
+```
+
+Деплой:
+
+```bash
+docker stack deploy -c examples/inhome-infra/docker-compose.yml inhome-infra
+```
+
+## Пример: Frontend infra (MinIO)
+
+Файл: `examples/frontend-infra/docker-compose.yml`
+
+Подготовка каталога (данные MinIO в GFS):
+
+```bash
+ansible -i inventory.ini gluster_nodes -m file -a "path=/mnt/gfs/frontend-minio/data state=directory mode=0775"
+```
+
+Деплой:
+
+```bash
+docker stack deploy -c examples/frontend-infra/docker-compose.yml frontend-infra
+```
+
 
 ## Эксплуатация и обслуживание
 
