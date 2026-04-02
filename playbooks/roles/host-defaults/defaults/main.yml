@@ -11,3 +11,7 @@ host_defaults_resolved_dns_servers:
 host_defaults_resolved_fallback_dns:
   - "9.9.9.9"
 host_defaults_resolved_dns_stub_listener: "no"
+
+# TCP Path MTU / MSS (sysctl net.ipv4.tcp_mtu_probing + iptables mangle TCPMSS).
+# См. tasks/tcp-mtu-tuning.yml; отключить: host_defaults_tcp_mtu_tuning_enabled: false
+host_defaults_tcp_mtu_tuning_enabled: true

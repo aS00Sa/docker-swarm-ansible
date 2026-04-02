@@ -330,3 +330,7 @@
   until: upgrade_all_packages_apt is succeeded
   retries: 3
   delay: 15
+
+- name: TCP Path MTU / MSS tuning (sysctl + iptables)
+  ansible.builtin.import_tasks: tcp-mtu-tuning.yml
+  tags: [host-defaults, tcp-mtu, tuning]
