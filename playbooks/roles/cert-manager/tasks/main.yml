@@ -176,12 +176,18 @@
         - inventory_hostname in (groups['traefik'] | default([]))
         - cert_manager_compose_up is defined
         - (cert_manager_compose_up.rc | default(1)) == 0
+      vars:
+        _traefik_compose_dir: >-
+          {{
+            traefik_compose_project_dir
+            | default(gluster_mount_path ~ '/' ~ (traefik_gfs_subdir | default('traefik_gfs')))
+          }}
       ansible.builtin.command:
         argv:
           - docker
           - compose
           - -f
-          - "{{ gluster_mount_path }}/{{ traefik_gfs_subdir }}/docker-compose.yml"
+          - "{{ _traefik_compose_dir }}/docker-compose.yml"
           - restart
           - traefik
       changed_when: false

@@ -1,16 +1,28 @@
 ---
 # Итоговый список сертификатов/сайтов: cert_manager_certs_effective.
-# 1) Если задан непустой cert_manager_certs — используется он (как раньше).
+# 1) Если задан непустой cert_manager_certs (именно list) — используется он (как раньше).
 # 2) Иначе собирается по порядку из cert_manager_certs1, cert_manager_certs2, … (до 32 слотов).
 #    Каждый слот — один объект (dict) или JSON-строка с одним объектом (удобно для inventory .ini).
+#
+# В inventory .ini строка cert_manager_certs=[] часто приходит как тип str (два символа),
+# не как пустой list: тогда (length) > 0 ложно «срабатывало» и ломало {% for c in _cm_certs %}
+# в docker-compose (итерация по символам строки). Считаем legacy только настоящим list.
+
+- name: Detect non-empty legacy cert_manager_certs (Ansible list only)
+  ansible.builtin.set_fact:
+    cert_manager_legacy_certs_nonempty: >-
+      {{
+        (cert_manager_certs | default([]) | type_debug) == 'list'
+        and ((cert_manager_certs | default([])) | length) > 0
+      }}
 
 - name: Effective cert list from legacy cert_manager_certs
   ansible.builtin.set_fact:
-    cert_manager_certs_effective: "{{ cert_manager_certs | default([]) }}"
-  when: (cert_manager_certs | default([]) | length) > 0
+    cert_manager_certs_effective: "{{ cert_manager_certs }}"
+  when: cert_manager_legacy_certs_nonempty | bool
 
 - name: Merge cert_manager_certs1..N when legacy list is empty
-  when: (cert_manager_certs | default([]) | length) == 0
+  when: not (cert_manager_legacy_certs_nonempty | default(false) | bool)
   block:
     - name: Accumulate numbered cert slots
       ansible.builtin.set_fact:
