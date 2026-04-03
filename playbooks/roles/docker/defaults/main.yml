@@ -11,5 +11,10 @@ docker_default_nofile_soft: 1048576
 docker_default_nofile_hard: 1048576
 
 # Список registry host:port без проверки TLS (HTTP или self-signed). Пустой список — ключ не пишется.
+# Пишется в /etc/docker/daemon.json как "insecure-registries" (шаблон daemon.json.j2).
+# Формат Docker: "registry.example:5000" или "192.168.1.10:9082" (без префикса http://).
 # Пример: ["nexus.example.com:9082","192.168.1.10:9082"]
+# Если список непустой и в нём ровно один IPv4 (host:port) и есть хотя бы одно не-IP имя,
+# роль добавляет в /etc/hosts строку «<ip> <имя>…» (см. tasks/insecure_registries_etc_hosts.yml).
+# Несколько разных IPv4 в одном списке — запись в hosts не создаётся автоматически.
 docker_insecure_registries: []

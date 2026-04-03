@@ -75,6 +75,9 @@
   debug:
     msg: "Docker version installed: {{ final_docker_version.stdout }}"
 
+- name: Optional /etc/hosts for insecure registry FQDNs
+  ansible.builtin.import_tasks: insecure_registries_etc_hosts.yml
+
 #- name: Copy config.json to host
 #  become: true
 #  become_method: sudo
@@ -83,8 +86,7 @@
 #    dest: /etc/docker/config.json
 #    mode: '0640'
 
-# Раскомментируйте только после правки шаблона под свой кластер (DNS, registry-mirrors и т.д.).
-# Иначе логи json-file растут без лимита → заполняется /var/lib/docker/containers и корень диска.
+# Полный /etc/docker/daemon.json — шаблон daemon.json.j2.
 #- name: Copy daemon.json to host
 #  become: true
 #  become_method: sudo
@@ -97,7 +99,7 @@
   become: true
   become_method: sudo
   template:
-    src: daemon-log-rotation.json.j2
+    src: daemon.json.j2
     dest: /etc/docker/daemon.json
     owner: root
     group: root
@@ -105,6 +107,17 @@
     backup: yes
   register: docker_daemon_log_rotation
   when: docker_enable_log_rotation | default(true)
+
+# После невалидного daemon.json systemd помечает сервис failed и даёт «start request repeated too quickly».
+- name: Clear systemd failed state for docker before restart
+  ansible.builtin.command: systemctl reset-failed docker
+  become: true
+  become_method: sudo
+  failed_when: false
+  changed_when: false
+  when:
+    - docker_enable_log_rotation | default(true)
+    - docker_daemon_log_rotation.changed
 
 - name: Restart Docker after daemon log config change
   become: true

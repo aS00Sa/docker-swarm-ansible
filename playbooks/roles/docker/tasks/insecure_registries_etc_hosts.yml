@@ -1,0 +1,44 @@
+---
+# Если в docker_insecure_registries указаны и FQDN, и один и тот же IPv4 (host:port),
+# добавляем в /etc/hosts одну строку: <ip> <имя1> <имя2> ...
+# Несколько разных IPv4 в списке — авто-строка не строится (неоднозначно).
+- name: Parse host parts from docker_insecure_registries
+  ansible.builtin.set_fact:
+    _docker_registry_host_parts: >-
+      {{
+        docker_insecure_registries | default([])
+        | map('regex_replace', '^(.+):([0-9]+)$', '\1')
+        | list
+      }}
+  when: docker_insecure_registries | default([]) | length > 0
+
+- name: Split registry host parts into IPv4s and non-IP names
+  ansible.builtin.set_fact:
+    _docker_registry_ipv4s: >-
+      {{
+        _docker_registry_host_parts | default([])
+        | select('match', '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$')
+        | list | unique
+      }}
+    _docker_registry_fqdns: >-
+      {{
+        _docker_registry_host_parts | default([])
+        | reject('match', '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$')
+        | list | unique
+      }}
+  when: docker_insecure_registries | default([]) | length > 0
+
+- name: Ensure FQDNs from insecure-registries resolve via /etc/hosts
+  ansible.builtin.lineinfile:
+    path: /etc/hosts
+    regexp: '^{{ _docker_registry_ipv4s[0] | regex_escape }}\s+'
+    line: "{{ _docker_registry_ipv4s[0] }} {{ _docker_registry_fqdns | join(' ') }}"
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  become_method: sudo
+  when:
+    - docker_insecure_registries | default([]) | length > 0
+    - (_docker_registry_ipv4s | default([]) | length) == 1
+    - (_docker_registry_fqdns | default([]) | length) > 0

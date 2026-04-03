@@ -1,13 +1,16 @@
 {
-  "dns": ["127.0.0.1", "::1"],
-  "debug": true,
-  "exec-opts": ["native.cgroupdriver=systemd"],
   "log-driver": "json-file",
   "log-opts": {
-     "max-size": "100m",
-     "max-file": "3"
+    "max-size": "{{ docker_log_max_size }}",
+    "max-file": "{{ docker_log_max_file }}"
   },
-  "storage-driver": "overlay2",
-  "insecure-registries": ["http://192.168.1.191:8082","http://192.168.1.191:1111"],
-  "registry-mirrors": ["http://192.168.1.191:8082","http://192.168.1.191:1111"]
+  "default-ulimits": {
+    "nofile": {
+      "Name": "nofile",
+      "Soft": {{ docker_default_nofile_soft }},
+      "Hard": {{ docker_default_nofile_hard }}
+    }
+  }{% if docker_insecure_registries | default([]) | length > 0 %},
+  "insecure-registries": {{ docker_insecure_registries | to_json }}
+{% endif %}
 }
