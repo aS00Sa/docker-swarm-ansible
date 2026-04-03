@@ -1,7 +1,7 @@
 ---
-# Локальные каталоги (НЕ GFS) для inhome-infra, на swarm_managers.
-# Используются, например, для бэкапов Postgres.
+# Локальные каталоги (НЕ GFS) для inhome-infra, на swarm_nodes.
+# Бэкапы Postgres: bind на хосте под корнем /backups (не /var/backups/...).
 local_backup_paths:
-  - path: /var/backups/inhome-infra/postgres-backups
+  - path: /backups/inhome-infra/postgres-backups
     mode: "0750"
 
