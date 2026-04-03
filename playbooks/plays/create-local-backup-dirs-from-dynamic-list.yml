@@ -1,0 +1,32 @@
+---
+# Локальные каталоги (НЕ GFS) по всем файлам playbooks/dynamic/local_*_backup_paths.yml.
+# Для каждого участника Swarm локальный путь создаётся отдельно.
+# ansible-playbook -i inventory-dvsprtbt.ini playbooks/plays/create-local-backup-dirs-from-dynamic-list.yml -u root
+- hosts: swarm_nodes
+  gather_facts: true
+  tasks:
+    - name: Load local backup path defs from dynamic/local_*_backup_paths.yml
+      ansible.builtin.include_vars:
+        file: "{{ item }}"
+      with_fileglob:
+        - "../dynamic/local_*_backup_paths.yml"
+      register: _local_backup_vars_raw
+
+    - name: Merge local_backup_paths from all dynamic files
+      ansible.builtin.set_fact:
+        local_backup_paths_merged: >-
+          {{
+            (local_backup_paths_merged | default([]))
+            + (item.ansible_facts.local_backup_paths | default([]))
+          }}
+      loop: "{{ _local_backup_vars_raw.results | default([]) }}"
+
+    - name: Create local backup directories
+      become: true
+      become_method: sudo
+      ansible.builtin.file:
+        path: "{{ item.path }}"
+        state: directory
+        mode: "{{ item.mode | default('0750') }}"
+      loop: "{{ local_backup_paths_merged | default([]) }}"
+

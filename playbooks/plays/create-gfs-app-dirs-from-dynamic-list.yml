@@ -1,18 +1,34 @@
 ---
-# Каталоги под bind на GFS по списку playbooks/dynamic/gfs_default_app_bind_paths.yml (без -e).
+# Каталоги под bind на GFS по спискам в playbooks/dynamic/gfs_*_app_bind_paths.yml (без -e).
+# Гластер – общий том: каталоги достаточно создать один раз с любой ноды, имеющей смонтированный GFS.
 # ansible-playbook -i inventory-dvsprtbt.ini playbooks/plays/create-gfs-app-dirs-from-dynamic-list.yml -u root
 - hosts: swarm_managers:swarm_workers
-  gather_facts: true
-  vars_files:
-    - ../dynamic/gfs_default_app_bind_paths.yml
-  roles:
-    - role: ../roles/cluster-defaults
+  gather_facts: false
   tasks:
-    - name: Create GFS bind paths from gfs_default_app_bind_paths
+    - name: Load GFS app bind path defs from dynamic/gfs_*_app_bind_paths.yml
+      ansible.builtin.include_vars:
+        file: "{{ item }}"
+      with_fileglob:
+        - "../dynamic/gfs_*_app_bind_paths.yml"
+      register: _gfs_app_vars_raw
+
+    - name: Merge GFS app bind path lists from all dynamic files (once)
+      run_once: true
+      ansible.builtin.set_fact:
+        gfs_app_bind_paths_merged: >-
+          {{
+            (gfs_app_bind_paths_merged | default([]))
+            + (item.ansible_facts.gfs_app_bind_paths | default([]))
+          }}
+      loop: "{{ _gfs_app_vars_raw.results | default([]) }}"
+
+    - name: Create GFS bind paths from merged list (once, delegated to first swarm_manager)
+      run_once: true
+      delegate_to: "{{ (groups['swarm_managers'] | default(groups['swarm_nodes'] | default([inventory_hostname]))) | first }}"
       become: true
       become_method: sudo
       ansible.builtin.file:
         path: "{{ gluster_mount_path }}/{{ item.0.app_name }}/{{ item.1 }}"
         state: directory
         mode: "0775"
-      loop: "{{ gfs_default_app_bind_paths | subelements('subdirs') }}"
+      loop: "{{ (gfs_app_bind_paths_merged | default([])) | subelements('subdirs') }}"
