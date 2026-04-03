@@ -1,0 +1,13 @@
+---
+# Docker на хостах [test_backend] (application/backend за пределами Swarm).
+# Остальные plays по умолчанию пропускают test_backend — этот плейбук для daemon.json (логи, insecure-registries).
+# В inventory удобно: белый IP в строке хоста, ansible_host=серый для SSH с WSL/LAN.
+# ansible-playbook -i inventory-tstsprtbt.ini playbooks/plays/docker-test-backend.yml -u root
+- hosts: test_backend
+  tags: [docker, docker-test-backend]
+  roles:
+    - role: ../roles/cluster-defaults
+  tasks:
+    - import_role:
+        name: ../roles/docker
+      tags: [docker, docker-test-backend]
