@@ -380,5 +380,5 @@ volumes:
     driver_opts:
       type: none
       o: bind
-      device: /var/backups/bethome-infra/postgres-backups
+      device: /backups/bethome-infra/postgres-backups
 

@@ -1,0 +1,20 @@
+---
+# Каталоги под bind-mount на GFS: gluster_mount_path/<app_name>/<subdir>/
+# Список как у приложений в dynamic — дополняйте при новых сервисах; прогон: create-gfs-app-dirs-from-dynamic-list.yml
+
+#пример: /mnt/gfs/inhome-infra/data
+gfs_app_bind_paths:
+  - app_name: bethome-postgres
+    subdirs: [data]
+  - app_name: bethome-redis
+    subdirs: [data]
+  - app_name: bethome-rabbitmq
+    subdirs: [data]
+  - app_name: bethome-rabbitmq-balancer
+    subdirs: [data]
+  - app_name: bethome-minio
+    subdirs: [data]
+  - app_name: bethome-prometheus
+    subdirs: [data]
+
+

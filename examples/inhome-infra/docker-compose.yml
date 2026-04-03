@@ -193,7 +193,7 @@ volumes:
     driver_opts:
       type: none
       o: bind
-      device: /var/backups/inhome-infra/postgres-backups
+      device: /backups/inhome-infra/postgres-backups
   redis-data:
     driver: local
     driver_opts:

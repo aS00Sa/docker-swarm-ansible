@@ -1,0 +1,6 @@
+---
+# Локальные каталоги (НЕ GFS) для bethome-infra, на swarm_nodes.
+# Бэкапы Postgres: bind на хосте под корнем /backups (не /var/backups/...).
+local_backup_paths:
+  - path: /backups/bethome-infra/postgres-backups
+    mode: "0750"
