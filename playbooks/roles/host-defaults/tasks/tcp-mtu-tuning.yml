@@ -37,19 +37,77 @@
     - host_defaults_tcp_mtu_tuning_enabled | default(true) | bool
     - ansible_os_family == "Debian"
 
+# ansible.builtin.iptables не поддерживает set_mss (нужен community.general или явный iptables).
+- name: Check FORWARD TCPMSS clamp-mss-to-pmtu rule
+  become: true
+  become_method: sudo
+  ansible.builtin.command:
+    argv:
+      - iptables
+      - -t
+      - mangle
+      - -C
+      - FORWARD
+      - -p
+      - tcp
+      - --tcp-flags
+      - SYN,RST
+      - SYN
+      - -j
+      - TCPMSS
+      - --clamp-mss-to-pmtu
+  register: host_defaults_mss_fwd_chk
+  changed_when: false
+  failed_when: false
+  when:
+    - host_defaults_tcp_mtu_tuning_enabled | default(true) | bool
+    - ansible_os_family == "Debian"
+
 - name: Mangle FORWARD — TCPMSS clamp-mss-to-pmtu
   become: true
   become_method: sudo
-  ansible.builtin.iptables:
-    table: mangle
-    chain: FORWARD
-    protocol: tcp
-    tcp_flags:
-      flags: SYN,RST
-      flags_set: SYN
-    jump: TCPMSS
-    set_mss: clamp-mss-to-pmtu
+  ansible.builtin.command:
+    argv:
+      - iptables
+      - -t
+      - mangle
+      - -A
+      - FORWARD
+      - -p
+      - tcp
+      - --tcp-flags
+      - SYN,RST
+      - SYN
+      - -j
+      - TCPMSS
+      - --clamp-mss-to-pmtu
   register: host_defaults_iptables_mss_forward
+  when:
+    - host_defaults_tcp_mtu_tuning_enabled | default(true) | bool
+    - ansible_os_family == "Debian"
+    - host_defaults_mss_fwd_chk.rc | default(1) != 0
+
+- name: Check OUTPUT TCPMSS clamp-mss-to-pmtu rule
+  become: true
+  become_method: sudo
+  ansible.builtin.command:
+    argv:
+      - iptables
+      - -t
+      - mangle
+      - -C
+      - OUTPUT
+      - -p
+      - tcp
+      - --tcp-flags
+      - SYN,RST
+      - SYN
+      - -j
+      - TCPMSS
+      - --clamp-mss-to-pmtu
+  register: host_defaults_mss_out_chk
+  changed_when: false
+  failed_when: false
   when:
     - host_defaults_tcp_mtu_tuning_enabled | default(true) | bool
     - ansible_os_family == "Debian"
@@ -57,19 +115,26 @@
 - name: Mangle OUTPUT — TCPMSS clamp-mss-to-pmtu
   become: true
   become_method: sudo
-  ansible.builtin.iptables:
-    table: mangle
-    chain: OUTPUT
-    protocol: tcp
-    tcp_flags:
-      flags: SYN,RST
-      flags_set: SYN
-    jump: TCPMSS
-    set_mss: clamp-mss-to-pmtu
+  ansible.builtin.command:
+    argv:
+      - iptables
+      - -t
+      - mangle
+      - -A
+      - OUTPUT
+      - -p
+      - tcp
+      - --tcp-flags
+      - SYN,RST
+      - SYN
+      - -j
+      - TCPMSS
+      - --clamp-mss-to-pmtu
   register: host_defaults_iptables_mss_output
   when:
     - host_defaults_tcp_mtu_tuning_enabled | default(true) | bool
     - ansible_os_family == "Debian"
+    - host_defaults_mss_out_chk.rc | default(1) != 0
 
 - name: Сохранить правила iptables (IPv4)
   become: true
@@ -78,6 +143,7 @@
   when:
     - host_defaults_tcp_mtu_tuning_enabled | default(true) | bool
     - ansible_os_family == "Debian"
-    - (host_defaults_iptables_mss_forward.changed | default(false))
-      or (host_defaults_iptables_mss_output.changed | default(false))
+    - >-
+      (host_defaults_iptables_mss_forward is defined and host_defaults_iptables_mss_forward is changed)
+      or (host_defaults_iptables_mss_output is defined and host_defaults_iptables_mss_output is changed)
   changed_when: true
