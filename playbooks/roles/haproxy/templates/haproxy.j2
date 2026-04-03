@@ -70,15 +70,14 @@ backend gitlab_https_tcp
   http-request return status 503 content-type text/plain string "Add cert_manager site cert_name gitlab.<domain> with upstream_host/upstream_port\n"
 {% endif %}
 
+{# backend gitlab_ssh_tcp только при настроенном GitLab в cert_manager; иначе HAProxy 2.8 не принимает tcp-request в backend #}
+{% if haproxy_gitlab_upstream_configured | default(false) | bool %}
 backend gitlab_ssh_tcp
   mode tcp
-{% if haproxy_gitlab_upstream_configured | default(false) | bool %}
   balance source
   option tcp-check
   option log-health-checks
   server gitlab_ssh_1 {{ haproxy_gitlab_ssh_upstream_host }}:{{ haproxy_gitlab_ssh_upstream_port }} check
-{% else %}
-  tcp-request connection reject
 {% endif %}
 
 backend nexus_websecure_tcp
@@ -282,7 +281,12 @@ frontend https_in
 {% endif %}
   use_backend nexus_websecure_tcp if host_nexus
   use_backend gitlab_https_tcp if host_gitlab
-  default_backend gitlab_https_tcp
+{# Без записей gitlab.*/nexus.* в cert_manager — весь остальной HTTPS на Traefik (как HTTP-фронт). #}
+{% if _route_to_traefik %}
+  default_backend traefik_web_upstream
+{% else %}
+  default_backend direct_layer7
+{% endif %}
 {% endif %}
 {% endif %}
 

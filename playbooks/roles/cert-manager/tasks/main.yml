@@ -276,6 +276,7 @@
     - name: Check fullchain.pem presence for each cert
       ansible.builtin.stat:
         path: "{{ cert_manager_storage_base_dir }}/{{ cert_manager_letsencrypt_subdir }}/live/{{ item }}/fullchain.pem"
+        follow: true
       loop: "{{ cert_manager_haproxy_cert_names }}"
       loop_control:
         label: "{{ item }}"
@@ -284,6 +285,7 @@
     - name: Check privkey.pem presence for each cert
       ansible.builtin.stat:
         path: "{{ cert_manager_storage_base_dir }}/{{ cert_manager_letsencrypt_subdir }}/live/{{ item }}/privkey.pem"
+        follow: true
       loop: "{{ cert_manager_haproxy_cert_names }}"
       loop_control:
         label: "{{ item }}"
