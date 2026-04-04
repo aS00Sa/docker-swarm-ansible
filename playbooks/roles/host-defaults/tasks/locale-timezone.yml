@@ -1,0 +1,55 @@
+---
+# Таймзона Europe/Moscow и локаль UTF-8 ru_RU — базовая настройка ВМ (роль host-defaults).
+- name: Set system timezone
+  become: true
+  become_method: sudo
+  ansible.builtin.timezone:
+    name: "{{ host_defaults_timezone }}"
+  when: host_defaults_locale_timezone_enabled | default(true) | bool
+
+- name: Ensure locales package (Debian family)
+  become: true
+  become_method: sudo
+  ansible.builtin.apt:
+    name: locales
+    state: present
+    update_cache: false
+  when:
+    - host_defaults_locale_timezone_enabled | default(true) | bool
+    - ansible_os_family == "Debian"
+
+- name: Enable UTF-8 locale in /etc/locale.gen
+  become: true
+  become_method: sudo
+  ansible.builtin.lineinfile:
+    path: /etc/locale.gen
+    regexp: '^#? *{{ host_defaults_locale_lang | regex_escape }} UTF-8'
+    line: "{{ host_defaults_locale_lang }} UTF-8"
+    create: false
+  when:
+    - host_defaults_locale_timezone_enabled | default(true) | bool
+    - ansible_os_family == "Debian"
+
+- name: Regenerate locales
+  become: true
+  become_method: sudo
+  ansible.builtin.command: locale-gen
+  when:
+    - host_defaults_locale_timezone_enabled | default(true) | bool
+    - ansible_os_family == "Debian"
+  changed_when: false
+
+- name: System default locale (LANG / LC_ALL)
+  become: true
+  become_method: sudo
+  ansible.builtin.copy:
+    dest: /etc/default/locale
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      LANG={{ host_defaults_locale_lang }}
+      LC_ALL={{ host_defaults_locale_lang }}
+  when:
+    - host_defaults_locale_timezone_enabled | default(true) | bool
+    - ansible_os_family == "Debian"

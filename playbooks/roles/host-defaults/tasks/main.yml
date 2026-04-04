@@ -167,6 +167,9 @@
         )
       )
 
+- name: Locale UTF-8 (ru) and timezone Europe/Moscow
+  ansible.builtin.import_tasks: locale-timezone.yml
+
 - name: Check if auto update is enabled
   stat:
     path: /etc/apt/apt.conf.d/20auto-upgrades

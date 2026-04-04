@@ -3,6 +3,11 @@
 # Disabled by default; enable per-environment when needed.
 host_defaults_auto_hostname_enabled: false
 
+# Локаль UTF-8 (ru) и таймзона — задачи locale-timezone.yml (все ВМ при host-defaults).
+host_defaults_locale_timezone_enabled: true
+host_defaults_locale_lang: ru_RU.UTF-8
+host_defaults_timezone: Europe/Moscow
+
 # DNS defaults for hosts with unstable local resolver (e.g. VPN environments).
 host_defaults_resolved_dns_enabled: true
 host_defaults_resolved_dns_servers:
