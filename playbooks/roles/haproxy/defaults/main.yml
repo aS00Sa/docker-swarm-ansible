@@ -63,6 +63,12 @@ haproxy_docker_tls_termination: false
 # 443 passthrough (TCP) вместо TLS termination на HAProxy.
 haproxy_https_mode: tcp_passthrough
 
+# Буфер заголовков HTTP (global tune.*). 0 = не задавать (дефолты бинарника HAProxy).
+# Увеличение помогает при крупных Cookie/JWT и длинном списке в Access-Control-Request-Headers (CORS preflight).
+# tune.maxrewrite должен быть меньше tune.bufsize.
+haproxy_tune_bufsize: 32768
+haproxy_tune_maxrewrite: 16384
+
 # Адреса GitLab/Nexus — из cert_manager (resolve_upstream_from_cert_manager.yml). Здесь только режимы:
 # TLS к GitLab upstream (8443 и т.д.); false если там plain HTTP.
 haproxy_gitlab_https_server_ssl: true

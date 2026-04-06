@@ -1,6 +1,11 @@
 ---
 # ansible-playbook -i inventory-prod.ini playbooks/plays/11-haproxy.yml
 # HAProxy should start before cert-manager and Traefik.
+#
+# После смены bind/ACL/буферов (tune.*)/апстримов: обновить Traefik и перезапустить его сервис,
+# плюс при необходимости пересобрать приложения за edge (см. playbooks/redeploy-apps.yml).
+# Один проход:
+#   ansible-playbook -i inventory-prod.ini playbooks/plays/manual-after-haproxy-refresh.yml -u root
 - hosts: haproxy
   tags: [haproxy]
   roles:

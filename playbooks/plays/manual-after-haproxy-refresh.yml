@@ -1,0 +1,37 @@
+---
+# После обновления настроек HAProxy (playbooks/plays/11-haproxy.yml): обновить Traefik/Portainer,
+# при необходимости пересобрать бизнес-стеки, затем принудительно перезапустить Traefik.
+#
+# Порядок: redeploy-apps → manual-business-stacks-redeploy (если задан swarm_business_stacks)
+# → docker service update --force traefik_traefik.
+#
+# Бизнес-стеки (frontend / bethome / inhome и т.п.): передайте список через extra-vars, например:
+#   -e @playbooks/vars/tstsprtbt-business-stacks.yml
+# см. playbooks/vars/tstsprtbt-business-stacks.yml и playbooks/plays/manual-business-stacks-redeploy.yml
+#
+#   export ANSIBLE_CONFIG="$PWD/ansible.cfg"
+#   ansible-playbook -i inventory-tstsprtbt.ini playbooks/plays/manual-after-haproxy-refresh.yml -u root \
+#     -e @playbooks/vars/tstsprtbt-business-stacks.yml
+#
+- import_playbook: ../redeploy-apps.yml
+
+- import_playbook: manual-business-stacks-redeploy.yml
+
+- name: Принудительный рестарт Traefik после смены HAProxy
+  hosts: swarm_managers
+  gather_facts: false
+  roles:
+    - role: ../roles/cluster-defaults
+  tasks:
+    - name: docker service update --force traefik_traefik
+      when: inventory_hostname == (groups['swarm_managers'] | first)
+      become: true
+      ansible.builtin.command:
+        argv:
+          - docker
+          - service
+          - update
+          - --force
+          - traefik_traefik
+      register: manual_after_haproxy_traefik_force
+      changed_when: manual_after_haproxy_traefik_force.rc == 0

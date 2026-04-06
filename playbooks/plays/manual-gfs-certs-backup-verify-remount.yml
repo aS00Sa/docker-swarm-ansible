@@ -1,0 +1,236 @@
+---
+# Пошагово: 1) бэкап сертификатов с GFS (пока точка монтирования жива);
+#            2) проверка монтирования и типа ФС;
+#            3) при необходимости — остановка edge compose (опционально), lazy umount, заново gluster-client.
+#
+# Запуск (пример, тестовый контур):
+#   ansible-playbook -i inventory-tstsprtbt.ini playbooks/plays/manual-gfs-certs-backup-verify-remount.yml -u root
+#
+# Только проверить, что смонтировано:
+#   ansible-playbook ... manual-gfs-certs-backup-verify-remount.yml --tags gfs-verify
+#
+# Только бэкап (если /mnt/gfs смонтирован и есть каталоги):
+#   ansible-playbook ... manual-gfs-certs-backup-verify-remount.yml --tags gfs-backup
+#
+# Принудительно перемонтировать (после бэкапа в том же прогоне):
+#   ansible-playbook ... manual-gfs-certs-backup-verify-remount.yml -e gfs_force_remount=true
+#
+# Перед umount остановить Traefik/cert-manager compose (пути на GFS):
+#   ansible-playbook ... -e gfs_remount_stop_edge_services=true -e gfs_force_remount=true
+#
+- name: GFS — бэкап сертификатов, проверка монтирования, перемонтирование
+  hosts: swarm_managers:swarm_workers:haproxy:traefik
+  tags: [gfs-maintenance, gluster-client]
+  vars:
+    gfs_allowed_fstypes: [glusterfs, fuse.glusterfs, nfs4]
+    # Включить шаг архивации (tar.gz в gfs_certs_backup_dest_dir на каждой ноде)
+    gfs_certs_backup_enabled: true
+    gfs_certs_backup_dest_dir: /var/backups/gfs-certs
+    # Принудительно: umount + import gluster-client даже если mount выглядит ок
+    gfs_force_remount: false
+    # Перед umount: docker compose down для Traefik и cert-manager с GFS (см. пути ниже)
+    gfs_remount_stop_edge_services: false
+    _cm_subdir: "{{ cert_manager_gfs_subdir | default('cert_manager_gfs') }}"
+    _tk_subdir: "{{ traefik_gfs_subdir | default('traefik_gfs') }}"
+    _letsencrypt_dir: "{{ gluster_mount_path | default('/mnt/gfs') }}/{{ _cm_subdir }}/{{ cert_manager_letsencrypt_subdir | default('letsencrypt') }}"
+    _certmgr_root: "{{ gluster_mount_path | default('/mnt/gfs') }}/{{ _cm_subdir }}"
+    _traefik_compose: "{{ gluster_mount_path | default('/mnt/gfs') }}/{{ _tk_subdir }}/docker-compose.yml"
+    _certmgr_compose_gfs: "{{ gluster_mount_path | default('/mnt/gfs') }}/{{ _cm_subdir }}/docker-compose.yml"
+
+  roles:
+    - role: ../roles/cluster-defaults
+      tags: [always]
+
+  tasks:
+    - name: "Шаг 0: каталог для бэкапов на ноде"
+      tags: [gfs-backup]
+      become: true
+      ansible.builtin.file:
+        path: "{{ gfs_certs_backup_dest_dir }}"
+        state: directory
+        mode: "0755"
+      when: gfs_certs_backup_enabled | bool
+
+    - name: "Шаг 1a: проверка — точка монтирования {{ gluster_mount_path }}"
+      tags: [gfs-verify, gfs-backup, gfs-remount]
+      become: true
+      ansible.builtin.command:
+        argv: [mountpoint, -q, "{{ gluster_mount_path }}"]
+      register: gfs_mp_check
+      changed_when: false
+      failed_when: false
+
+    - name: "Шаг 1b: тип ФС для {{ gluster_mount_path }} (если смонтировано)"
+      tags: [gfs-verify, gfs-backup, gfs-remount]
+      become: true
+      ansible.builtin.command:
+        argv: [findmnt, -n, -o, FSTYPE, --target, "{{ gluster_mount_path }}"]
+      register: gfs_fstype_out
+      changed_when: false
+      failed_when: false
+      when: (gfs_mp_check.rc | default(1)) == 0
+
+    - name: "Шаг 1c: отчёт о монтировании"
+      tags: [gfs-verify, gfs-backup, gfs-remount]
+      ansible.builtin.debug:
+        msg:
+          - "host={{ inventory_hostname }}"
+          - "mountpoint {{ gluster_mount_path }}: {{ 'OK' if (gfs_mp_check.rc | default(1)) == 0 else 'NOT MOUNTED (rc=' ~ (gfs_mp_check.rc | string) ~ ')' }}"
+          - >-
+            fstype={{ (gfs_fstype_out.stdout | default('') | trim) if (gfs_mp_check.rc | default(1)) == 0 else 'n/a' }}
+          - >-
+            fstype_ok={{
+              (
+                (gfs_mp_check.rc | default(1)) == 0
+                and (gfs_fstype_out.stdout | default('') | trim) in gfs_allowed_fstypes
+              ) | bool
+            }}
+
+    - name: "Шаг 2a: есть ли каталог letsencrypt на GFS"
+      tags: [gfs-backup]
+      ansible.builtin.stat:
+        path: "{{ _letsencrypt_dir }}"
+        follow: true
+      register: gfs_le_stat
+      when:
+        - gfs_certs_backup_enabled | bool
+        - (gfs_mp_check.rc | default(1)) == 0
+
+    - name: "Шаг 2b: архив letsencrypt → {{ gfs_certs_backup_dest_dir }}"
+      tags: [gfs-backup]
+      become: true
+      ansible.builtin.archive:
+        path: "{{ _letsencrypt_dir }}"
+        dest: >-
+          {{ gfs_certs_backup_dest_dir }}/letsencrypt-{{ inventory_hostname }}-{{
+            ansible_date_time.date | replace('-', '')
+          }}-{{ ansible_date_time.hour }}{{ ansible_date_time.minute }}{{ ansible_date_time.second }}.tar.gz
+        format: gz
+        mode: "0640"
+      when:
+        - gfs_certs_backup_enabled | bool
+        - (gfs_mp_check.rc | default(1)) == 0
+        - gfs_le_stat.stat is defined
+        - gfs_le_stat.stat.exists | default(false)
+        - gfs_le_stat.stat.isdir | default(false)
+
+    - name: "Шаг 2a1: подсказка — letsencrypt нет или не каталог (бэкап пропущен)"
+      tags: [gfs-backup]
+      ansible.builtin.debug:
+        msg: >-
+          На {{ inventory_hostname }} путь {{ _letsencrypt_dir }}: exists={{ gfs_le_stat.stat.exists | default(false) }},
+          isdir={{ gfs_le_stat.stat.isdir | default(false) }}, islnk={{ gfs_le_stat.stat.islnk | default(false) }}.
+          Пока cert-manager не создаст дерево letsencrypt, шаг 2b пропускается.
+      when:
+        - gfs_certs_backup_enabled | bool
+        - (gfs_mp_check.rc | default(1)) == 0
+        - gfs_le_stat.stat is defined
+        - not ((gfs_le_stat.stat.exists | default(false)) and (gfs_le_stat.stat.isdir | default(false)))
+
+    - name: "Шаг 2c: (опционально) архив всего cert_manager_gfs (webroot + compose)"
+      tags: [gfs-backup]
+      become: true
+      ansible.builtin.archive:
+        path: "{{ _certmgr_root }}"
+        dest: >-
+          {{ gfs_certs_backup_dest_dir }}/cert_manager_gfs-full-{{ inventory_hostname }}-{{
+            ansible_date_time.date | replace('-', '')
+          }}-{{ ansible_date_time.hour }}{{ ansible_date_time.minute }}{{ ansible_date_time.second }}.tar.gz
+        format: gz
+        mode: "0640"
+      when:
+        - gfs_certs_backup_enabled | bool
+        - gfs_backup_full_cert_manager_tree | default(false) | bool
+        - (gfs_mp_check.rc | default(1)) == 0
+
+    - name: "Шаг 2d: предупреждение — GFS не смонтирован, бэкап с хранилища пропущен"
+      tags: [gfs-backup]
+      ansible.builtin.debug:
+        msg: >-
+          На {{ inventory_hostname }} не смонтирован {{ gluster_mount_path }} — архив letsencrypt не создан.
+          Сначала поднимите Gluster-клиент (play 08) или исправьте fstab, затем повторите --tags gfs-backup.
+      when:
+        - gfs_certs_backup_enabled | bool
+        - (gfs_mp_check.rc | default(1)) != 0
+
+    - name: "Шаг 3a: нужен ли remount"
+      tags: [gfs-remount]
+      ansible.builtin.set_fact:
+        gfs_remount_needed: >-
+          {{
+            (
+              (gfs_force_remount | default(false) | bool)
+              or ((gfs_mp_check.rc | default(1)) != 0)
+              or (
+                ((gfs_mp_check.rc | default(1)) == 0)
+                and ((gfs_fstype_out.stdout | default('') | trim) not in gfs_allowed_fstypes)
+              )
+            ) | bool
+          }}
+
+    - name: "Шаг 3b: остановить Traefik compose (файл на GFS)"
+      tags: [gfs-remount]
+      become: true
+      ansible.builtin.command:
+        argv:
+          - docker
+          - compose
+          - -f
+          - "{{ _traefik_compose }}"
+          - down
+      register: gfs_down_traefik
+      changed_when: (gfs_down_traefik.rc | default(1)) == 0
+      failed_when: false
+      when:
+        - gfs_remount_needed | default(false) | bool
+        - gfs_remount_stop_edge_services | default(false) | bool
+        - inventory_hostname in (groups['traefik'] | default([]))
+
+    - name: "Шаг 3c: остановить cert-manager compose (файл на GFS, если есть)"
+      tags: [gfs-remount]
+      become: true
+      ansible.builtin.command:
+        argv:
+          - docker
+          - compose
+          - -f
+          - "{{ _certmgr_compose_gfs }}"
+          - down
+      register: gfs_down_cm
+      changed_when: (gfs_down_cm.rc | default(1)) == 0
+      failed_when: false
+      when:
+        - gfs_remount_needed | default(false) | bool
+        - gfs_remount_stop_edge_services | default(false) | bool
+        - inventory_hostname in (groups['cert_manager'] | default([]))
+        - cert_manager_use_shared_storage | default(false) | bool
+
+    - name: "Шаг 3d: lazy umount {{ gluster_mount_path }}"
+      tags: [gfs-remount]
+      become: true
+      ansible.builtin.shell: |
+        umount -l "{{ gluster_mount_path }}" 2>/dev/null || true
+      changed_when: false
+      when: gfs_remount_needed | default(false) | bool
+
+    - name: "Шаг 3e: заново смонтировать (роль gluster-client)"
+      tags: [gfs-remount]
+      ansible.builtin.import_role:
+        name: ../roles/gluster-client
+      when: gfs_remount_needed | default(false) | bool
+
+    - name: "Шаг 3f: итог после remount"
+      tags: [gfs-remount]
+      become: true
+      ansible.builtin.command:
+        argv: [findmnt, -n, -o, SOURCE,FSTYPE,TARGET, --target, "{{ gluster_mount_path }}"]
+      register: gfs_findmnt_final
+      changed_when: false
+      failed_when: false
+      when: gfs_remount_needed | default(false) | bool
+
+    - name: "Шаг 3g: вывод findmnt"
+      tags: [gfs-remount]
+      ansible.builtin.debug:
+        msg: "{{ gfs_findmnt_final.stdout | default('(findmnt не выполнен или пусто)') }}"
+      when: gfs_remount_needed | default(false) | bool

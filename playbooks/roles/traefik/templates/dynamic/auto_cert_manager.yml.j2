@@ -6,6 +6,7 @@
 {% set _c_host = _c.upstream_host | default('') | trim %}
 {% set _c_scheme = _c.upstream_scheme | default('http') %}
 {% set _c_port = _c.upstream_port | default(80) %}
+{% set _default_h = traefik_default_upstream_host | default('') | trim %}
 {% set _router_name = _c.router_name | default('site-' ~ _name) %}
 {% set _service_name = _c.service_name | default('svc-' ~ _name) %}
 {% set _middlewares = _c.middlewares | default([]) %}
@@ -22,6 +23,7 @@
 {% set _mw_compress_name = _name ~ '-compress' %}
 {% set _mw_hsts_name = _name ~ '-hsts' %}
 {% set _mw_retry_name = _name ~ '-retry' %}
+{% set _mw_cors_name = _name ~ '-cors' %}
 {% set _backend_hosts = groups.get('swarm_workers', []) %}
 {% if _backend_hosts | length == 0 %}
 {% set _backend_hosts = groups.get('test_backend', []) %}
@@ -51,6 +53,32 @@ http:
         attempts: 3
         initialInterval: "100ms"
 {% endif %}
+{% if 'cors' in _middlewares %}
+    {{ _mw_cors_name }}:
+      headers:
+        accessControlAllowOriginListRegex:
+          - ".*"
+        accessControlAllowMethods:
+          - GET
+          - POST
+          - PUT
+          - DELETE
+          - OPTIONS
+          - PATCH
+        accessControlAllowHeaders:
+          - Content-Type
+          - Authorization
+          - Accept
+          - X-Requested-With
+          - captcha
+          - x-idempotency-key
+          - X-Idempotency-Key
+          - idempotency-key
+          - Idempotency-Key
+        accessControlAllowCredentials: true
+        addVaryHeader: true
+        accessControlMaxAge: 3600
+{% endif %}
 {% endif %}
 
   serversTransports:
@@ -70,7 +98,7 @@ http:
       entryPoints: [{{ ep }}]
       tls: {}
 {% if _middlewares | length > 0 %}
-      middlewares: [{% if 'compress' in _middlewares %}{{ _mw_compress_name }}{% endif %}{% if 'compress' in _middlewares and ('hsts' in _middlewares or 'retry' in _middlewares) %}, {% endif %}{% if 'hsts' in _middlewares %}{{ _mw_hsts_name }}{% endif %}{% if 'hsts' in _middlewares and 'retry' in _middlewares %}, {% endif %}{% if 'retry' in _middlewares %}{{ _mw_retry_name }}{% endif %}]
+      middlewares: [{% if 'cors' in _middlewares %}{{ _mw_cors_name }}{% endif %}{% if 'cors' in _middlewares and ('compress' in _middlewares or 'hsts' in _middlewares or 'retry' in _middlewares) %}, {% endif %}{% if 'compress' in _middlewares %}{{ _mw_compress_name }}{% endif %}{% if 'compress' in _middlewares and ('hsts' in _middlewares or 'retry' in _middlewares) %}, {% endif %}{% if 'hsts' in _middlewares %}{{ _mw_hsts_name }}{% endif %}{% if 'hsts' in _middlewares and 'retry' in _middlewares %}, {% endif %}{% if 'retry' in _middlewares %}{{ _mw_retry_name }}{% endif %}]
 {% endif %}
 {% endfor %}
 {% else %}
@@ -80,7 +108,7 @@ http:
       entryPoints: [{% for ep in _entrypoints %}{{ ep }}{% if not loop.last %}, {% endif %}{% endfor %}]
       tls: {}
 {% if _middlewares | length > 0 %}
-      middlewares: [{% if 'compress' in _middlewares %}{{ _mw_compress_name }}{% endif %}{% if 'compress' in _middlewares and ('hsts' in _middlewares or 'retry' in _middlewares) %}, {% endif %}{% if 'hsts' in _middlewares %}{{ _mw_hsts_name }}{% endif %}{% if 'hsts' in _middlewares and 'retry' in _middlewares %}, {% endif %}{% if 'retry' in _middlewares %}{{ _mw_retry_name }}{% endif %}]
+      middlewares: [{% if 'cors' in _middlewares %}{{ _mw_cors_name }}{% endif %}{% if 'cors' in _middlewares and ('compress' in _middlewares or 'hsts' in _middlewares or 'retry' in _middlewares) %}, {% endif %}{% if 'compress' in _middlewares %}{{ _mw_compress_name }}{% endif %}{% if 'compress' in _middlewares and ('hsts' in _middlewares or 'retry' in _middlewares) %}, {% endif %}{% if 'hsts' in _middlewares %}{{ _mw_hsts_name }}{% endif %}{% if 'hsts' in _middlewares and 'retry' in _middlewares %}, {% endif %}{% if 'retry' in _middlewares %}{{ _mw_retry_name }}{% endif %}]
 {% endif %}
 {% endif %}
 
@@ -99,6 +127,8 @@ http:
 {% endfor %}
 {% elif _c_host | length > 0 %}
           - { url: "{{ _c_scheme }}://{{ _c_host }}:{{ _port_for_ep }}" }
+{% elif _default_h | length > 0 %}
+          - { url: "{{ _c_scheme }}://{{ _default_h }}:{{ _port_for_ep }}" }
 {% else %}
 {% for h in _backend_hosts %}
           - { url: "{{ _c_scheme }}://{{ hostvars[h].ansible_host | default(h) }}:{{ _port_for_ep }}" }
@@ -117,6 +147,8 @@ http:
 {% endfor %}
 {% elif _c_host | length > 0 %}
           - { url: "{{ _c_scheme }}://{{ _c_host }}:{{ _c_port }}" }
+{% elif _default_h | length > 0 %}
+          - { url: "{{ _c_scheme }}://{{ _default_h }}:{{ _c_port }}" }
 {% else %}
 {% for h in _backend_hosts %}
           - { url: "{{ _c_scheme }}://{{ hostvars[h].ansible_host | default(h) }}:{{ _c_port }}" }

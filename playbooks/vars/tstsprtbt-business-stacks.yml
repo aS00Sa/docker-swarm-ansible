@@ -1,0 +1,18 @@
+---
+# Подключение: ansible-playbook ... -e @playbooks/vars/tstsprtbt-business-stacks.yml
+# Имена stack и пути compose подставьте под свой контур (ниже — примеры из examples/ репозитория).
+
+swarm_business_stacks:
+  - stack: frontend-infra
+    compose: examples/frontend-infra/docker-compose.yml
+  - stack: bethome-infra
+    compose: examples/bethome-infra/docker-compose.yml
+  - stack: inhome-infra
+    compose: examples/inhome-infra/docker-compose.yml
+
+# Опционально для подстановки ${VAR} в compose при stack deploy (переменные процесса на manager):
+#  - stack: bethome-infra
+#    compose: examples/bethome-infra/docker-compose.yml
+#    environment:
+#      DATABASE_PASSWORD: "..."
+#      REDIS_PASSWORD: "..."

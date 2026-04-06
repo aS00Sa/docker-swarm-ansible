@@ -34,6 +34,11 @@ cert_manager_compose_bind_ip: 127.0.0.1
 # Чтобы не ловить rate limits LE при нескольких HAProxy нодах.
 cert_manager_singleton_keepalived_vip: true
 
+# Без VIP: один экземпляр compose на перечисленных inventory_hostname (имена из inventory, не ansible_host).
+# Пример: ["5.42.102.138"] — остальные [haproxy] получают только PEM в /etc/ssl/... и docker compose down.
+# Пустой список — поведение как раньше (без VIP все ноды группы play считаются «мастерами» для compose).
+cert_manager_singleton_inventory_hostnames: []
+
 # Останавливать compose-проект на нодах без VIP (если singleton_keepalived_vip=true)
 cert_manager_stop_on_non_master: true
 

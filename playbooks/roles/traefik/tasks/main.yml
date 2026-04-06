@@ -432,7 +432,7 @@
   vars:
     cert_item: "{{ item }}"
 
-- name: Initialize dynamic files from dynamic/sites on first run (stack)
+- name: Синхронизировать per-site конфиги из dynamic/sites в корень dynamic (Traefik file provider)
   when:
     - (traefik_effective_deploy_method | default('stack')) == 'stack'
     - inventory_hostname == ((groups['swarm_managers'] | default([])) | first | default(''))
@@ -443,7 +443,7 @@
     src: "{{ gluster_mount_path }}/{{ traefik_gfs_subdir }}/{{ traefik_dynamic_subdir }}/{{ traefik_dynamic_sites_subdir | default('sites') }}/{{ (item.cert_name | default(item.domains | first)) | regex_replace('[^A-Za-z0-9_.-]', '_') | replace('.', '_') }}.yml"
     dest: "{{ gluster_mount_path }}/{{ traefik_gfs_subdir }}/{{ traefik_dynamic_subdir }}/{{ (item.cert_name | default(item.domains | first)) | regex_replace('[^A-Za-z0-9_.-]', '_') | replace('.', '_') }}.yml"
     remote_src: true
-    force: false
+    force: true
     owner: root
     group: root
     mode: "0644"
@@ -630,13 +630,13 @@
       vars:
         cert_item: "{{ item }}"
 
-    - name: Initialize dynamic files from dynamic/sites on first run (compose)
+    - name: Синхронизировать per-site конфиги из dynamic/sites в корень dynamic (compose)
       when: (cert_manager_certs_effective | default(cert_manager_certs | default([])) | select('mapping') | list | length) > 0
       ansible.builtin.copy:
         src: "{{ traefik_storage_base_dir }}/{{ traefik_dynamic_subdir }}/{{ traefik_dynamic_sites_subdir | default('sites') }}/{{ (item.cert_name | default(item.domains | first)) | regex_replace('[^A-Za-z0-9_.-]', '_') | replace('.', '_') }}.yml"
         dest: "{{ traefik_storage_base_dir }}/{{ traefik_dynamic_subdir }}/{{ (item.cert_name | default(item.domains | first)) | regex_replace('[^A-Za-z0-9_.-]', '_') | replace('.', '_') }}.yml"
         remote_src: true
-        force: false
+        force: true
         owner: root
         group: root
         mode: "0644"

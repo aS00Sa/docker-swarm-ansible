@@ -1,0 +1,69 @@
+---
+# Вернуть порты к шаблонам репозитория: Traefik публикует только 8080 и 8443 на хосте,
+# HAProxy (systemd) — 80 и 443.
+#
+# Типичная поломка: в /mnt/gfs/traefik_gfs/docker-compose.yml вручную стоят 80:80 и 443:443,
+# тогда ss показывает docker-proxy на :80/:443, а HAProxy не может занять порты.
+#
+# Порядок: [traefik] compose down → [haproxy] роль haproxy → [cert_manager] роль cert-manager
+# (pre-check Traefik требует активный HAProxy и running cert-manager на нодах [cert_manager]) → [traefik] роль traefik.
+#
+# Кратковременный простой HTTP/HTTPS на edge между down Traefik и up Traefik снова.
+#
+#   ansible-playbook -i inventory-tstsprtbt.ini playbooks/plays/manual-edge-ports-haproxy-traefik.yml -u root
+#
+- name: "Edge — Traefik compose down (освободить 80/443 на хосте)"
+  hosts: traefik
+  tags: [manual-edge-ports]
+  roles:
+    - role: ../roles/cluster-defaults
+  tasks:
+    - name: Путь docker-compose Traefik на GFS
+      ansible.builtin.set_fact:
+        _traefik_gfs_compose: >-
+          {{ gluster_mount_path | default('/mnt/gfs') }}/{{ traefik_gfs_subdir | default('traefik_gfs') }}/docker-compose.yml
+
+    - name: docker compose down
+      become: true
+      ansible.builtin.command:
+        argv:
+          - docker
+          - compose
+          - -f
+          - "{{ _traefik_gfs_compose }}"
+          - down
+      register: edge_traefik_down
+      failed_when: false
+      changed_when: (edge_traefik_down.rc | default(1)) == 0
+
+- name: "Edge — HAProxy (после освобождения 80/443)"
+  hosts: haproxy
+  tags: [manual-edge-ports, haproxy]
+  roles:
+    - role: ../roles/cluster-defaults
+  tasks:
+    - ansible.builtin.import_role:
+        name: ../roles/haproxy
+      tags: [haproxy]
+      when: haproxy_enabled | default(true) | bool
+
+- name: "Edge — cert-manager (для pre-check Traefik)"
+  hosts: cert_manager
+  tags: [manual-edge-ports, cert-manager]
+  roles:
+    - role: ../roles/cluster-defaults
+  tasks:
+    - ansible.builtin.import_role:
+        name: ../roles/cert-manager
+      tags: [cert-manager]
+      when: cert_manager_enabled | default(true) | bool
+
+- name: "Edge — Traefik по шаблону (8080/8443)"
+  hosts: traefik
+  tags: [manual-edge-ports, traefik]
+  roles:
+    - role: ../roles/cluster-defaults
+  tasks:
+    - ansible.builtin.import_role:
+        name: ../roles/traefik
+      tags: [traefik]

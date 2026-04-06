@@ -5,3 +5,8 @@
 
 # Порт SSH хостов кластера (Ansible, правила firewall в роли firewall-iptables).
 default_ssh_port: 22
+
+# Бизнес-стеки Swarm для playbooks/plays/manual-business-stacks-redeploy.yml (и manual-after-haproxy-refresh).
+# Список словарей: stack — имя stack, compose — путь к compose от корня репозитория на контроллере.
+# Переопределение: -e @playbooks/vars/tstsprtbt-business-stacks.yml или свой group_vars / extra-vars.
+swarm_business_stacks: []

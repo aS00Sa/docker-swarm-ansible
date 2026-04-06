@@ -1,0 +1,66 @@
+---
+# Пересборка бизнес-стеков Swarm: compose-файлы с контроллера копируются на первый manager,
+# затем docker stack deploy --detach (как в README examples/*).
+#
+# Список стеков — переменная swarm_business_stacks (см. playbooks/roles/cluster-defaults/defaults/main.yml).
+# Пример для tstsprtbt:
+#   ansible-playbook -i inventory-tstsprtbt.ini playbooks/plays/manual-business-stacks-redeploy.yml -u root \
+#     -e @playbooks/vars/tstsprtbt-business-stacks.yml
+#
+# Compose с ${VAR}: задайте переменные окружения на manager (файл .env + export до deploy) или
+# расширьте словарь стека полем environment (см. комментарий в vars-файле).
+#
+- name: Бизнес-стеки Swarm — stack deploy
+  hosts: swarm_managers
+  gather_facts: false
+  roles:
+    - role: ../roles/cluster-defaults
+  tasks:
+    - name: Корень репозитория на контроллере (для src у copy)
+      when:
+        - inventory_hostname == (groups['swarm_managers'] | first)
+        - (swarm_business_stacks | default([]) | length) > 0
+      ansible.builtin.set_fact:
+        business_stacks_repo_root: "{{ playbook_dir | dirname | dirname }}"
+
+    - name: Каталог stack-файлов на manager
+      when:
+        - inventory_hostname == (groups['swarm_managers'] | first)
+        - (swarm_business_stacks | default([]) | length) > 0
+      ansible.builtin.file:
+        path: "/home/{{ ansible_user }}/stacks"
+        state: directory
+        mode: "0775"
+
+    - name: Копировать compose бизнес-стека на первый manager
+      when:
+        - inventory_hostname == (groups['swarm_managers'] | first)
+        - (swarm_business_stacks | default([]) | length) > 0
+      ansible.builtin.copy:
+        src: "{{ business_stacks_repo_root }}/{{ item.compose }}"
+        dest: "/home/{{ ansible_user }}/stacks/business-{{ item.stack }}.yml"
+        mode: "0644"
+      loop: "{{ swarm_business_stacks }}"
+      loop_control:
+        label: "{{ item.stack }}"
+
+    - name: docker stack deploy — бизнес-стеки
+      when:
+        - inventory_hostname == (groups['swarm_managers'] | first)
+        - (swarm_business_stacks | default([]) | length) > 0
+      become: true
+      ansible.builtin.command:
+        argv:
+          - docker
+          - stack
+          - deploy
+          - --detach
+          - -c
+          - "/home/{{ ansible_user }}/stacks/business-{{ item.stack }}.yml"
+          - "{{ item.stack }}"
+      environment: "{{ item.environment | default({}) }}"
+      loop: "{{ swarm_business_stacks }}"
+      loop_control:
+        label: "{{ item.stack }}"
+      register: manual_business_stack_deploy
+      changed_when: manual_business_stack_deploy is succeeded

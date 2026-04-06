@@ -1,5 +1,8 @@
 ---
 # ansible-playbook -i inventory-prod.ini playbooks/plays/13-traefik.yml
+#
+# После правок playbooks/generated/traefik-stack.yml на контроллере — применить без полной роли:
+#   ansible-playbook -i inventory-prod.ini playbooks/plays/manual-traefik-stack-from-generated.yml -u root
 - hosts: traefik
   tags: [traefik]
   roles:

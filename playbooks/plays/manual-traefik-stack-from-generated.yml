@@ -1,0 +1,64 @@
+---
+# Переподнять Traefik Swarm stack с файла playbooks/generated/traefik-stack.yml с контроллера.
+# Имеет смысл после правок этого файла в репозитории или когда нужно применить последний экспорт
+# без полного прогона роли (динамика на GFS при этом не пересобирается — только compose/stack).
+#
+#   export ANSIBLE_CONFIG="$PWD/ansible.cfg"
+#   ansible-playbook -i inventory-tstsprtbt.ini playbooks/plays/manual-traefik-stack-from-generated.yml -u root
+#
+- name: Traefik — stack deploy из playbooks/generated/traefik-stack.yml
+  hosts: swarm_managers
+  tags: [manual-traefik-stack, traefik]
+  roles:
+    - role: ../roles/cluster-defaults
+  tasks:
+    - name: Проверить наличие traefik-stack.yml на контроллере
+      ansible.builtin.stat:
+        path: "{{ playbook_dir }}/../generated/traefik-stack.yml"
+      delegate_to: localhost
+      run_once: true
+      register: manual_traefik_gen_stack_stat
+
+    - name: Сообщить об отсутствии файла
+      when:
+        - inventory_hostname == (groups['swarm_managers'] | first)
+        - not (manual_traefik_gen_stack_stat.stat.exists | default(false))
+      ansible.builtin.fail:
+        msg: >-
+          Нет {{ playbook_dir }}/../generated/traefik-stack.yml.
+          Сначала выполните playbooks/plays/13-traefik.yml (роль экспортирует файл с первого manager).
+
+    - name: Каталог stack-файлов на manager (как в роли traefik)
+      when: inventory_hostname == (groups['swarm_managers'] | first)
+      ansible.builtin.file:
+        path: "/home/{{ ansible_user }}/stacks"
+        state: directory
+        mode: "0775"
+
+    - name: Залить generated/traefik-stack.yml на первый swarm manager
+      when: inventory_hostname == (groups['swarm_managers'] | first)
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/../generated/traefik-stack.yml"
+        dest: "/home/{{ ansible_user }}/stacks/traefik-stack.yml"
+        mode: "0775"
+
+    - name: docker stack deploy traefik
+      when: inventory_hostname == (groups['swarm_managers'] | first)
+      become: true
+      ansible.builtin.command:
+        argv:
+          - docker
+          - stack
+          - deploy
+          - --detach
+          - -c
+          - "/home/{{ ansible_user }}/stacks/traefik-stack.yml"
+          - traefik
+      register: manual_traefik_stack_deploy
+      changed_when: >-
+        manual_traefik_stack_deploy.rc == 0
+        and (
+        'Updating service' in (manual_traefik_stack_deploy.stdout | default(''))
+        or 'Creating service' in (manual_traefik_stack_deploy.stdout | default(''))
+        or 'Creating network' in (manual_traefik_stack_deploy.stdout | default(''))
+        )

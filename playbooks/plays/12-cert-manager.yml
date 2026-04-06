@@ -1,6 +1,9 @@
 ---
 # ansible-playbook -i inventory-prod.ini playbooks/plays/12-cert-manager.yml
-- hosts: cert_manager
+# HAProxy + отдельный cert_manager: роль должна отработать на всех [haproxy] (PEM в /etc/ssl/.../certs.d),
+# а docker compose cert-manager — только на выбранной ноде (VIP или cert_manager_singleton_inventory_hostnames).
+# Группа [cert_manager] — для Traefik pre-check и бэкендов ACME; может быть подмножеством [haproxy].
+- hosts: "{{ ((groups['haproxy'] | default([])) + (groups['cert_manager'] | default([]))) | unique | list }}"
   tags: [cert-manager]
   roles:
     - role: ../roles/cluster-defaults

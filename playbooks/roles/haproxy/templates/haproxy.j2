@@ -14,6 +14,12 @@ global
   maxconn 50000
   maxpipes 50000
   tune.maxaccept 500
+{% if (haproxy_tune_bufsize | default(0) | int) > 0 %}
+  tune.bufsize {{ haproxy_tune_bufsize | int }}
+{% endif %}
+{% if (haproxy_tune_maxrewrite | default(0) | int) > 0 %}
+  tune.maxrewrite {{ haproxy_tune_maxrewrite | int }}
+{% endif %}
   log /dev/log    local0 info
   log /dev/log    local1 notice
   chroot /var/lib/haproxy
@@ -120,6 +126,8 @@ backend nexus_docker_group_tcp
   http-request return status 503 content-type text/plain string "Nexus upstream not configured in cert_manager\n"
 {% endif %}
 
+# L7 → Traefik: клиентские заголовки (Authorization, Idempotency-Key, CORS preflight и т.д.)
+# пробрасываются по умолчанию; tune.bufsize/maxrewrite в global — под длинные блоки заголовков.
 backend traefik_web_upstream
   mode http
   balance roundrobin
