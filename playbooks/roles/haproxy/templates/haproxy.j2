@@ -244,6 +244,12 @@ frontend http-in
 {% endif %}
   acl acme_challenge path_beg /.well-known/acme-challenge/
   use_backend certmanager_acme_http01 if acme_challenge
+  acl host_nexus_http hdr(host) -i nexus.{{ app_domain_name }}
+  acl is_nexus_v2_http path_beg /v2/
+{% if haproxy_nexus_route_v2_to_docker_hosted | default(true) | bool %}
+  use_backend nexus_docker_hosted_tcp if host_nexus_http is_nexus_v2_http
+{% endif %}
+  use_backend nexus_websecure_tcp if host_nexus_http
 {# В текущей архитектуре HAProxy делает апстрим до Traefik "по умолчанию".
    Маршрутизацию по доменам/приложениям делает Traefik (dynamic config), а не HAProxy. #}
 {% if haproxy_acl_enabled | default(false) %}
@@ -279,6 +285,7 @@ frontend https_in
   http-request set-header X-Forwarded-Proto https
   acl host_gitlab hdr(host) -i gitlab.{{ app_domain_name }}
   acl host_nexus hdr(host) -i nexus.{{ app_domain_name }}
+  acl is_nexus_v2 path_beg /v2/
 {% if firewall_lockdown | default(false) | bool %}
 {% if _stats_cidrs | length > 0 %}
   acl stats_from_trusted_ssl src -f /etc/haproxy/stats-trusted.cidr
@@ -286,6 +293,9 @@ frontend https_in
 {% else %}
   http-request deny deny_status 403
 {% endif %}
+{% endif %}
+{% if haproxy_nexus_route_v2_to_docker_hosted | default(true) | bool %}
+  use_backend nexus_docker_hosted_tcp if host_nexus is_nexus_v2
 {% endif %}
   use_backend nexus_websecure_tcp if host_nexus
   use_backend gitlab_https_tcp if host_gitlab

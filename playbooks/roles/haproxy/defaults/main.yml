@@ -72,6 +72,8 @@ haproxy_tune_maxrewrite: 16384
 # Адреса GitLab/Nexus — из cert_manager (resolve_upstream_from_cert_manager.yml). Здесь только режимы:
 # TLS к GitLab upstream (8443 и т.д.); false если там plain HTTP.
 haproxy_gitlab_https_server_ssl: true
+# Для nexus.<domain>: route /v2/ в docker-hosted upstream (обычно :9080), остальное в UI (:8081).
+haproxy_nexus_route_v2_to_docker_hosted: true
 # Прокси GitLab SSH на haproxy_gitlab_ssh_listen_port; upstream из записи gitlab.* в cert_manager.
 haproxy_gitlab_ssh_proxy_enabled: true
 haproxy_gitlab_ssh_listen_port: 2222
