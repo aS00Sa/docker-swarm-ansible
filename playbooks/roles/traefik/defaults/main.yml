@@ -67,4 +67,8 @@ traefik_acme_resolver_name: letsencrypt
 # - upstream_port: 8081
 # - upstream_scheme: http
 
-# Роль формирует только активные dynamic-конфиги в корне dynamic.
+# Роль рендерит в dynamic/sites/ и синхронизирует в корень dynamic только шаблон auto_cert_manager.yml.j2
+# (один YAML на каждый слот cert_manager_certsN). Имя файла — из cert_name: точки → подчёркивания,
+# напр. bthm.server... → bthm_server_<domain>_ru.yml (bethome), nhm.* → nhm_* (inhome).
+# Отдельных файлов bethome.yml / inhome.yml на GFS нет — см. templates/dynamic/bethome.yml.j2 и inhome.yml.j2
+# только как устаревший справочный пример (в tasks не деплоятся, дублировать маршруты нельзя).

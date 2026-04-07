@@ -1,3 +1,4 @@
+{# Не деплоится ролью: маршруты bthm.* задаются через cert_manager + auto_cert_manager.yml.j2 → sites/bthm_*_….yml #}
 {% set traefik_backend_hosts = groups.get('swarm_workers', []) %}
 {% if traefik_backend_hosts | length == 0 %}
 {% set traefik_backend_hosts = groups.get('test_backend', []) %}

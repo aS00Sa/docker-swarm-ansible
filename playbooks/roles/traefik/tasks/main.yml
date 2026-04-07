@@ -413,6 +413,7 @@
     state: directory
     mode: "0775"
 
+# Имена в sites/: по cert_name (не «bethome.yml»/«inhome.yml») — см. defaults/traefik и auto_cert_manager.yml.j2.
 - name: Deploy per-site Traefik dynamic config to dynamic/sites (on first swarm node)
   when:
     - (traefik_effective_deploy_method | default('stack')) == 'stack'
