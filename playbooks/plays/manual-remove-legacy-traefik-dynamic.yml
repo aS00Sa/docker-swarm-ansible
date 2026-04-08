@@ -1,0 +1,35 @@
+---
+# Удалить legacy dynamic-конфиги Traefik из корня /mnt/gfs/traefik_gfs/dynamic
+# и перезапустить сервис Traefik, чтобы исключить дублирующиеся роуты/сервисы.
+#
+# Пример:
+#   export ANSIBLE_CONFIG="$PWD/ansible.cfg"
+#   ansible-playbook -i inventory-tstsprtbt.ini playbooks/plays/manual-remove-legacy-traefik-dynamic.yml -u root
+#
+- name: Traefik — удалить legacy dynamic файлы и перезапустить сервис
+  hosts: swarm_managers
+  gather_facts: false
+  tasks:
+    - name: Remove legacy dynamic files (on first swarm manager)
+      when: inventory_hostname == (groups['swarm_managers'] | first)
+      become: true
+      ansible.builtin.file:
+        path: "/mnt/gfs/traefik_gfs/dynamic/{{ item }}"
+        state: absent
+      loop:
+        - frontend.yml
+        - frontend-admin.yml
+        - frt.pps.yml 
+        - bethome.yml
+        - inhome.yml
+
+    - name: Force Traefik service restart (on first swarm manager)
+      when: inventory_hostname == (groups['swarm_managers'] | first)
+      become: true
+      ansible.builtin.command:
+        argv:
+          - docker
+          - service
+          - update
+          - --force
+          - traefik_traefik

@@ -465,6 +465,14 @@
   loop:
     - generated-upstreams.yml
     - auto_tls_from_cert_manager.yml
+    # Legacy монолитные конфиги (раньше клали вручную в dynamic/).
+    # Сейчас frontend/admin/frt.pps/bethome/inhome генерируются per-site из cert_manager_certs* → auto_cert_manager.yml.j2,
+    # поэтому эти файлы только дублируют роуты и мешают отладке.
+    - frontend.yml
+    - frontend-admin.yml
+    - frt.pps.yml
+    - bethome.yml
+    - inhome.yml
 
 - name: Create Traefik static configuration on GFS
   when:
@@ -653,6 +661,11 @@
       loop:
         - generated-upstreams.yml
         - auto_tls_from_cert_manager.yml
+        - frontend.yml
+        - frontend-admin.yml
+        - frt.pps.yml
+        - bethome.yml
+        - inhome.yml
 
     - name: Create Traefik static configuration on GFS (compose)
       ansible.builtin.template:

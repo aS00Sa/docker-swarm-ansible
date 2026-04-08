@@ -49,6 +49,33 @@ traefik_dependency_checks_warn_only: false
 # Пример: белый IP бэкенда, если с edge его маршрутизировать надо на 80.237.49.187, а SSH — ansible_host.
 traefik_default_upstream_host: ""
 
+# CORS: список разрешённых Origin (regex) для middleware `cors` в auto_cert_manager.yml.j2.
+# Если не задано — поведение как раньше: разрешать все Origin (".*").
+# Пример: разрешить только домены проекта и транзитный домен bmd.su:
+#   traefik_cors_allow_origin_list_regex:
+#     - "^https?://(www\\.)?tstsprtbt\\.ru$"
+#     - "^https?://(www\\.)?bmd\\.su$"
+traefik_cors_allow_origin_list_regex:
+  - ".*"
+
+# CORS: явный список разрешённых Origin (предпочтительнее regex для предсказуемого поведения в браузере).
+# Если список пуст — используется traefik_cors_allow_origin_list_regex.
+traefik_cors_allow_origin_list: []
+
+# CORS: список разрешённых заголовков для middleware `cors` (по умолчанию общий whitelist).
+# Точечно для конкретного сайта можно переопределить в cert_manager_certsN:
+#   "cors_allow_headers":["*"]
+traefik_cors_allow_headers:
+  - Content-Type
+  - Authorization
+  - Accept
+  - X-Requested-With
+  - captcha
+  - x-idempotency-key
+  - X-Idempotency-Key
+  - idempotency-key
+  - Idempotency-Key
+
 # Каталог проекта для docker compose (deploy_method=compose)
 # По умолчанию локальный каталог на ноде Traefik.
 traefik_compose_project_dir: "/opt/traefik"
