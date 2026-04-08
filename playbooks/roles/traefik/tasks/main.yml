@@ -453,7 +453,26 @@
     label: "{{ item.cert_name | default(item.domains | first) }}"
 
 
-- name: Remove legacy generated dynamic file names (on first swarm node)
+- name: Deploy legacy monolithic dynamic files (on first swarm node)
+  when:
+    - (traefik_effective_deploy_method | default('stack')) == 'stack'
+    - inventory_hostname == ((groups['swarm_managers'] | default([])) | first | default(''))
+    - traefik_legacy_dynamic_enabled | default(false) | bool
+  become: true
+  become_method: sudo
+  ansible.builtin.template:
+    src: "dynamic/{{ item }}.yml.j2"
+    dest: "{{ gluster_mount_path }}/{{ traefik_gfs_subdir }}/{{ traefik_dynamic_subdir }}/{{ item }}.yml"
+    mode: "0644"
+    owner: root
+    group: root
+  loop:
+    - frontend
+    - frontend-admin
+    - bethome
+    - inhome
+
+- name: Remove always-obsolete generated dynamic file names (on first swarm node)
   when:
     - (traefik_effective_deploy_method | default('stack')) == 'stack'
     - inventory_hostname == ((groups['swarm_managers'] | default([])) | first | default(''))
@@ -465,12 +484,23 @@
   loop:
     - generated-upstreams.yml
     - auto_tls_from_cert_manager.yml
+    - frt.pps.yml
+
+- name: Remove legacy monolithic dynamic files when legacy mode disabled (on first swarm node)
+  when:
+    - (traefik_effective_deploy_method | default('stack')) == 'stack'
+    - inventory_hostname == ((groups['swarm_managers'] | default([])) | first | default(''))
+    - not (traefik_legacy_dynamic_enabled | default(false) | bool)
+  become: true
+  become_method: sudo
+  ansible.builtin.file:
+    path: "{{ gluster_mount_path }}/{{ traefik_gfs_subdir }}/{{ traefik_dynamic_subdir }}/{{ item }}"
+    state: absent
+  loop:
     # Legacy монолитные конфиги (раньше клали вручную в dynamic/).
-    # Сейчас frontend/admin/frt.pps/bethome/inhome генерируются per-site из cert_manager_certs* → auto_cert_manager.yml.j2,
-    # поэтому эти файлы только дублируют роуты и мешают отладке.
+    # В обычном режиме выключены, чтобы не дублировать роуты из auto_cert_manager.yml.j2.
     - frontend.yml
     - frontend-admin.yml
-    - frt.pps.yml
     - bethome.yml
     - inhome.yml
 
@@ -654,16 +684,37 @@
         label: "{{ item.cert_name | default(item.domains | first) }}"
 
 
-    - name: Remove legacy generated dynamic file names (compose)
+    - name: Deploy legacy monolithic dynamic files (compose)
+      when: traefik_legacy_dynamic_enabled | default(false) | bool
+      ansible.builtin.template:
+        src: "dynamic/{{ item }}.yml.j2"
+        dest: "{{ traefik_storage_base_dir }}/{{ traefik_dynamic_subdir }}/{{ item }}.yml"
+        mode: "0644"
+        owner: root
+        group: root
+      loop:
+        - frontend
+        - frontend-admin
+        - bethome
+        - inhome
+
+    - name: Remove always-obsolete generated dynamic file names (compose)
       ansible.builtin.file:
         path: "{{ traefik_storage_base_dir }}/{{ traefik_dynamic_subdir }}/{{ item }}"
         state: absent
       loop:
         - generated-upstreams.yml
         - auto_tls_from_cert_manager.yml
+        - frt.pps.yml
+
+    - name: Remove legacy monolithic dynamic files when legacy mode disabled (compose)
+      when: not (traefik_legacy_dynamic_enabled | default(false) | bool)
+      ansible.builtin.file:
+        path: "{{ traefik_storage_base_dir }}/{{ traefik_dynamic_subdir }}/{{ item }}"
+        state: absent
+      loop:
         - frontend.yml
         - frontend-admin.yml
-        - frt.pps.yml
         - bethome.yml
         - inhome.yml
 

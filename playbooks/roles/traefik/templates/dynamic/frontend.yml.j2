@@ -2,11 +2,40 @@
 {% if traefik_backend_hosts | length == 0 %}
 {% set traefik_backend_hosts = groups.get('test_backend', []) %}
 {% endif %}
+{% set _cors_allow_headers = traefik_cors_allow_headers | default([]) %}
 http:
   middlewares:
     frontend-basicauth:
       basicAuth:
         usersFile: "/etc/traefik/dynamic/.htpasswd"
+    allow-cors:
+      headers:
+{% set _cors_origins = traefik_cors_allow_origin_list | default([]) %}
+{% if _cors_origins | length > 0 %}
+        accessControlAllowOriginList:
+{% for o in _cors_origins %}
+          - {{ o | to_json }}
+{% endfor %}
+{% else %}
+        accessControlAllowOriginListRegex:
+{% for r in (traefik_cors_allow_origin_list_regex | default(['.*'])) %}
+          - "{{ r }}"
+{% endfor %}
+{% endif %}
+        accessControlAllowMethods:
+          - GET
+          - POST
+          - PUT
+          - DELETE
+          - OPTIONS
+          - PATCH
+        accessControlAllowHeaders:
+{% for h in _cors_allow_headers %}
+          - {{ h | to_json }}
+{% endfor %}
+        accessControlAllowCredentials: true
+        addVaryHeader: true
+        accessControlMaxAge: 3600
   routers:
     # Без Basic Auth: manifest, favicon, статика (запросы без credentials)
     frontend-root-public:
@@ -15,11 +44,13 @@ http:
       entryPoints: [websecure]
       tls: {}
       priority: 100
+      middlewares: [allow-cors]
     frontend-root:
       rule: "Host(`{{ app_domain_name }}`) || Host(`www.{{ app_domain_name }}`)"
       service: frontend-main
       entryPoints: [websecure]
       tls: {}
+      middlewares: [allow-cors]
 #      middlewares: [frontend-basicauth]
 
   services:

@@ -99,3 +99,7 @@ traefik_acme_resolver_name: letsencrypt
 # напр. bthm.server... → bthm_server_<domain>_ru.yml (bethome), nhm.* → nhm_* (inhome).
 # Отдельных файлов bethome.yml / inhome.yml на GFS нет — см. templates/dynamic/bethome.yml.j2 и inhome.yml.j2
 # только как устаревший справочный пример (в tasks не деплоятся, дублировать маршруты нельзя).
+
+# Legacy-монолитные dynamic шаблоны (frontend/frontend-admin/bethome/inhome).
+# По умолчанию выключены; включайте только для временной совместимости.
+traefik_legacy_dynamic_enabled: false

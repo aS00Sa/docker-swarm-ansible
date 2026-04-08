@@ -2,19 +2,51 @@
 {% if traefik_backend_hosts | length == 0 %}
 {% set traefik_backend_hosts = groups.get('test_backend', []) %}
 {% endif %}
+{% set _cors_allow_headers = traefik_cors_allow_headers | default([]) %}
 # Админки без Basic Auth (frt.admin.panel, frt.crisis)
 http:
+  middlewares:
+    allow-cors:
+      headers:
+{% set _cors_origins = traefik_cors_allow_origin_list | default([]) %}
+{% if _cors_origins | length > 0 %}
+        accessControlAllowOriginList:
+{% for o in _cors_origins %}
+          - {{ o | to_json }}
+{% endfor %}
+{% else %}
+        accessControlAllowOriginListRegex:
+{% for r in (traefik_cors_allow_origin_list_regex | default(['.*'])) %}
+          - "{{ r }}"
+{% endfor %}
+{% endif %}
+        accessControlAllowMethods:
+          - GET
+          - POST
+          - PUT
+          - DELETE
+          - OPTIONS
+          - PATCH
+        accessControlAllowHeaders:
+{% for h in _cors_allow_headers %}
+          - {{ h | to_json }}
+{% endfor %}
+        accessControlAllowCredentials: true
+        addVaryHeader: true
+        accessControlMaxAge: 3600
   routers:
     frontend-admin-panel:
       rule: "Host(`frt.admin.panel.{{ app_domain_name }}`)"
       service: frontend-admin-panel
       entryPoints: [websecure]
       tls: {}
+      middlewares: [allow-cors]
     frontend-crisis:
       rule: "Host(`frt.crisis.{{ app_domain_name }}`)"
       service: frontend-crisis
       entryPoints: [websecure]
       tls: {}
+      middlewares: [allow-cors]
 
   services:
     frontend-admin-panel:
