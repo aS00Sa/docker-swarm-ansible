@@ -1,0 +1,97 @@
+- name: Deploy monitoring stack on DVS cluster
+  hosts: "swarm_managers[0]"
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Upload monitoring compose to manager
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/../../monitoring/docker-compose.yml"
+        dest: /root/monitoring-docker-compose.yml
+        mode: "0644"
+
+    - name: Deploy monitoring stack
+      ansible.builtin.command:
+        argv:
+          - docker
+          - stack
+          - deploy
+          - -c
+          - /root/monitoring-docker-compose.yml
+          - monitoring
+      register: monitoring_deploy
+      changed_when: false
+
+    - name: Show monitoring deploy output
+      ansible.builtin.debug:
+        msg: "{{ monitoring_deploy.stdout }}"
+
+    - name: List monitoring services
+      ansible.builtin.command:
+        argv:
+          - docker
+          - service
+          - ls
+          - --filter
+          - label=com.docker.stack.namespace=monitoring
+      register: monitoring_services
+      changed_when: false
+
+    - name: Print monitoring services
+      ansible.builtin.debug:
+        msg: "{{ monitoring_services.stdout }}"
+
+    - name: Show monitoring_grafana tasks
+      ansible.builtin.command:
+        argv:
+          - docker
+          - service
+          - ps
+          - monitoring_grafana
+          - --no-trunc
+      register: ps_grafana
+      changed_when: false
+      failed_when: false
+
+    - name: Show monitoring_prometheus tasks
+      ansible.builtin.command:
+        argv:
+          - docker
+          - service
+          - ps
+          - monitoring_prometheus
+          - --no-trunc
+      register: ps_prometheus
+      changed_when: false
+      failed_when: false
+
+    - name: Show monitoring_node-exporter tasks
+      ansible.builtin.command:
+        argv:
+          - docker
+          - service
+          - ps
+          - monitoring_node-exporter
+          - --no-trunc
+      register: ps_node_exporter
+      changed_when: false
+      failed_when: false
+
+    - name: Show monitoring_cadvisor tasks
+      ansible.builtin.command:
+        argv:
+          - docker
+          - service
+          - ps
+          - monitoring_cadvisor
+          - --no-trunc
+      register: ps_cadvisor
+      changed_when: false
+      failed_when: false
+
+    - name: Print monitoring task diagnostics
+      ansible.builtin.debug:
+        msg:
+          - "{{ ps_grafana.stdout | default(ps_grafana.stderr, true) }}"
+          - "{{ ps_prometheus.stdout | default(ps_prometheus.stderr, true) }}"
+          - "{{ ps_node_exporter.stdout | default(ps_node_exporter.stderr, true) }}"
+          - "{{ ps_cadvisor.stdout | default(ps_cadvisor.stderr, true) }}"
