@@ -77,3 +77,30 @@ examples/minio-s3/docker-compose.yml
 device: /mnt/gfs/minio-data
 examples/nexus-sonatype-swarm/docker-compose.yml
 device: /mnt/gfs/nexus-data
+
+
+Что делать по шагам
+Отдельно проверить split-brain (это не то же самое, что heal info):
+
+sudo gluster volume heal gfs info split-brain
+Если есть этот путь — дальше только процедура split-brain + выбор source-brick (с бэкапом для БД). Если 0 — остаётесь на обычном heal.
+
+Снизить конкуренцию с Postgres (сильно повышает шанс довести heal):
+
+остановить bethome-postgres (всё, что пишет в этот каталог на GFS);
+выполнить:
+sudo gluster volume heal gfs
+подождать 5–30+ минут, снова:
+sudo gluster volume heal gfs info
+sudo gluster volume heal gfs statistics
+Если долго не сходит:
+
+место на диске на всех трёх кирпичах;
+логи: /var/log/glusterfs/ на .5, .6, .7 (ошибки по этому gfid/пути);
+при согласовании с админами Gluster — full heal только в окне (тяжёлая нагрузка), синтаксис зависит от версии.
+Не править вручную только на .5 или .7: не удалять/не копировать 17585 точечно — риск split-brain и порчи страницы БД.
+
+Смысл в двух словах
+Один файл данных Postgres ещё не полностью согласован между репликами; .6 в этом выводе «чистый». Дальше: split-brain check → при 0 — стоп БД + heal gfs + ждать; при не 0 — не лечить «на глаз», нужен явный выбор источника и бэкап.
+
+Пришлите при необходимости свежий heal gfs info split-brain и одну строку heal gfs statistics после остановки Postgres — по ним можно сузить следующий шаг.

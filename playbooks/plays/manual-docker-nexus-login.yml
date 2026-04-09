@@ -1,0 +1,43 @@
+---
+# Docker login в Nexus (или любой registry) на всех нодах Swarm из inventory.
+#
+# Пример (tsts):
+#   ansible-playbook -i inventory-tstsprtbt.ini playbooks/plays/manual-docker-nexus-login.yml \
+#     -e docker_registry_url=nexus.btnxlocal.ru:9082 \
+#     -e docker_registry_username='robot$my-service' \
+#     -e docker_registry_password='***'
+#
+# Пароль лучше не светить в shell history: vault-файл или -e @local-secrets.yml (в .gitignore).
+# На нодах для HTTP-Nexus уже должны быть insecure-registries (роль docker / docker_insecure_registries).
+#
+- hosts: swarm_nodes
+  gather_facts: false
+  become: true
+  vars:
+    # hosted 9080 | proxy 9081 | group 9082 — подставьте тот порт, куда реально пушите/пуллите.
+    docker_registry_url: "{{ docker_registry_login_url | default('nexus.btnxlocal.ru:9082') }}"
+  tasks:
+    - name: Проверка учётных данных registry
+      ansible.builtin.assert:
+        that:
+          - docker_registry_username is defined
+          - docker_registry_username | length > 0
+          - docker_registry_password is defined
+          - docker_registry_password | length > 0
+        fail_msg: >-
+          Задайте docker_registry_username и docker_registry_password
+          (например -e или @vault.yml). См. комментарий в начале playbook.
+      no_log: true
+
+    - name: Docker login (password-stdin)
+      ansible.builtin.shell: |
+        set -euo pipefail
+        printf '%s\n' "${DOCKER_REGISTRY_PASSWORD}" | \
+          docker login "{{ docker_registry_url }}" \
+            -u '{{ docker_registry_username }}' \
+            --password-stdin
+      environment:
+        DOCKER_REGISTRY_PASSWORD: "{{ docker_registry_password }}"
+      register: manual_docker_nexus_login
+      changed_when: "'Login Succeeded' in (manual_docker_nexus_login.stdout | default(''))"
+      no_log: true
