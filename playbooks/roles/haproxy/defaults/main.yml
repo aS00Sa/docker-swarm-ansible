@@ -35,6 +35,10 @@ haproxy_service_enabled: true
 # HAProxy может принимать каталог в параметре `crt`.
 haproxy_ssl_fullchain_path: "/etc/ssl/{{ app_domain_name }}/certs.d"
 haproxy_ssl_privkey_path: "/etc/ssl/{{ app_domain_name }}/privkey.pem"
+# Пока в certs.d нет ни одного *.pem, bind ssl … crt <каталог> падает на haproxy -c.
+# Временный self-signed (000-bootstrap-snakeoil.pem) поднимает 443/908x и HTTP:80 для ACME;
+# после появления LE-сертов cert-manager остаётся как fallback SNI.
+haproxy_ssl_bootstrap_snakeoil: true
 
 # Upstream стратегия:
 # - auto: если задана непустая upstream-группа (haproxy_traefik_upstream_group),

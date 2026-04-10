@@ -79,6 +79,53 @@
 - name: Derive GitLab/Nexus HAProxy upstreams from cert_manager (cert_name gitlab.* / nexus.*)
   ansible.builtin.import_tasks: resolve_upstream_from_cert_manager.yml
 
+- name: Ensure HAProxy SNI TLS directory exists (crt-list каталог)
+  become: true
+  become_method: sudo
+  ansible.builtin.file:
+    path: "{{ haproxy_ssl_fullchain_path }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  when: haproxy_enabled | default(true) | bool
+
+- name: List existing *.pem in HAProxy crt directory
+  become: true
+  become_method: sudo
+  ansible.builtin.find:
+    paths: "{{ haproxy_ssl_fullchain_path }}"
+    patterns: "*.pem"
+    file_type: file
+  register: haproxy_crt_dir_pems
+  when: haproxy_enabled | default(true) | bool
+
+- name: Generate bootstrap self-signed PEM for HAProxy ssl binds (empty certs.d)
+  become: true
+  become_method: sudo
+  ansible.builtin.shell: |
+    set -euo pipefail
+    tmpdir="$(mktemp -d)"
+    openssl req -x509 -nodes -newkey rsa:2048 -days 30 \
+      -subj "/CN=haproxy-bootstrap-{{ app_domain_name | default('local') }}/O=ACME-bootstrap" \
+      -keyout "$tmpdir/key.pem" -out "$tmpdir/cert.pem"
+    umask 077
+    cat "$tmpdir/cert.pem" "$tmpdir/key.pem" > "{{ haproxy_ssl_fullchain_path }}/000-bootstrap-snakeoil.pem"
+    chmod 0640 "{{ haproxy_ssl_fullchain_path }}/000-bootstrap-snakeoil.pem"
+    rm -rf "$tmpdir"
+  args:
+    creates: "{{ haproxy_ssl_fullchain_path }}/000-bootstrap-snakeoil.pem"
+  when:
+    - haproxy_enabled | default(true) | bool
+    - haproxy_ssl_bootstrap_snakeoil | default(true) | bool
+    - (haproxy_crt_dir_pems.matched | default(0) | int) == 0
+    - >-
+      (
+        (haproxy_https_enabled | default(true) | bool)
+        and ((haproxy_https_mode | default('http_terminate')) != 'tcp_passthrough')
+      )
+      or (haproxy_docker_tls_termination | default(false) | bool)
+
 - name: Create HAProxy config file
   become: true
   become_method: sudo
