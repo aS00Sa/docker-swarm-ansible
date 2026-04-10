@@ -1,0 +1,49 @@
+---
+# Перезапуск сервисов Swarm-стека Portainer (как в роли portainer: stack name «portainer»).
+#
+#   ansible-playbook -i inventory-sprtbt.ini playbooks/plays/manual-restart-portainer.yml -u root --private-key ~/.ssh/id_ed25519
+#
+- name: Restart Portainer stack services
+  hosts: swarm_managers
+  gather_facts: false
+  vars:
+    portainer_stack_name: portainer
+  tasks:
+    - name: docker service update --force (Portainer UI)
+      ansible.builtin.command:
+        argv:
+          - docker
+          - service
+          - update
+          - "{{ portainer_stack_name }}_portainer"
+          - --force
+      register: manual_restart_portainer_ui
+      changed_when: manual_restart_portainer_ui.rc == 0
+      run_once: true
+
+    - name: Check if Portainer Agent service exists
+      ansible.builtin.command:
+        argv:
+          - docker
+          - service
+          - inspect
+          - "{{ portainer_stack_name }}_agent"
+          - --format
+          - "{% raw %}{{.ID}}{% endraw %}"
+      register: manual_restart_portainer_agent_inspect
+      failed_when: false
+      changed_when: false
+      run_once: true
+
+    - name: docker service update --force (Portainer Agent, global)
+      ansible.builtin.command:
+        argv:
+          - docker
+          - service
+          - update
+          - "{{ portainer_stack_name }}_agent"
+          - --force
+      register: manual_restart_portainer_agent
+      changed_when: manual_restart_portainer_agent.rc == 0
+      when: manual_restart_portainer_agent_inspect.rc == 0
+      run_once: true
