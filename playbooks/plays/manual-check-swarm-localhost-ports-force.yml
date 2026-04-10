@@ -1,0 +1,196 @@
+---
+# Проверка портов приложений на нодах Swarm: curl http://127.0.0.1:<port>/
+#
+# Матрица берётся из inventory: cert_manager_certs1..N → cert_manager_certs_effective.
+# Для каждой записи:
+#   port        = upstream_port
+#   service_grep = service_name с заменой "-" на "_" (часто совпадает с суффиксом имени в `docker service ls`).
+#
+# Дополнительные порты (нет в cert_manager), например 5054 / 6070:
+#   -e '{"swarm_localhost_extra_port_matrix":[{"port":5054,"service_grep":"bethome_cache"},{"port":6070,"service_grep":"inhome_exchange_1c"}]}'
+#
+# При curl с кодом 7 (connection refused) хотя бы на одной ноде — на первом менеджере:
+#   docker service ls | grep …, docker service ps … --no-trunc,
+#   и при swarm_localhost_apply_force=true: docker service update … --force
+#
+#   ansible-playbook -i inventory-sprtbt.ini playbooks/plays/manual-check-swarm-localhost-ports-force.yml
+#   ansible-playbook -i inventory-sprtbt.ini playbooks/plays/manual-check-swarm-localhost-ports-force.yml -e swarm_localhost_apply_force=true
+#
+- name: Build port matrix from cert_manager (inventory)
+  hosts: swarm_managers
+  gather_facts: false
+  vars:
+    swarm_localhost_apply_force: false
+    swarm_localhost_extra_port_matrix: []
+  tasks:
+    - name: Resolve cert_manager_certs_effective
+      ansible.builtin.import_tasks: ../roles/cert-manager/tasks/resolve_cert_manager_certs.yml
+
+    - name: Initialize empty port matrix
+      ansible.builtin.set_fact:
+        swarm_localhost_port_matrix: []
+
+    - name: Append entries from cert_manager_certs_effective
+      ansible.builtin.set_fact:
+        swarm_localhost_port_matrix: >-
+          {{
+            swarm_localhost_port_matrix
+            + [
+                {
+                  'port': item.upstream_port | int,
+                  'service_grep': item.service_name | replace('-', '_'),
+                  'cert_name': item.cert_name | default('')
+                }
+              ]
+          }}
+      loop: "{{ cert_manager_certs_effective | default([]) }}"
+      when:
+        - item.upstream_port is defined
+        - item.service_name is defined
+
+    - name: Append extra port matrix (optional)
+      ansible.builtin.set_fact:
+        swarm_localhost_port_matrix: "{{ swarm_localhost_port_matrix + swarm_localhost_extra_port_matrix }}"
+
+    - name: Show resolved matrix (port + grep)
+      ansible.builtin.debug:
+        var: swarm_localhost_port_matrix
+      run_once: true
+
+- name: curl localhost ports on every swarm node
+  hosts: swarm_nodes
+  gather_facts: false
+  vars:
+    _matrix: "{{ hostvars[groups['swarm_managers'][0]]['swarm_localhost_port_matrix'] | default([]) }}"
+  tasks:
+    - name: "curl http://127.0.0.1:{{ item.port }}/ (rc 7 = connection refused)"
+      ansible.builtin.command:
+        argv:
+          - curl
+          - -g
+          - -sS
+          - --connect-timeout
+          - "2"
+          - --max-time
+          - "5"
+          - -o
+          - /dev/null
+          - "http://127.0.0.1:{{ item.port }}/"
+      register: swarm_localhost_curl_results
+      failed_when: false
+      changed_when: false
+      loop: "{{ _matrix }}"
+      loop_control:
+        label: "{{ item.port }}"
+
+    - name: Refused ports on this host
+      ansible.builtin.set_fact:
+        swarm_refused_on_this_host: >-
+          {{
+            swarm_localhost_curl_results.results
+            | selectattr('rc', 'defined')
+            | selectattr('rc', 'equalto', 7)
+            | map(attribute='item.port')
+            | list
+          }}
+
+    - name: Report refused on node
+      ansible.builtin.debug:
+        msg: "{{ inventory_hostname }} connection_refused_ports={{ swarm_refused_on_this_host }}"
+
+- name: Diagnose and optional service update on first manager
+  hosts: swarm_managers
+  gather_facts: false
+  vars:
+    _matrix: "{{ hostvars[groups['swarm_managers'][0]]['swarm_localhost_port_matrix'] | default([]) }}"
+    swarm_localhost_apply_force: false
+  tasks:
+    - name: Cluster-wide refused ports (union)
+      ansible.builtin.set_fact:
+        swarm_cluster_refused_ports: >-
+          {{
+            groups['swarm_nodes']
+            | map('extract', hostvars, 'swarm_refused_on_this_host')
+            | map('default', [])
+            | flatten
+            | unique
+            | sort
+          }}
+      run_once: true
+
+    - name: Report cluster refused list
+      ansible.builtin.debug:
+        msg: "Ports with connection refused on at least one node: {{ swarm_cluster_refused_ports }}"
+      run_once: true
+
+    - name: Resolve docker service name for refused port
+      ansible.builtin.shell: |
+        set -euo pipefail
+        docker service ls --no-trunc 2>/dev/null | tail -n +2 | awk '{print $2}' | grep -F "{{ item.service_grep }}" | head -n1
+      args:
+        executable: /bin/bash
+      register: swarm_resolved_docker_service
+      changed_when: false
+      failed_when: false
+      loop: "{{ _matrix }}"
+      when: item.port in swarm_cluster_refused_ports
+      loop_control:
+        label: "port={{ item.port }} grep={{ item.service_grep }}"
+      run_once: true
+
+    - name: docker service ls (filtered)
+      ansible.builtin.shell: |
+        docker service ls --no-trunc | grep -F "{{ item.item.service_grep }}" || true
+      args:
+        executable: /bin/bash
+      loop: "{{ swarm_resolved_docker_service.results | default([]) }}"
+      when:
+        - item.skipped is not defined or not item.skipped | bool
+        - item.stdout is defined
+        - (item.stdout | default('') | trim | length) > 0
+      changed_when: false
+      run_once: true
+
+    - name: docker service ps --no-trunc
+      ansible.builtin.command:
+        argv:
+          - docker
+          - service
+          - ps
+          - "{{ item.stdout | trim }}"
+          - --no-trunc
+      loop: "{{ swarm_resolved_docker_service.results | default([]) }}"
+      when:
+        - item.skipped is not defined or not item.skipped | bool
+        - item.stdout is defined
+        - (item.stdout | default('') | trim | length) > 0
+      changed_when: false
+      run_once: true
+
+    - name: docker service update --force
+      ansible.builtin.command:
+        argv:
+          - docker
+          - service
+          - update
+          - "{{ item.stdout | trim }}"
+          - --force
+      loop: "{{ swarm_resolved_docker_service.results | default([]) }}"
+      when:
+        - swarm_localhost_apply_force | default(false) | bool
+        - item.skipped is not defined or not item.skipped | bool
+        - item.stdout is defined
+        - (item.stdout | default('') | trim | length) > 0
+      run_once: true
+
+    - name: No docker service matched grep for refused port
+      ansible.builtin.debug:
+        msg: >-
+          Port {{ item.item.port }} refused but no line in `docker service ls` matched grep
+          '{{ item.item.service_grep }}' (проверьте реальное имя стека/сервиса).
+      loop: "{{ swarm_resolved_docker_service.results | default([]) }}"
+      when:
+        - item.skipped is not defined or not item.skipped | bool
+        - item.stdout is defined
+        - (item.stdout | default('') | trim | length) == 0
+      run_once: true
