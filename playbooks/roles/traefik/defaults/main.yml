@@ -45,7 +45,7 @@ traefik_require_cert_manager_ready: true
 traefik_dependency_checks_warn_only: false
 
 # Явный хост upstream для сайтов из auto_cert_manager.yml.j2, если в cert_manager_certsN не задан upstream_host.
-# Пусто — как раньше: hostvars[h].ansible_host по группам [swarm_workers] или [test_backend].
+# Имеет приоритет над пулом хостов. Пусто — пул: непустой [test_backend], иначе [swarm_managers] (ansible_host).
 # Пример: белый IP бэкенда, если с edge его маршрутизировать надо на 80.237.49.187, а SSH — ansible_host.
 traefik_default_upstream_host: ""
 

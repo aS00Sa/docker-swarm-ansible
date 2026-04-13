@@ -25,9 +25,14 @@
 {% set _mw_hsts_name = _name ~ '-hsts' %}
 {% set _mw_retry_name = _name ~ '-retry' %}
 {% set _mw_cors_name = _name ~ '-cors' %}
-{% set _backend_hosts = groups.get('swarm_workers', []) %}
-{% if _backend_hosts | length == 0 %}
-{% set _backend_hosts = groups.get('test_backend', []) %}
+{# Пул upstream без upstream_host/upstream_servers: приоритет traefik_default_upstream_host (ниже, _default_h).
+   Иначе непустой [test_backend] → только он; иначе [swarm_managers] (не workers). #}
+{% set _tb = groups.get('test_backend', []) | list %}
+{% set _mgr = groups.get('swarm_managers', []) | list %}
+{% if (_tb | length) > 0 %}
+{% set _backend_hosts = _tb %}
+{% else %}
+{% set _backend_hosts = _mgr %}
 {% endif %}
 {% set _pass_host = _c.pass_host_header | default(_c.traefik_pass_host_header | default(traefik_auto_site_pass_host_header | default(true))) | bool %}
 {% set _hc_enabled = _c.health_check_enabled | default(_c.traefik_health_check_enabled | default(traefik_auto_site_health_check_enabled | default(true))) | bool %}

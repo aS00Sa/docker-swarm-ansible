@@ -37,6 +37,11 @@
       loop_control:
         label: "{{ item }}"
 
+    # Пустой firewall_cluster_hosts → цикл не выполняется → firewall_cluster_ips не создаётся (шаблоны: AnsibleUndefinedVariable).
+    - name: Гарантировать firewall_cluster_ips как список
+      ansible.builtin.set_fact:
+        firewall_cluster_ips: "{{ firewall_cluster_ips | default([]) }}"
+
     - name: Пакеты iptables и сохранение правил
       ansible.builtin.apt:
         name:
@@ -324,6 +329,11 @@
       loop: "{{ firewall_cluster_hosts }}"
       loop_control:
         label: "{{ item }}"
+
+    # Пустой firewall_cluster_hosts → цикл не выполняется → firewall_cluster_ips не создаётся (шаблоны: AnsibleUndefinedVariable).
+    - name: Гарантировать firewall_cluster_ips как список
+      ansible.builtin.set_fact:
+        firewall_cluster_ips: "{{ firewall_cluster_ips | default([]) }}"
 
     - name: Пакеты iptables и сохранение правил
       ansible.builtin.apt:

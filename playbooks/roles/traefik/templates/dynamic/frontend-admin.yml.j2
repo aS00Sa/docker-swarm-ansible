@@ -1,6 +1,9 @@
-{% set traefik_backend_hosts = groups.get('swarm_workers', []) %}
-{% if traefik_backend_hosts | length == 0 %}
-{% set traefik_backend_hosts = groups.get('test_backend', []) %}
+{% set _tb = groups.get('test_backend', []) | list %}
+{% set _mgr = groups.get('swarm_managers', []) | list %}
+{% if (_tb | length) > 0 %}
+{% set traefik_backend_hosts = _tb %}
+{% else %}
+{% set traefik_backend_hosts = _mgr %}
 {% endif %}
 {% set _cors_allow_headers = traefik_cors_allow_headers | default([]) %}
 # Админки без Basic Auth (frt.admin.panel, frt.crisis)
