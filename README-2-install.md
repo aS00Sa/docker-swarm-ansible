@@ -61,3 +61,63 @@ ansible-playbook -i inventory.ini playbooks/run-role.yml -e target_role=haproxy 
 ANSIBLE_CONFIG="$PWD/ansible.cfg" ansible-playbook -i inventory.ini playbooks/install.yml --syntax-check
 ```
 
+Что будем запускать
+
+
+
+
+
+Основной entrypoint: [playbooks/install.yml](playbooks/install.yml) — импортирует все стадии по порядку (plays/01-host-defaults.yml … plays/13-traefik.yml).
+
+
+
+Конфиг Ansible: [ansible.cfg](ansible.cfg) задаёт roles_path=playbooks/roles и другие дефолты; inventory по умолчанию ./inventory.ini, поэтому в командах явно указываем ваш inventory-infra-btnxlocal.ini.
+
+Команда «полный прогон, но только новый хост»
+
+
+
+
+
+Dry-run (рекомендую сначала):
+
+ansible-playbook -i inventory-infra-btnxlocal.ini playbooks/install.yml --limit 188.225.43.161 --check --diff
+
+
+
+
+
+Реальный прогон:
+
+ansible-playbook -i inventory-infra-btnxlocal.ini playbooks/install.yml --limit 188.225.43.161
+
+На что обратить внимание (важно для --limit)
+
+
+
+
+
+install.yml включает plays, которые таргетят разные группы. С --limit 188.225.43.161 выполнятся только те задачи, где этот хост попадает в hosts: (например, если он в [haproxy]/[traefik]). Остальные стадии будут просто пропущены.
+
+
+
+Если на каком-то этапе окажется, что новой ноде нужно взаимодействовать с уже настроенными менеджерами (например, swarm join), то один --limit может быть недостаточен — тогда корректнее временно расширять лимит на нужные группы (например, --limit '188.225.43.161:swarm_managers'). Это станет видно по ошибкам вида «нужно выполнить действие на manager/leader».
+
+Опциональные ускорители/обходы (если упирается)
+
+
+
+
+
+Если есть проблемы/долгая отладка с firewall, в install.yml прямо указан вариант:
+
+ansible-playbook -i inventory-infra-btnxlocal.ini playbooks/install.yml --limit 188.225.43.161 --skip-tags firewall-iptables
+
+Мини-проверка перед прогоном
+
+
+
+
+
+Убедиться, что SSH-ключ из inventory доступен с вашей машины (ansible_ssh_private_key_file=~/.ssh/id_ed25519) и что на хосте есть Python3 (в ansible.cfg задан ansible_python_interpreter=/usr/bin/python3).
+

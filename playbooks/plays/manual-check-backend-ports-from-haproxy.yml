@@ -1,11 +1,11 @@
 ---
+# С edge (группа [haproxy]): nc к портам приложений.
+# Traefik (dynamic/auto_cert_manager) для cert_manager_certs* без upstream_host шлёт на
+# traefik_default_upstream_host (один IP, разные порты) — иначе на ansible_host каждого [swarm_workers].
+# Раньше здесь были захардкоженные IP; при другом inventory проверка врала, а 502 оставалась «непонятной».
 - hosts: haproxy
   gather_facts: false
   vars:
-    backend_hosts:
-      - "37.228.90.184"
-      - "37.228.90.190"
-      - "37.228.90.138"
     backend_ports:
       - 4000
       - 4010
@@ -25,6 +25,26 @@
       - 6080
       - 6090
   tasks:
+    - name: Список IP для nc — traefik_default_upstream_host или [swarm_workers]
+      when: traefik_default_upstream_host | default('') | trim | length > 0
+      ansible.builtin.set_fact:
+        backend_hosts: "{{ [traefik_default_upstream_host | trim] }}"
+
+    - name: Список IP для nc — ansible_host каждого swarm_worker
+      when: traefik_default_upstream_host | default('') | trim | length == 0
+      ansible.builtin.set_fact:
+        backend_hosts: "{{ backend_hosts | default([]) + [((hostvars[item].ansible_host | default(item)) | trim)] }}"
+      loop: "{{ groups['swarm_workers'] | default([]) }}"
+      loop_control:
+        label: "{{ item }}"
+
+    - name: Нужен хотя бы один upstream для проверки
+      ansible.builtin.assert:
+        that:
+          - (backend_hosts | default([]) | length) > 0
+        fail_msg: >-
+          Задайте traefik_default_upstream_host в [all:vars] или добавьте [swarm_workers] с ansible_host.
+
     - name: Check TCP connectivity to backend app ports
       ansible.builtin.command:
         argv:
