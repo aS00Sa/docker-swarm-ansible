@@ -7,7 +7,8 @@ ansible_remote_tmp: "/tmp/.ansible-{{ ansible_user | default('root') }}/tmp"
 # По умолчанию: firewall_lockdown=false, *_only_admin=false (без жёстких ограничений).
 # Поэтапное ужесточение (не наоборот: без lockdown не работают iptables и ACL /stats по CIDR в роли haproxy):
 #   1) firewall_lockdown=true;
-#   2) firewall_trusted_admin_cidrs (офис/VPN);
+#   2) firewall_trusted_admin_cidrs (офис/VPN) — в .ini одной строкой как docker_insecure_registries:
+#      firewall_trusted_admin_cidrs=["10.0.0.0/8","203.0.113.1"] (роль нормализует в список CIDR);
 #   3) при необходимости firewall_allow_ssh_only_admin=true и/или firewall_allow_icmp_only_admin=true.
 firewall_lockdown: false
 
