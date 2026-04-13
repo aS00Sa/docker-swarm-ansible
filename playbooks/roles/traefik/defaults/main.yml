@@ -100,7 +100,9 @@ traefik_acme_resolver_name: letsencrypt
 
 # Значения по умолчанию для динамически сгенерированных сайтов (cert_manager_certs* → auto_cert_manager.yml.j2).
 traefik_auto_site_pass_host_header: true
-traefik_auto_site_health_check_enabled: true
+# Health check по умолчанию выключен: если путь не отдаёт 2xx (часто нет GET /ping), Traefik снимает все серверы → 503.
+# Включите глобально true или в JSON слота: "health_check_enabled":true и при необходимости "health_check_path":"/ping".
+traefik_auto_site_health_check_enabled: false
 traefik_auto_site_health_check_path: "/ping"
 traefik_auto_site_health_check_interval: "10s"
 traefik_auto_site_health_check_timeout: "5s"
