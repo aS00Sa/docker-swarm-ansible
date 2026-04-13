@@ -57,7 +57,7 @@ http:
 {% endfor %}
         passHostHeader: true
         healthCheck:
-          path: "/"
+          path: "/ping"
           interval: "10s"
           timeout: "5s"
     frontend-crisis:
@@ -68,6 +68,6 @@ http:
 {% endfor %}
         passHostHeader: true
         healthCheck:
-          path: "/"
+          path: "/ping"
           interval: "10s"
           timeout: "5s"

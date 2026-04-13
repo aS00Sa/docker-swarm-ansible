@@ -32,4 +32,8 @@ http:
           # TODO: replace with real upstream servers (or add multiple servers)
           - { url: "{{ _upstream_scheme }}://127.0.0.1:{{ upstream_port | default(80) }}" }
         passHostHeader: true
+        healthCheck:
+          path: "/ping"
+          interval: "10s"
+          timeout: "5s"
 

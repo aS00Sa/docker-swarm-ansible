@@ -31,7 +31,7 @@ ansible all -i inventory*.ini -m ping
 ## Основной деплой
 
 ```bash
-ANSIBLE_CONFIG="$PWD/ansible.cfg" ansible-playbook -i inventory-dev.ini -u root --private-key ~/.ssh/id_ed25519 playbooks/install.yml 2>&1 -vvv | tee install-dev-$(date +%Y%m%d-%H%M).log
+ANSIBLE_CONFIG="$PWD/ansible.cfg" ansible-playbook -i inventory-dvsprtbt.ini -u root --private-key ~/.ssh/id_ed25519 playbooks/install.yml 2>&1 -vvv | tee inventory-dvsprtbt-$(date +%Y%m%d-%H%M).log
 ```
 
 Если в WSL `ansible.cfg` игнорируется (каталог под `/mnt/c/...`), всегда задавайте `ANSIBLE_CONFIG="$PWD/ansible.cfg"`.

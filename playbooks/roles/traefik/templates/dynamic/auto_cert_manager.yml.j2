@@ -29,6 +29,11 @@
 {% if _backend_hosts | length == 0 %}
 {% set _backend_hosts = groups.get('test_backend', []) %}
 {% endif %}
+{% set _pass_host = _c.pass_host_header | default(_c.traefik_pass_host_header | default(traefik_auto_site_pass_host_header | default(true))) | bool %}
+{% set _hc_enabled = _c.health_check_enabled | default(_c.traefik_health_check_enabled | default(traefik_auto_site_health_check_enabled | default(true))) | bool %}
+{% set _hc_path = _c.health_check_path | default(_c.traefik_health_check_path | default(traefik_auto_site_health_check_path | default('/ping'))) %}
+{% set _hc_interval = _c.health_check_interval | default(_c.traefik_health_check_interval | default(traefik_auto_site_health_check_interval | default('10s'))) %}
+{% set _hc_timeout = _c.health_check_timeout | default(_c.traefik_health_check_timeout | default(traefik_auto_site_health_check_timeout | default('5s'))) %}
 tls:
   certificates:
     - certFile: "/etc/traefik/letsencrypt/live/{{ _cn }}/fullchain.pem"
@@ -139,7 +144,13 @@ http:
           - { url: "{{ _c_scheme }}://{{ hostvars[h].ansible_host | default(h) }}:{{ _port_for_ep }}" }
 {% endfor %}
 {% endif %}
-        passHostHeader: true
+        passHostHeader: {{ _pass_host | bool | to_json }}
+{% if _hc_enabled | bool %}
+        healthCheck:
+          path: {{ _hc_path | to_json }}
+          interval: {{ _hc_interval | to_json }}
+          timeout: {{ _hc_timeout | to_json }}
+{% endif %}
 {% endfor %}
 {% else %}
     {{ _service_name }}:
@@ -159,5 +170,11 @@ http:
           - { url: "{{ _c_scheme }}://{{ hostvars[h].ansible_host | default(h) }}:{{ _c_port }}" }
 {% endfor %}
 {% endif %}
-        passHostHeader: true
+        passHostHeader: {{ _pass_host | bool | to_json }}
+{% if _hc_enabled | bool %}
+        healthCheck:
+          path: {{ _hc_path | to_json }}
+          interval: {{ _hc_interval | to_json }}
+          timeout: {{ _hc_timeout | to_json }}
+{% endif %}
 {% endif %}

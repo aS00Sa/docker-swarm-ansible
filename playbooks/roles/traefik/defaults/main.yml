@@ -93,6 +93,17 @@ traefik_acme_resolver_name: letsencrypt
 # - upstream_servers: ["http://10.0.0.10:8081", "http://10.0.0.11:8081"]
 # - upstream_port: 8081
 # - upstream_scheme: http
+# Traefik (http.services.*.loadBalancer) для auto_cert_manager: passHostHeader + healthCheck.
+# Глобально — переменные traefik_auto_site_* ниже; точечно в слоте JSON: pass_host_header,
+# health_check_enabled, health_check_path, health_check_interval, health_check_timeout
+# (дубли с префиксом traefik_*: traefik_pass_host_header, traefik_health_check_path, …).
+
+# Значения по умолчанию для динамически сгенерированных сайтов (cert_manager_certs* → auto_cert_manager.yml.j2).
+traefik_auto_site_pass_host_header: true
+traefik_auto_site_health_check_enabled: true
+traefik_auto_site_health_check_path: "/ping"
+traefik_auto_site_health_check_interval: "10s"
+traefik_auto_site_health_check_timeout: "5s"
 
 # Роль рендерит в dynamic/sites/ и синхронизирует в корень dynamic только шаблон auto_cert_manager.yml.j2
 # (один YAML на каждый слот cert_manager_certsN). Имя файла — из cert_name: точки → подчёркивания,
