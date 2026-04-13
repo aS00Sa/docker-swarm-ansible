@@ -1,36 +1,75 @@
 ---
 # В INI inventory key=[] или key= часто приходят строкой "[]" / "" — иначе map('trim') по строке обходит посимвольно и ломает плейбук.
-- name: Нормализовать firewall_trusted_admin_cidrs в список строк
+# Строка вида [109.1.1.1,192.168.0.0/24] без кавычек в YAML трактуется from_yaml ненадёжно (числа/float) — парсим вручную.
+- name: Разобрать firewall_trusted_admin_cidrs в промежуточный список
   ansible.builtin.set_fact:
-    firewall_effective_admin_cidrs: >-
+    _firewall_trusted_admin_parsed: "{{ _ftac_coerced }}"
+  vars:
+    _raw: "{{ firewall_trusted_admin_cidrs | default(none) }}"
+    _ftac_coerced: >-
       {{
         (
           []
           if (
-            firewall_trusted_admin_cidrs is not defined
+            _raw is none
             or (
-              firewall_trusted_admin_cidrs is string
-              and (firewall_trusted_admin_cidrs | trim) in ['', '[]']
+              _raw is string
+              and ((_raw | trim) in ['', '[]'])
+            )
+            or (
+              _raw is iterable
+              and (_raw is not string)
+              and ((_raw | length) == 0)
             )
           )
           else (
-            (
-              (firewall_trusted_admin_cidrs | trim | from_yaml)
+            (_raw | from_json)
+            if (
+              _raw is string
+              and ((_raw | trim) is match('^\\[.*\\]$'))
+              and ('"' in (_raw | trim))
+            )
+            else (
+              (
+                ((_raw | trim) | regex_replace('^\\[|\\]$', ''))
+                | split(',')
+                | map('trim')
+                | reject('equalto', '')
+                | list
+              )
               if (
-                firewall_trusted_admin_cidrs is string
-                and (firewall_trusted_admin_cidrs | trim) is match('^\\[.*\\]$')
+                _raw is string
+                and ((_raw | trim) is match('^\\[.*\\]$'))
               )
               else (
-                [firewall_trusted_admin_cidrs | trim]
-                if firewall_trusted_admin_cidrs is string
-                else firewall_trusted_admin_cidrs
+                ((_raw | trim) | split(','))
+                | map('trim')
+                | reject('equalto', '')
+                | list
+                if (
+                  _raw is string
+                  and (',' in (_raw | trim))
+                )
+                else (
+                  [_raw | trim]
+                  if _raw is string
+                  else (_raw | list)
+                )
               )
             )
           )
         )
+      }}
+
+- name: Нормализовать firewall_trusted_admin_cidrs в список строк (итог)
+  ansible.builtin.set_fact:
+    firewall_effective_admin_cidrs: >-
+      {{
+        (_firewall_trusted_admin_parsed | default([]))
         | flatten
         | map('trim')
-        | map('regex_replace', '[\\[\\]]', '')
+        | map('regex_replace', '^[\\[\\]]+|[\\[\\]]+$', '')
+        | map('trim')
         | reject('equalto', '')
         | reject('equalto', '[]')
         | unique
