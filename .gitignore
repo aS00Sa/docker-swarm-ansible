@@ -8,3 +8,6 @@ playbooks\generated\*
 playbooks/generated/*
 *.txt
 tmp*
+*.y*ml
+*.j*2
+.env*
