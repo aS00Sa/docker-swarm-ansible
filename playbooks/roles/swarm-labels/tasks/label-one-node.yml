@@ -10,6 +10,15 @@
   changed_when: false
   failed_when: false
 
+- name: Check that node ID exists in current swarm (on manager)
+  become: true
+  become_method: sudo
+  command: docker node inspect "{{ gfs_swarm_node_id.stdout | trim }}"
+  register: gfs_swarm_node_present
+  changed_when: false
+  failed_when: false
+  when: gfs_swarm_node_id.stdout | trim | length > 0
+
 - name: Apply node label by node ID (on manager)
   become: true
   become_method: sudo
@@ -18,10 +27,20 @@
   retries: 5
   delay: 2
   until: gfs_label_update.rc == 0
-  when: gfs_swarm_node_id.stdout | trim | length > 0
+  when:
+    - gfs_swarm_node_id.stdout | trim | length > 0
+    - gfs_swarm_node_present.rc == 0
 
 - name: "Warn skip labeling for nodes not in Swarm"
   ansible.builtin.debug:
     msg: >-
       Skip label for {{ gfs_target_host }}: Swarm.NodeID is empty (node is probably not joined to the swarm yet).
   when: gfs_swarm_node_id.stdout | trim | length == 0
+
+- name: "Warn skip labeling when node ID is from another/old swarm"
+  ansible.builtin.debug:
+    msg: >-
+      Skip label for {{ gfs_target_host }}: Swarm.NodeID={{ gfs_swarm_node_id.stdout | trim }} not found on current manager.
+  when:
+    - gfs_swarm_node_id.stdout | trim | length > 0
+    - gfs_swarm_node_present.rc != 0
