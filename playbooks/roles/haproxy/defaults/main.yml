@@ -46,6 +46,14 @@ haproxy_ssl_bootstrap_snakeoil: true
 #         Иначе отдавать 503 (direct_layer7).
 # - traefik: всегда проксировать в Traefik (ошибка/пустой backend если upstream-группа пустая).
 haproxy_upstream_mode: auto
+# Режим апстрима прикладных доменов из cert_manager_certs* (кроме gitlab.* / nexus.*):
+# - traefik: текущее поведение (HAProxy -> Traefik -> app).
+# - swarm_managers: прямой L7-апстрим с HAProxy на ноды из haproxy_app_upstream_group:upstream_port (обход Traefik).
+haproxy_app_upstream_mode: traefik
+# Группа inventory для прямого прикладного апстрима в режиме haproxy_app_upstream_mode=swarm_managers.
+haproxy_app_upstream_group: swarm_managers
+# true: использовать site.upstream_host (если задан в cert_manager_certs*) вместо группы выше.
+haproxy_app_use_slot_upstream_host: false
 # Группа inventory с адресами нод, куда HAProxy проксирует в Traefik.
 # По умолчанию это [traefik], но для edge-сценария можно указать [gluster_nodes].
 haproxy_traefik_upstream_group: traefik

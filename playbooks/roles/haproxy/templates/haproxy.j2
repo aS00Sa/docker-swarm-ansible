@@ -9,6 +9,12 @@
 {% set _compose_expected = (_traefik_method == 'compose') or ((_traefik_method == 'auto') and (not _swarm_ready)) %}
 {% set _traefik_ready = _swarm_ready or _compose_expected %}
 {% set _route_to_traefik = (_traefik_ready and _has_traefik) and ((_mode == 'traefik') or (_mode == 'auto')) %}
+{% set _app_mode = haproxy_app_upstream_mode | default('traefik') %}
+{% set _app_upstream_group = haproxy_app_upstream_group | default('swarm_managers') %}
+{% set _app_upstream_nodes = (groups[_app_upstream_group] | default([])) %}
+{% set _app_use_slot_upstream_host = haproxy_app_use_slot_upstream_host | default(false) | bool %}
+{% set _app_sites = (cert_manager_certs_effective | default([]) | selectattr('upstream_port', 'defined') | rejectattr('cert_name', 'match', '^gitlab\\.') | rejectattr('cert_name', 'match', '^nexus\\.') | list) %}
+{% set _route_apps_direct = (_app_mode == 'swarm_managers') and (_app_sites | length > 0) and ((_app_upstream_nodes | length > 0) or _app_use_slot_upstream_host) %}
 
 global
   maxconn 50000
@@ -143,6 +149,32 @@ backend traefik_websecure_upstream
   server traefik_websecure_{{ loop.index }} {{ hostvars[h].ansible_host | default(h) }}:{{ haproxy_traefik_websecure_port | default(8443) }} check
 {% endfor %}
 
+{# Direct app backends from cert_manager slots (HAProxy -> swarm managers, bypass Traefik). #}
+{% if _route_apps_direct %}
+{% for site in _app_sites %}
+{% set _site_domains = site.domains | default([]) %}
+{% if _site_domains is string %}
+{% set _site_domains = [_site_domains] %}
+{% endif %}
+{% if (_site_domains | length) == 0 and (site.cert_name is defined) %}
+{% set _site_domains = [site.cert_name] %}
+{% endif %}
+{% if (_site_domains | length) > 0 %}
+backend app_site_{{ loop.index }}_upstream
+  mode http
+  balance roundrobin
+{% if _app_use_slot_upstream_host and ((site.upstream_host | default('') | trim | length) > 0) %}
+  server app_upstream_{{ loop.index }} {{ site.upstream_host | trim }}:{{ site.upstream_port | int }} check
+{% else %}
+{% for h in _app_upstream_nodes %}
+  server app_upstream_{{ loop.parent.index }}_{{ loop.index }} {{ hostvars[h].ansible_host | default(h) }}:{{ site.upstream_port | int }} check
+{% endfor %}
+{% endif %}
+
+{% endif %}
+{% endfor %}
+{% endif %}
+
 {# --- Docker registry TCP (HAProxy -> Nexus) --- #}
 {# 9080 = docker-hosted, 9081 = docker-proxy, 9082 = docker-group #}
 frontend docker_hosted_in
@@ -250,6 +282,21 @@ frontend http-in
   use_backend nexus_docker_hosted_tcp if host_nexus_http is_nexus_v2_http
 {% endif %}
   use_backend nexus_websecure_tcp if host_nexus_http
+{% if _route_apps_direct %}
+{% for site in _app_sites %}
+{% set _site_domains = site.domains | default([]) %}
+{% if _site_domains is string %}
+{% set _site_domains = [_site_domains] %}
+{% endif %}
+{% if (_site_domains | length) == 0 and (site.cert_name is defined) %}
+{% set _site_domains = [site.cert_name] %}
+{% endif %}
+{% if (_site_domains | length) > 0 %}
+  acl host_app_{{ loop.index }} hdr(host) -i{% for d in _site_domains %} {{ d }}{% endfor %}
+  use_backend app_site_{{ loop.index }}_upstream if host_app_{{ loop.index }}
+{% endif %}
+{% endfor %}
+{% endif %}
 {# В текущей архитектуре HAProxy делает апстрим до Traefik "по умолчанию".
    Маршрутизацию по доменам/приложениям делает Traefik (dynamic config), а не HAProxy. #}
 {% if haproxy_acl_enabled | default(false) %}
@@ -299,6 +346,21 @@ frontend https_in
 {% endif %}
   use_backend nexus_websecure_tcp if host_nexus
   use_backend gitlab_https_tcp if host_gitlab
+{% if _route_apps_direct %}
+{% for site in _app_sites %}
+{% set _site_domains = site.domains | default([]) %}
+{% if _site_domains is string %}
+{% set _site_domains = [_site_domains] %}
+{% endif %}
+{% if (_site_domains | length) == 0 and (site.cert_name is defined) %}
+{% set _site_domains = [site.cert_name] %}
+{% endif %}
+{% if (_site_domains | length) > 0 %}
+  acl host_app_tls_{{ loop.index }} hdr(host) -i{% for d in _site_domains %} {{ d }}{% endfor %}
+  use_backend app_site_{{ loop.index }}_upstream if host_app_tls_{{ loop.index }}
+{% endif %}
+{% endfor %}
+{% endif %}
 {# Без записей gitlab.*/nexus.* в cert_manager — весь остальной HTTPS на Traefik (как HTTP-фронт). #}
 {% if _route_to_traefik %}
   default_backend traefik_web_upstream

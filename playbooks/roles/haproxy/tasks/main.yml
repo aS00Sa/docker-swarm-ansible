@@ -38,9 +38,9 @@
     force_apt_get: true
     update_cache: true
 
-# NOTE: ранее генерировали per-site backend include-файлы из cert_manager_certs.
-# Сейчас HAProxy всегда апстримит до Traefik (default_backend) без per-domain правил;
-# маршрутизацию по доменам выполняет Traefik (dynamic config).
+# NOTE: По умолчанию HAProxy апстримит до Traefik (haproxy_app_upstream_mode=traefik).
+# Для DEV можно включить прямой прикладной апстрим на swarm_managers через
+# haproxy_app_upstream_mode=swarm_managers (host->upstream_port по cert_manager_certs*).
 
 - name: CIDR для HAProxy /stats (только при firewall_lockdown и непустом firewall_trusted_admin_cidrs из inventory)
   become: true
