@@ -3,7 +3,7 @@ set -euo pipefail
 # INPUT: опубликованные служебные TCP Portainer (tunnel, agent) — только с IP нод кластера и admin CIDR; с остальных DROP.
 # Цепочка PORTAINER-NODE-PORTS. Swarm — apply-swarm-ports-restrict.sh.j2.
 
-{% set _tcp_blocked = firewall_restrict_portainer_tcp_dports | default([8000, 9001]) | map('int') | list | unique | sort %}
+{% set _tcp_blocked = firewall_restrict_portainer_tcp_dports | default([9998, 9991]) | map('int') | list | unique | sort %}
 
 while iptables -D INPUT -j PORTAINER-NODE-PORTS 2>/dev/null; do :; done
 iptables -F PORTAINER-NODE-PORTS 2>/dev/null || true

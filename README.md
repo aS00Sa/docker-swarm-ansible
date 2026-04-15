@@ -25,7 +25,7 @@ flowchart LR
 
   subgraph swarm[Docker Swarm managers + workers]
     P[Portainer UI :9090]
-    A[Portainer Agent :9001 внутри overlay]
+    A[Portainer Agent :9991 внутри overlay]
     S[Сервисы за Traefik]
   end
 

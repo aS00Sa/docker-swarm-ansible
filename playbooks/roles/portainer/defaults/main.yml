@@ -4,7 +4,8 @@ portainer_image: portainer/portainer-ce:2.39.1
 portainer_agent_image: portainer/agent:2.39.1
 
 portainer_admin_port: 9999
-portainer_tunnel_port: 8000
+portainer_agent_port: 9991
+portainer_tunnel_port: 9998
 portainer_gfs_subdir: portainer_gfs
 portainer_network_name: portainer_network
 portainer_volume_name: portainer_data

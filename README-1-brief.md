@@ -26,8 +26,8 @@
 | 9090 | TCP | Portainer UI |
 | 9091 | TCP | Traefik dashboard/API |
 | 22 | TCP | SSH |
-| 9001 | TCP | Portainer Agent (overlay) |
-| 8000 | TCP | Portainer tunnel |
+| 9991 | TCP | Portainer Agent (overlay) |
+| 9998 | TCP | Portainer tunnel |
 | 2377 | TCP | Swarm manager control plane |
 | 7946 | TCP/UDP | Swarm gossip |
 | 4789 | UDP | Swarm VXLAN |

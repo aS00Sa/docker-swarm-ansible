@@ -11,6 +11,7 @@ services:
     environment:
       TZ: Europe/Moscow
       AGENT_SECRET: {{portainer_agent_secret}}
+      AGENT_PORT: {{portainer_agent_port}}
     deploy:
       mode: global
       placement:
@@ -18,7 +19,7 @@ services:
 
   portainer:
     image: {{ portainer_image }}
-    command: "-H tcp://tasks.agent:9001 --tlsskipverify --bind :{{portainer_admin_port}} --tunnel-port {{portainer_tunnel_port}} --admin-password {{portainerpassword.stdout}}"
+    command: "-H tcp://tasks.agent:{{portainer_agent_port}} --tlsskipverify --bind :{{portainer_admin_port}} --tunnel-port {{portainer_tunnel_port}} --admin-password {{portainerpassword.stdout}}"
     ports:
       - "{{portainer_admin_port}}:{{portainer_admin_port}}"
       - "{{portainer_tunnel_port}}:{{portainer_tunnel_port}}"

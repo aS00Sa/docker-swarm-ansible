@@ -67,7 +67,7 @@
     - name: Проверка лимита multiport для Portainer TCP (≤15)
       ansible.builtin.assert:
         that:
-          - (firewall_restrict_portainer_tcp_dports | default([8000, 9001]) | map('int') | list | unique | length) <= 15
+          - (firewall_restrict_portainer_tcp_dports | default([9998, 9991]) | map('int') | list | unique | length) <= 15
         fail_msg: Слишком много портов Portainer в одном multiport; сократите списки в defaults/inventory.
       when: firewall_restrict_portainer_service_ports | bool
 
