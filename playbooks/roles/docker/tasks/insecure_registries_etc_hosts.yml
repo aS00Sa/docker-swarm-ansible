@@ -6,11 +6,11 @@
   ansible.builtin.set_fact:
     _docker_registry_host_parts: >-
       {{
-        docker_insecure_registries | default([])
+        docker_insecure_registries_effective | default([])
         | map('regex_replace', '^(.+):([0-9]+)$', '\1')
         | list
       }}
-  when: docker_insecure_registries | default([]) | length > 0
+  when: docker_insecure_registries_effective | default([]) | length > 0
 
 - name: Split registry host parts into IPv4s and non-IP names
   ansible.builtin.set_fact:
@@ -26,7 +26,19 @@
         | reject('match', '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$')
         | list | unique
       }}
-  when: docker_insecure_registries | default([]) | length > 0
+  when: docker_insecure_registries_effective | default([]) | length > 0
+
+- name: Validate /etc/hosts mapping can be built from insecure registries (strict mode)
+  ansible.builtin.assert:
+    that:
+      - (_docker_registry_ipv4s | default([]) | length) == 1
+      - (_docker_registry_fqdns | default([]) | length) > 0
+    fail_msg: >-
+      docker_insecure_registries is non-empty, but /etc/hosts mapping cannot be built unambiguously.
+      Parsed IPv4 hosts: {{ _docker_registry_ipv4s | default([]) }}; parsed FQDN hosts: {{ _docker_registry_fqdns | default([]) }}.
+      Expected format: one shared IPv4 host plus one or more FQDN hosts in docker_insecure_registries,
+      for example ["nexus.example.local:9082","192.168.25.126:9082"].
+  when: docker_insecure_registries_effective | default([]) | length > 0
 
 - name: Ensure FQDNs from insecure-registries resolve via /etc/hosts
   ansible.builtin.lineinfile:
@@ -39,6 +51,4 @@
   become: true
   become_method: sudo
   when:
-    - docker_insecure_registries | default([]) | length > 0
-    - (_docker_registry_ipv4s | default([]) | length) == 1
-    - (_docker_registry_fqdns | default([]) | length) > 0
+    - docker_insecure_registries_effective | default([]) | length > 0

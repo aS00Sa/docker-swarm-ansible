@@ -75,6 +75,15 @@
   debug:
     msg: "Docker version installed: {{ final_docker_version.stdout }}"
 
+- name: Compute effective insecure registries for this host
+  ansible.builtin.set_fact:
+    docker_insecure_registries_effective: >-
+      {{
+        docker_insecure_registries | default([])
+        if (inventory_hostname in (groups['swarm_nodes'] | default([])))
+        else []
+      }}
+
 - name: Optional /etc/hosts for insecure registry FQDNs
   ansible.builtin.import_tasks: insecure_registries_etc_hosts.yml
 
