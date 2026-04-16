@@ -383,3 +383,13 @@
         executable: /bin/bash
       changed_when: true
       loop: "{{ cert_manager_haproxy_cert_names_ready | default([]) }}"
+      register: cert_manager_haproxy_pem_build
+
+    - name: Reload HAProxy after PEM bundle updates
+      ansible.builtin.systemd:
+        name: haproxy
+        state: reloaded
+      when:
+        - (cert_manager_haproxy_cert_names_ready | default([]) | length) > 0
+        - cert_manager_haproxy_pem_build is defined
+        - cert_manager_haproxy_pem_build is changed
