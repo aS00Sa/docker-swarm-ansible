@@ -135,6 +135,43 @@
       }}
   loop: "{{ gluster_client_fallback_nodes }}"
 
+- name: Probe worker connectivity to Gluster managers (tcp/24007)
+  ansible.builtin.wait_for:
+    host: "{{ item }}"
+    port: 24007
+    timeout: 2
+    connect_timeout: 1
+    state: started
+  loop: "{{ gluster_client_primary_peers | default([]) }}"
+  loop_control:
+    label: "{{ item }}:24007"
+  register: gluster_client_primary_connectivity
+  failed_when: false
+  changed_when: false
+
+- name: Decide whether worker can use Gluster as a client
+  ansible.builtin.set_fact:
+    gluster_client_can_connect_primary: >-
+      {{
+        (gluster_client_primary_connectivity.results | default([]))
+        | selectattr('failed', 'defined')
+        | rejectattr('failed', 'equalto', true)
+        | list
+        | length > 0
+      }}
+
+- name: Skip worker when no Gluster manager is reachable
+  when: not (gluster_client_can_connect_primary | default(false) | bool)
+  block:
+    - name: Explain why worker is skipped
+      ansible.builtin.debug:
+        msg: >-
+          Skipping gluster-client on {{ inventory_hostname }} because no Gluster manager
+          is reachable on tcp/24007 (primary peers: {{ gluster_client_primary_peers | default([]) }}).
+
+    - name: End gluster-client play for unreachable worker
+      meta: end_host
+
 - name: Probe local gluster connectivity for edge nodes (primary peers)
   when: gluster_client_is_edge | default(false) | bool
   ansible.builtin.wait_for:
