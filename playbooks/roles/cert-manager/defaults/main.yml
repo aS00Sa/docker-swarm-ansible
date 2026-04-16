@@ -98,3 +98,11 @@ cert_manager_haproxy_ssl_dir: "/etc/ssl/{{ app_domain_name }}/certs.d"
 # Перезапускать Traefik после cert-manager compose up (compose-mode),
 # чтобы Traefik перечитал обновленные PEM-файлы (live/*/fullchain.pem).
 cert_manager_restart_traefik_after_issue: true
+
+# Edge shared-storage policy for cert-manager:
+# - enabled only when cert_manager_use_shared_storage=true and edge nodes count >= 3
+# - uses separate Gluster volume/mount on edge nodes (haproxy/traefik), isolated from main gfs
+cert_manager_edge_min_nodes_for_shared_storage: 3
+cert_manager_edge_gluster_volume_name: cert_manager_gfs
+cert_manager_edge_gluster_volume_path: /glusterfs/cert_manager_bricks
+cert_manager_edge_gluster_mount_path: /mnt/gfs-cert-manager

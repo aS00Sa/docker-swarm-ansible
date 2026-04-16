@@ -8,3 +8,23 @@
     - import_role:
         name: ../roles/gluster
       tags: [gluster]
+
+- hosts: haproxy:traefik
+  tags: [gluster, cert-manager-edge-gluster]
+  roles:
+    - role: ../roles/cluster-defaults
+  tasks:
+    - name: Build edge host list for dedicated cert-manager gluster
+      ansible.builtin.set_fact:
+        cert_manager_edge_hosts: "{{ ((groups['haproxy'] | default([])) + (groups['traefik'] | default([]))) | unique | list }}"
+
+    - name: Run dedicated edge Gluster for cert-manager storage
+      ansible.builtin.import_role:
+        name: ../roles/gluster
+      vars:
+        gluster_volume_name: "{{ cert_manager_edge_gluster_volume_name | default('cert_manager_gfs') }}"
+        gluster_volume_path: "{{ cert_manager_edge_gluster_volume_path | default('/glusterfs/cert_manager_bricks') }}"
+        gluster_mount_path: "{{ cert_manager_edge_gluster_mount_path | default('/mnt/gfs-cert-manager') }}"
+      when:
+        - cert_manager_use_shared_storage | default(false) | bool
+        - (cert_manager_edge_hosts | length) >= (cert_manager_edge_min_nodes_for_shared_storage | default(3) | int)

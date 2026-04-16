@@ -2,6 +2,31 @@
 - name: Resolve cert_manager_certs_effective (legacy list or cert_manager_certs1..N)
   ansible.builtin.include_tasks: resolve_cert_manager_certs.yml
 
+- name: Compute edge cert-manager shared-storage policy
+  ansible.builtin.set_fact:
+    cert_manager_edge_nodes: "{{ ((groups['haproxy'] | default([])) + (groups['traefik'] | default([]))) | unique | list }}"
+    cert_manager_use_shared_storage_effective: >-
+      {{
+        (cert_manager_use_shared_storage | default(false) | bool)
+        and (inventory_hostname in (((groups['haproxy'] | default([])) + (groups['traefik'] | default([]))) | unique | list))
+        and ((((groups['haproxy'] | default([])) + (groups['traefik'] | default([]))) | unique | list | length) >= (cert_manager_edge_min_nodes_for_shared_storage | default(3) | int))
+      }}
+    cert_manager_shared_storage_mount_path: "{{ cert_manager_edge_gluster_mount_path | default('/mnt/gfs-cert-manager') }}"
+    cert_manager_storage_base_dir_effective: >-
+      {{
+        ((cert_manager_edge_gluster_mount_path | default('/mnt/gfs-cert-manager')) ~ '/' ~ (cert_manager_gfs_subdir | default('cert_manager_gfs')))
+        if (
+          (cert_manager_use_shared_storage | default(false) | bool)
+          and (inventory_hostname in (((groups['haproxy'] | default([])) + (groups['traefik'] | default([]))) | unique | list))
+          and ((((groups['haproxy'] | default([])) + (groups['traefik'] | default([]))) | unique | list | length) >= (cert_manager_edge_min_nodes_for_shared_storage | default(3) | int))
+        )
+        else (cert_manager_compose_project_dir | default('/opt/cert-manager'))
+      }}
+
+- name: Apply effective cert-manager storage base dir
+  ansible.builtin.set_fact:
+    cert_manager_storage_base_dir: "{{ cert_manager_storage_base_dir_effective }}"
+
 - name: Skip cert-manager when disabled
   when: not (cert_manager_enabled | default(false) | bool)
   ansible.builtin.debug:
@@ -15,24 +40,24 @@
     - name: Mark storage ready in standalone mode (no shared mount required)
       ansible.builtin.set_fact:
         cert_manager_gluster_ok: true
-      when: not (cert_manager_use_shared_storage | default(false) | bool)
+      when: not (cert_manager_use_shared_storage_effective | default(false) | bool)
 
     - name: Check gluster mountpoint exists
-      ansible.builtin.command: mountpoint -q "{{ gluster_mount_path }}"
+      ansible.builtin.command: mountpoint -q "{{ cert_manager_shared_storage_mount_path }}"
       register: cert_manager_mountpoint
       changed_when: false
       failed_when: false
-      when: cert_manager_use_shared_storage | default(false) | bool
+      when: cert_manager_use_shared_storage_effective | default(false) | bool
 
     - name: Verify fstype of gluster mount
-      ansible.builtin.command: findmnt -n -o FSTYPE --target "{{ gluster_mount_path }}"
+      ansible.builtin.command: findmnt -n -o FSTYPE --target "{{ cert_manager_shared_storage_mount_path }}"
       register: cert_manager_findmnt_fstype
       changed_when: false
       failed_when: >-
         cert_manager_findmnt_fstype.rc != 0
         or (cert_manager_findmnt_fstype.stdout | trim) not in ['glusterfs', 'fuse.glusterfs', 'nfs4']
       when:
-        - cert_manager_use_shared_storage | default(false) | bool
+        - cert_manager_use_shared_storage_effective | default(false) | bool
         - (cert_manager_mountpoint.rc | default(1)) == 0
 
     - name: Set cert-manager gluster mount readiness fact
@@ -43,25 +68,26 @@
             and (cert_manager_findmnt_fstype.rc | default(1)) == 0
             and (cert_manager_findmnt_fstype.stdout | default('') | trim) in ['glusterfs', 'fuse.glusterfs', 'nfs4']
           }}
-      when: cert_manager_use_shared_storage | default(false) | bool
+      when: cert_manager_use_shared_storage_effective | default(false) | bool
 
     - name: Warn when cert-manager path is not a mounted GlusterFS
       ansible.builtin.debug:
         msg: >-
-          {{ gluster_mount_path }} is not a valid GlusterFS mountpoint on this host.
+          {{ cert_manager_shared_storage_mount_path }} is not a valid GlusterFS mountpoint on this host.
           GFS-backed cert-manager storage will be skipped to avoid writing files into a local directory
           that can later be hidden by a mount.
       when:
-        - cert_manager_use_shared_storage | default(false) | bool
+        - cert_manager_use_shared_storage_effective | default(false) | bool
         - not (cert_manager_gluster_ok | default(false) | bool)
 
     - name: Fail when shared storage is required but mount is not ready
       ansible.builtin.fail:
         msg: >-
-          cert_manager_use_shared_storage=true requires mounted shared storage on {{ gluster_mount_path }}.
+          cert_manager_use_shared_storage=true on edge with >= {{ cert_manager_edge_min_nodes_for_shared_storage | default(3) }}
+          nodes requires mounted shared storage on {{ cert_manager_shared_storage_mount_path }}.
           cert-manager deployment is blocked until mountpoint/fstype is valid (glusterfs/fuse.glusterfs/nfs4).
       when:
-        - cert_manager_use_shared_storage | default(false) | bool
+        - cert_manager_use_shared_storage_effective | default(false) | bool
         - not (cert_manager_gluster_ok | default(false) | bool)
 
 - name: Ensure cert-manager dirs exist on GFS
@@ -146,11 +172,11 @@
 
     - name: Render docker-compose.yml to fixed GFS path
       when:
-        - cert_manager_use_shared_storage | default(false) | bool
+        - cert_manager_use_shared_storage_effective | default(false) | bool
         - cert_manager_gluster_ok | default(false) | bool
       ansible.builtin.template:
         src: docker-compose.yml.j2
-        dest: "{{ gluster_mount_path }}/{{ cert_manager_gfs_subdir }}/docker-compose.yml"
+        dest: "{{ cert_manager_shared_storage_mount_path }}/{{ cert_manager_gfs_subdir }}/docker-compose.yml"
         mode: "0644"
 
     - name: Start/Update cert-manager with docker compose

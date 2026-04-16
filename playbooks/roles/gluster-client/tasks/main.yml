@@ -1,4 +1,26 @@
 ---
+- name: Detect edge client role (haproxy/traefik)
+  ansible.builtin.set_fact:
+    gluster_client_is_edge: >-
+      {{
+        inventory_hostname in (groups['haproxy'] | default([]))
+        or inventory_hostname in (groups['traefik'] | default([]))
+      }}
+
+- name: Skip gluster-client on edge hosts
+  when:
+    - gluster_client_is_edge | default(false) | bool
+  block:
+    - name: Explain why gluster-client is skipped on edge host
+      ansible.builtin.debug:
+        msg: >-
+          Skipping gluster-client on edge host {{ inventory_hostname }}.
+          Edge shared storage for cert-manager is handled by dedicated edge-gluster logic
+          only when cert_manager_use_shared_storage=true and edge nodes count >= 3.
+
+    - name: End gluster-client play for edge host
+      meta: end_host
+
 - name: Install GlusterFS client packages
   become: true
   become_method: sudo
@@ -74,14 +96,6 @@
         | default([])
         | unique
         | list
-      }}
-
-- name: Mark edge client role (haproxy/traefik)
-  ansible.builtin.set_fact:
-    gluster_client_is_edge: >-
-      {{
-        inventory_hostname in (groups['haproxy'] | default([]))
-        or inventory_hostname in (groups['traefik'] | default([]))
       }}
 
 - name: Ensure Gluster client peer list is not empty

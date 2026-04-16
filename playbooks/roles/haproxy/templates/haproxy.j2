@@ -152,6 +152,7 @@ backend traefik_websecure_upstream
 {# Direct app backends from cert_manager slots (HAProxy -> swarm managers, bypass Traefik). #}
 {% if _route_apps_direct %}
 {% for site in _app_sites %}
+{% set _site_idx = loop.index %}
 {% set _site_domains = site.domains | default([]) %}
 {% if _site_domains is string %}
 {% set _site_domains = [_site_domains] %}
@@ -163,11 +164,34 @@ backend traefik_websecure_upstream
 backend app_site_{{ loop.index }}_upstream
   mode http
   balance roundrobin
+{% set _site_middlewares = site.middlewares | default([]) %}
+{% if _site_middlewares is string %}
+{% set _site_middlewares = [_site_middlewares] %}
+{% endif %}
+{% set _site_middlewares_lc = (_site_middlewares | map('string') | map('lower') | list) %}
+{% if 'retry' in _site_middlewares_lc %}
+  retries 3
+  option redispatch
+{% endif %}
+{% if 'compress' in _site_middlewares_lc %}
+  compression algo gzip
+  compression type text/plain text/css text/javascript application/javascript application/json application/xml text/xml text/html
+{% endif %}
+{% if 'hsts' in _site_middlewares_lc %}
+  http-response set-header Strict-Transport-Security "max-age=31536000; includeSubDomains"
+{% endif %}
+{% if 'cors' in _site_middlewares_lc %}
+  http-request return status 204 hdr Access-Control-Allow-Origin "*" hdr Access-Control-Allow-Credentials "true" hdr Access-Control-Allow-Methods "GET,POST,PUT,PATCH,DELETE,OPTIONS" hdr Access-Control-Allow-Headers "*" if METH_OPTIONS
+  http-response set-header Access-Control-Allow-Origin "*"
+  http-response set-header Access-Control-Allow-Credentials "true"
+  http-response set-header Access-Control-Allow-Methods "GET,POST,PUT,PATCH,DELETE,OPTIONS"
+  http-response set-header Access-Control-Allow-Headers "*"
+{% endif %}
 {% if _app_use_slot_upstream_host and ((site.upstream_host | default('') | trim | length) > 0) %}
-  server app_upstream_{{ loop.index }} {{ site.upstream_host | trim }}:{{ site.upstream_port | int }} check
+  server app_upstream_{{ _site_idx }} {{ site.upstream_host | trim }}:{{ site.upstream_port | int }} check
 {% else %}
 {% for h in _app_upstream_nodes %}
-  server app_upstream_{{ loop.parent.index }}_{{ loop.index }} {{ hostvars[h].ansible_host | default(h) }}:{{ site.upstream_port | int }} check
+  server app_upstream_{{ _site_idx }}_{{ loop.index }} {{ hostvars[h].ansible_host | default(h) }}:{{ site.upstream_port | int }} check
 {% endfor %}
 {% endif %}
 
