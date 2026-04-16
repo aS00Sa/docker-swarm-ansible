@@ -154,6 +154,18 @@ backend traefik_websecure_upstream
 {% for site in _app_sites %}
 {% set _site_idx = loop.index %}
 {% set _site_domains = site.domains | default([]) %}
+{% set _site_backend_name = (
+  'app_'
+  ~ (
+    site.cert_name
+    | default(site.service_name | default(site.router_name | default('site')))
+    | lower
+    | regex_replace('[^a-z0-9]+', '_')
+    | regex_replace('^_+', '')
+    | regex_replace('_+$', '')
+  )
+  ~ '_' ~ (_site_idx | string) ~ '_upstream'
+) %}
 {% if _site_domains is string %}
 {% set _site_domains = [_site_domains] %}
 {% endif %}
@@ -161,7 +173,7 @@ backend traefik_websecure_upstream
 {% set _site_domains = [site.cert_name] %}
 {% endif %}
 {% if (_site_domains | length) > 0 %}
-backend app_site_{{ loop.index }}_upstream
+backend {{ _site_backend_name }}
   mode http
   balance roundrobin
 {% set _site_middlewares = site.middlewares | default([]) %}
@@ -309,6 +321,30 @@ frontend http-in
 {% if _route_apps_direct %}
 {% for site in _app_sites %}
 {% set _site_domains = site.domains | default([]) %}
+{% set _site_acl_name = (
+  'host_app_'
+  ~ (
+    site.cert_name
+    | default(site.service_name | default(site.router_name | default('site')))
+    | lower
+    | regex_replace('[^a-z0-9]+', '_')
+    | regex_replace('^_+', '')
+    | regex_replace('_+$', '')
+  )
+  ~ '_' ~ (loop.index | string)
+) %}
+{% set _site_backend_name = (
+  'app_'
+  ~ (
+    site.cert_name
+    | default(site.service_name | default(site.router_name | default('site')))
+    | lower
+    | regex_replace('[^a-z0-9]+', '_')
+    | regex_replace('^_+', '')
+    | regex_replace('_+$', '')
+  )
+  ~ '_' ~ (loop.index | string) ~ '_upstream'
+) %}
 {% if _site_domains is string %}
 {% set _site_domains = [_site_domains] %}
 {% endif %}
@@ -316,8 +352,8 @@ frontend http-in
 {% set _site_domains = [site.cert_name] %}
 {% endif %}
 {% if (_site_domains | length) > 0 %}
-  acl host_app_{{ loop.index }} hdr(host),field(1,:),lower -i{% for d in _site_domains %} {{ d | lower }}{% endfor %}
-  use_backend app_site_{{ loop.index }}_upstream if host_app_{{ loop.index }}
+  acl {{ _site_acl_name }} hdr(host),field(1,:),lower -i{% for d in _site_domains %} {{ d | lower }}{% endfor %}
+  use_backend {{ _site_backend_name }} if {{ _site_acl_name }}
 
 {% endif %}
 {% endfor %}
@@ -374,6 +410,30 @@ frontend https_in
 {% if _route_apps_direct %}
 {% for site in _app_sites %}
 {% set _site_domains = site.domains | default([]) %}
+{% set _site_acl_name = (
+  'host_app_tls_'
+  ~ (
+    site.cert_name
+    | default(site.service_name | default(site.router_name | default('site')))
+    | lower
+    | regex_replace('[^a-z0-9]+', '_')
+    | regex_replace('^_+', '')
+    | regex_replace('_+$', '')
+  )
+  ~ '_' ~ (loop.index | string)
+) %}
+{% set _site_backend_name = (
+  'app_'
+  ~ (
+    site.cert_name
+    | default(site.service_name | default(site.router_name | default('site')))
+    | lower
+    | regex_replace('[^a-z0-9]+', '_')
+    | regex_replace('^_+', '')
+    | regex_replace('_+$', '')
+  )
+  ~ '_' ~ (loop.index | string) ~ '_upstream'
+) %}
 {% if _site_domains is string %}
 {% set _site_domains = [_site_domains] %}
 {% endif %}
@@ -381,8 +441,8 @@ frontend https_in
 {% set _site_domains = [site.cert_name] %}
 {% endif %}
 {% if (_site_domains | length) > 0 %}
-  acl host_app_tls_{{ loop.index }} hdr(host),field(1,:),lower -i{% for d in _site_domains %} {{ d | lower }}{% endfor %}
-  use_backend app_site_{{ loop.index }}_upstream if host_app_tls_{{ loop.index }}
+  acl {{ _site_acl_name }} hdr(host),field(1,:),lower -i{% for d in _site_domains %} {{ d | lower }}{% endfor %}
+  use_backend {{ _site_backend_name }} if {{ _site_acl_name }}
 
 {% endif %}
 {% endfor %}
