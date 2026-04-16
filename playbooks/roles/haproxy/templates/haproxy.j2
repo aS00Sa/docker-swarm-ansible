@@ -154,6 +154,7 @@ backend traefik_websecure_upstream
 {% for site in _app_sites %}
 {% set _site_idx = loop.index %}
 {% set _site_domains = site.domains | default([]) %}
+{% set _site_domains_lc = (_site_domains | map('lower') | list) %}
 {% set _site_backend_name = (
   'app_'
   ~ (
@@ -171,6 +172,7 @@ backend traefik_websecure_upstream
 {% endif %}
 {% if (_site_domains | length) == 0 and (site.cert_name is defined) %}
 {% set _site_domains = [site.cert_name] %}
+{% set _site_domains_lc = (_site_domains | map('lower') | list) %}
 {% endif %}
 {% if (_site_domains | length) > 0 %}
 backend {{ _site_backend_name }}
@@ -321,6 +323,7 @@ frontend http-in
 {% if _route_apps_direct %}
 {% for site in _app_sites %}
 {% set _site_domains = site.domains | default([]) %}
+{% set _site_domains_lc = (_site_domains | map('lower') | list) %}
 {% set _site_acl_name = (
   'host_app_'
   ~ (
@@ -350,9 +353,10 @@ frontend http-in
 {% endif %}
 {% if (_site_domains | length) == 0 and (site.cert_name is defined) %}
 {% set _site_domains = [site.cert_name] %}
+{% set _site_domains_lc = (_site_domains | map('lower') | list) %}
 {% endif %}
 {% if (_site_domains | length) > 0 %}
-  acl {{ _site_acl_name }} hdr(host),field(1,:),lower -i{% for d in _site_domains %} {{ d | lower }}{% endfor %}
+  acl {{ _site_acl_name }} hdr(host),field(1,:),lower -i {{ _site_domains_lc | join(' ') }}
   use_backend {{ _site_backend_name }} if {{ _site_acl_name }}
 
 {% endif %}
@@ -410,6 +414,7 @@ frontend https_in
 {% if _route_apps_direct %}
 {% for site in _app_sites %}
 {% set _site_domains = site.domains | default([]) %}
+{% set _site_domains_lc = (_site_domains | map('lower') | list) %}
 {% set _site_acl_name = (
   'host_app_tls_'
   ~ (
@@ -439,9 +444,10 @@ frontend https_in
 {% endif %}
 {% if (_site_domains | length) == 0 and (site.cert_name is defined) %}
 {% set _site_domains = [site.cert_name] %}
+{% set _site_domains_lc = (_site_domains | map('lower') | list) %}
 {% endif %}
 {% if (_site_domains | length) > 0 %}
-  acl {{ _site_acl_name }} hdr(host),field(1,:),lower -i{% for d in _site_domains %} {{ d | lower }}{% endfor %}
+  acl {{ _site_acl_name }} hdr(host),field(1,:),lower -i {{ _site_domains_lc | join(' ') }}
   use_backend {{ _site_backend_name }} if {{ _site_acl_name }}
 
 {% endif %}
