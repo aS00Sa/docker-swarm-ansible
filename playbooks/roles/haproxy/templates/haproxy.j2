@@ -300,7 +300,7 @@ frontend http-in
 {% endif %}
   acl acme_challenge path_beg /.well-known/acme-challenge/
   use_backend certmanager_acme_http01 if acme_challenge
-  acl host_nexus_http hdr(host) -i nexus.{{ app_domain_name }}
+  acl host_nexus_http hdr(host),field(1,:),lower -i nexus.{{ app_domain_name | lower }}
   acl is_nexus_v2_http path_beg /v2/
 {% if haproxy_nexus_route_v2_to_docker_hosted | default(true) | bool %}
   use_backend nexus_docker_hosted_tcp if host_nexus_http is_nexus_v2_http
@@ -316,8 +316,9 @@ frontend http-in
 {% set _site_domains = [site.cert_name] %}
 {% endif %}
 {% if (_site_domains | length) > 0 %}
-  acl host_app_{{ loop.index }} hdr(host) -i{% for d in _site_domains %} {{ d }}{% endfor %}
+  acl host_app_{{ loop.index }} hdr(host),field(1,:),lower -i{% for d in _site_domains %} {{ d | lower }}{% endfor %}
   use_backend app_site_{{ loop.index }}_upstream if host_app_{{ loop.index }}
+
 {% endif %}
 {% endfor %}
 {% endif %}
@@ -354,8 +355,8 @@ frontend https_in
   bind {{ haproxy_bind_ip | default(ansible_default_ipv4.address) }}:{{ haproxy_https_port | default(443) }} ssl crt {{ haproxy_ssl_fullchain_path }}
   mode http
   http-request set-header X-Forwarded-Proto https
-  acl host_gitlab hdr(host) -i gitlab.{{ app_domain_name }}
-  acl host_nexus hdr(host) -i nexus.{{ app_domain_name }}
+  acl host_gitlab hdr(host),field(1,:),lower -i gitlab.{{ app_domain_name | lower }}
+  acl host_nexus hdr(host),field(1,:),lower -i nexus.{{ app_domain_name | lower }}
   acl is_nexus_v2 path_beg /v2/
 {% if firewall_lockdown | default(false) | bool %}
 {% if _stats_cidrs | length > 0 %}
@@ -380,8 +381,9 @@ frontend https_in
 {% set _site_domains = [site.cert_name] %}
 {% endif %}
 {% if (_site_domains | length) > 0 %}
-  acl host_app_tls_{{ loop.index }} hdr(host) -i{% for d in _site_domains %} {{ d }}{% endfor %}
+  acl host_app_tls_{{ loop.index }} hdr(host),field(1,:),lower -i{% for d in _site_domains %} {{ d | lower }}{% endfor %}
   use_backend app_site_{{ loop.index }}_upstream if host_app_tls_{{ loop.index }}
+
 {% endif %}
 {% endfor %}
 {% endif %}
