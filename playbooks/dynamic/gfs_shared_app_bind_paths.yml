@@ -7,3 +7,6 @@ gfs_app_bind_paths:
   - app_name: rabbitmq-shared
     subdirs:
       - data
+  - app_name: frontend-minio
+    subdirs:
+      - data
