@@ -45,7 +45,7 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "sum by (service) (rate({job=\"docker\", stack=~\"$stack\", service=~\"$service\"}[1m]))",
+          "expr": "sum by (service) (rate({job=\"docker\", stack!=\"monitoring\", service!=\"monitoring_loki\", stack=~\"$stack\", service=~\"$service\"}[1m]))",
           "refId": "A"
         }
       ],
@@ -79,7 +79,7 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "{job=\"docker\", stack=~\"$stack\", service=~\"$service\"} |= \"$search\"",
+          "expr": "{job=\"docker\", stack!=\"monitoring\", service!=\"monitoring_loki\", stack=~\"$stack\", service=~\"$service\"} |~ \"$search\"",
           "refId": "A"
         }
       ],
@@ -113,7 +113,7 @@
         "multi": true,
         "name": "stack",
         "options": [],
-        "query": "label_values({job=\"docker\"}, stack)",
+        "query": "label_values({job=\"docker\", stack!=\"monitoring\", service!=\"monitoring_loki\"}, stack)",
         "refresh": 2,
         "type": "query"
       },
@@ -133,18 +133,18 @@
         "multi": true,
         "name": "service",
         "options": [],
-        "query": "label_values({job=\"docker\", stack=~\"$stack\"}, service)",
+        "query": "label_values({job=\"docker\", stack!=\"monitoring\", service!=\"monitoring_loki\", stack=~\"$stack\"}, service)",
         "refresh": 2,
         "type": "query"
       },
       {
         "current": {
-          "selected": false,
-          "text": "",
-          "value": ""
+          "selected": true,
+          "text": "(?i)error|panic|timeout",
+          "value": "(?i)error|panic|timeout"
         },
         "hide": 0,
-        "label": "Search",
+        "label": "Search (regex)",
         "name": "search",
         "options": [],
         "query": "",
