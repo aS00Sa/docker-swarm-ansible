@@ -20,10 +20,22 @@ services:
       - type: volume
         source: grafana-data
         target: /var/lib/grafana
+    configs:
+      - source: grafana-datasource
+        target: /etc/grafana/provisioning/datasources/prometheus.yml
+      - source: grafana-dashboards-provider
+        target: /etc/grafana/provisioning/dashboards/dashboards.yml
+      - source: grafana-dashboard-vms
+        target: /var/lib/grafana/dashboards/cluster-vms-overview.json
+      - source: grafana-dashboard-services
+        target: /var/lib/grafana/dashboards/swarm-services-overview.json
+      - source: grafana-dashboard-storage-db
+        target: /var/lib/grafana/dashboards/storage-db-overview.json
     environment:
       - GF_SECURITY_ADMIN_USER=${GRAFANA_USER}
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD}
       - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/var/lib/grafana/dashboards/swarm-services-overview.json
     networks:
       - net
 
@@ -46,6 +58,9 @@ services:
       - type: volume
         source: prometheus-data
         target: /prometheus
+    configs:
+      - source: prometheus-config
+        target: /etc/prometheus/prometheus.yml
     networks:
       - net
 
@@ -116,6 +131,20 @@ services:
 volumes:
   grafana-data:
   prometheus-data:
+
+configs:
+  prometheus-config:
+    file: ./prometheus/prometheus.yml
+  grafana-datasource:
+    file: ./grafana/provisioning/datasources/prometheus.yml
+  grafana-dashboards-provider:
+    file: ./grafana/provisioning/dashboards/dashboards.yml
+  grafana-dashboard-vms:
+    file: ./grafana/dashboards/cluster-vms-overview.json
+  grafana-dashboard-services:
+    file: ./grafana/dashboards/swarm-services-overview.json
+  grafana-dashboard-storage-db:
+    file: ./grafana/dashboards/storage-db-overview.json
 
 networks:
   net:

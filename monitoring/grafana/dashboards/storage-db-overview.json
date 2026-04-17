@@ -1,0 +1,255 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "Bps"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "sum by (instance) (rate(node_disk_read_bytes_total{job=\"node-exporter\"}[5m]))",
+          "legendFormat": "{{instance}} read",
+          "range": true,
+          "refId": "A"
+        },
+        {
+          "editorMode": "code",
+          "expr": "sum by (instance) (rate(node_disk_written_bytes_total{job=\"node-exporter\"}[5m]))",
+          "legendFormat": "{{instance}} write",
+          "range": true,
+          "refId": "B"
+        }
+      ],
+      "title": "Disk I/O by VM",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
+      "id": 2,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "100 - ((node_filesystem_avail_bytes{job=\"node-exporter\",mountpoint=\"/mnt/gfs\",fstype!~\"tmpfs|overlay\"} / node_filesystem_size_bytes{job=\"node-exporter\",mountpoint=\"/mnt/gfs\",fstype!~\"tmpfs|overlay\"}) * 100)",
+          "legendFormat": "{{instance}} /mnt/gfs",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "GFS Mount Usage (/mnt/gfs)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "gbytes"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 8
+      },
+      "id": 3,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "sum by (container_label_com_docker_swarm_service_name) (container_memory_working_set_bytes{job=\"cadvisor\",container_label_com_docker_swarm_service_name=~\".*postgres.*\",image!=\"\"}) / 1024 / 1024 / 1024",
+          "legendFormat": "{{container_label_com_docker_swarm_service_name}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Postgres Services Memory",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 8
+      },
+      "id": 4,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "sum by (container_label_com_docker_swarm_service_name) (rate(container_cpu_usage_seconds_total{job=\"cadvisor\",container_label_com_docker_swarm_service_name=~\".*postgres.*\",image!=\"\"}[5m]))",
+          "legendFormat": "{{container_label_com_docker_swarm_service_name}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Postgres Services CPU (cores)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 16
+      },
+      "id": 5,
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": true,
+            "displayName": "Value"
+          }
+        ]
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "changes(container_start_time_seconds{job=\"cadvisor\",container_label_com_docker_swarm_service_name!=\"\",image!=\"\"}[1h])",
+          "format": "table",
+          "instant": true,
+          "legendFormat": "{{container_label_com_docker_swarm_service_name}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Container Restarts in Last Hour",
+      "type": "table"
+    }
+  ],
+  "refresh": "15s",
+  "schemaVersion": 39,
+  "style": "dark",
+  "tags": [
+    "swarm",
+    "storage",
+    "postgres"
+  ],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "",
+  "title": "2. Storage and DB Health",
+  "uid": "storage-db-overview",
+  "version": 1,
+  "weekStart": ""
+}

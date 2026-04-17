@@ -3,11 +3,88 @@
   become: true
   gather_facts: false
   tasks:
-    - name: Upload monitoring compose to manager
+    - name: Ensure monitoring project directory exists on manager
+      ansible.builtin.file:
+        path: /root/monitoring
+        state: directory
+        mode: "0755"
+
+    - name: Upload monitoring project files to manager
       ansible.builtin.copy:
-        src: "{{ playbook_dir }}/../../monitoring/docker-compose.yml"
-        dest: /root/monitoring-docker-compose.yml
-        mode: "0644"
+        src: "{{ playbook_dir }}/../../monitoring/"
+        dest: /root/monitoring/
+        mode: preserve
+
+    - name: Remove existing monitoring stack (force redeploy)
+      ansible.builtin.command:
+        argv:
+          - docker
+          - stack
+          - rm
+          - monitoring
+      register: monitoring_stack_rm
+      changed_when: true
+      failed_when: false
+
+    - name: Wait until monitoring services are removed
+      ansible.builtin.command:
+        argv:
+          - docker
+          - service
+          - ls
+          - --filter
+          - label=com.docker.stack.namespace=monitoring
+          - --format
+          - "{{ '{{.Name}}' }}"
+      register: monitoring_services_after_rm
+      changed_when: false
+      retries: 30
+      delay: 2
+      until: (monitoring_services_after_rm.stdout_lines | default([]) | length) == 0
+
+    - name: Collect existing docker configs
+      ansible.builtin.command:
+        argv:
+          - docker
+          - config
+          - ls
+          - --format
+          - "{{ '{{.Name}}' }}"
+      register: docker_configs_before_cleanup
+      changed_when: false
+
+    - name: Build monitoring config cleanup list
+      ansible.builtin.set_fact:
+        monitoring_config_names: >-
+          {{
+            (docker_configs_before_cleanup.stdout_lines | default([]))
+            | select('match', '^monitoring_')
+            | list
+          }}
+
+    - name: Remove stale monitoring configs
+      when: (monitoring_config_names | default([]) | length) > 0
+      ansible.builtin.command:
+        argv:
+          - docker
+          - config
+          - rm
+          - "{{ item }}"
+      loop: "{{ monitoring_config_names }}"
+      register: monitoring_config_rm
+      changed_when: true
+      failed_when: false
+
+    - name: Remove orphan monitoring network before deploy
+      ansible.builtin.command:
+        argv:
+          - docker
+          - network
+          - rm
+          - monitoring_net
+      register: monitoring_network_rm
+      changed_when: (monitoring_network_rm.rc | default(1)) == 0
+      failed_when: false
 
     - name: Deploy monitoring stack
       ansible.builtin.command:
@@ -16,7 +93,7 @@
           - stack
           - deploy
           - -c
-          - /root/monitoring-docker-compose.yml
+          - /root/monitoring/docker-compose.yml
           - monitoring
       register: monitoring_deploy
       changed_when: false

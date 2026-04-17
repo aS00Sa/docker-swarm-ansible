@@ -1,0 +1,42 @@
+---
+# Проверка доступности swarm-manager портов между менеджерами кластера.
+#
+# Пример запуска:
+# ansible-playbook -i inventory-dvsprtbt.ini playbooks/plays/manual-check-swarm-manager-connectivity.yml -u root --private-key ~/.ssh/id_ed25519
+#
+- name: Check manager-to-manager connectivity on swarm control ports
+  hosts: swarm_managers
+  gather_facts: false
+  vars:
+    swarm_manager_test_ports: [2377, 7946]
+  tasks:
+    - name: Probe TCP connectivity to every manager/port from each manager
+      ansible.builtin.wait_for:
+        host: "{{ item.0 }}"
+        port: "{{ item.1 }}"
+        timeout: 2
+        connect_timeout: 2
+        state: started
+      loop: "{{ (groups['swarm_managers'] | default([])) | product(swarm_manager_test_ports) | list }}"
+      loop_control:
+        label: "{{ item.0 }}:{{ item.1 }}"
+      register: swarm_manager_connectivity_checks
+      failed_when: false
+      changed_when: false
+
+    - name: Show connectivity matrix from current manager
+      ansible.builtin.debug:
+        msg: >-
+          {{
+            swarm_manager_connectivity_checks.results
+            | map(attribute='item')
+            | list
+            | zip(
+                swarm_manager_connectivity_checks.results
+                | map(attribute='failed')
+                | map('ternary', 'FAIL', 'OK')
+                | list
+              )
+            | map('list')
+            | list
+          }}
