@@ -169,3 +169,13 @@ ss -antpl 'sport = :6070'
 sudo iptables -nL | grep -E '6070|DOCKER' || sudo nft list ruleset | grep 6070
 Итог: одноразовый refused при уже слушающем *:6070 чаще всего — момент до публикации порта или нужно проверить localhost vs IP и Swarm (где задача). Повторите curl сейчас и сравните с 127.0.0.1.
 
+
+mount | grep /mnt/gfs
+findmnt /mnt/gfs
+sudo fuser -vmM /mnt/gfs
+
+gluster volume stop gfs force
+
+
+umount /mnt/gfs || umount -l /mnt/gfs
+
