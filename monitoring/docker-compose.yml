@@ -148,7 +148,8 @@ configs:
 
 networks:
   net:
-    driver: overlay
+    external: true
+    name: monitoring_net
 
 
 

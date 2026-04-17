@@ -75,16 +75,33 @@
       changed_when: true
       failed_when: false
 
-    - name: Remove orphan monitoring network before deploy
+    - name: Ensure external monitoring network exists before deploy
       ansible.builtin.command:
         argv:
           - docker
           - network
-          - rm
+          - create
+          - --driver
+          - overlay
           - monitoring_net
-      register: monitoring_network_rm
-      changed_when: (monitoring_network_rm.rc | default(1)) == 0
-      failed_when: false
+      register: monitoring_network_create
+      changed_when: (monitoring_network_create.rc | default(1)) == 0
+      failed_when: >-
+        (monitoring_network_create.rc | default(1)) != 0 and
+        ('already exists' not in (monitoring_network_create.stderr | default('') | lower))
+
+    - name: Wait until monitoring network is inspectable
+      ansible.builtin.command:
+        argv:
+          - docker
+          - network
+          - inspect
+          - monitoring_net
+      register: monitoring_network_inspect
+      changed_when: false
+      retries: 10
+      delay: 1
+      until: (monitoring_network_inspect.rc | default(1)) == 0
 
     - name: Deploy monitoring stack
       ansible.builtin.command:
