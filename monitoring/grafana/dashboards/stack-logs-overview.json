@@ -139,9 +139,9 @@
       },
       {
         "current": {
-          "selected": true,
-          "text": "(?i)error|panic|timeout",
-          "value": "(?i)error|panic|timeout"
+          "selected": false,
+          "text": "",
+          "value": ""
         },
         "hide": 0,
         "label": "Search (regex)",
