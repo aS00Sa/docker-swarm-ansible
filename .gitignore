@@ -11,3 +11,4 @@ tmp*
 *.y*ml
 *.j*2
 .env*
+rabbit-shared
