@@ -87,6 +87,26 @@ services:
     configs:
       - source: loki-config
         target: /etc/loki/local-config.yaml
+      - source: loki-rules
+        target: /etc/loki/rules/stack-alerts.yml
+    networks:
+      - net
+
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+      placement:
+        constraints:
+          - node.role == manager
+          - node.labels.monitoring == true
+    configs:
+      - source: alertmanager-config
+        target: /etc/alertmanager/alertmanager.yml
     networks:
       - net
 
@@ -204,6 +224,10 @@ configs:
     file: ./grafana/dashboards/stack-logs-overview.json
   loki-config:
     file: ./loki/loki-config.yml
+  loki-rules:
+    file: ./loki/rules/stack-alerts.yml
+  alertmanager-config:
+    file: ./alertmanager/alertmanager.yml
   promtail-config:
     file: ./promtail/promtail-config.yml
 
