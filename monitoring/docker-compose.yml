@@ -23,6 +23,8 @@ services:
     configs:
       - source: grafana-datasource
         target: /etc/grafana/provisioning/datasources/prometheus.yml
+      - source: grafana-datasource-loki
+        target: /etc/grafana/provisioning/datasources/loki.yml
       - source: grafana-dashboards-provider
         target: /etc/grafana/provisioning/dashboards/dashboards.yml
       - source: grafana-dashboard-vms
@@ -31,6 +33,8 @@ services:
         target: /var/lib/grafana/dashboards/swarm-services-overview.json
       - source: grafana-dashboard-storage-db
         target: /var/lib/grafana/dashboards/storage-db-overview.json
+      - source: grafana-dashboard-logs
+        target: /var/lib/grafana/dashboards/stack-logs-overview.json
     environment:
       - GF_SECURITY_ADMIN_USER=${GRAFANA_USER}
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD}
@@ -61,6 +65,53 @@ services:
     configs:
       - source: prometheus-config
         target: /etc/prometheus/prometheus.yml
+    networks:
+      - net
+
+  loki:
+    image: grafana/loki:2.9.8
+    command:
+      - -config.file=/etc/loki/local-config.yaml
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+      placement:
+        constraints:
+          - node.role == manager
+          - node.labels.monitoring == true
+    volumes:
+      - type: volume
+        source: loki-data
+        target: /loki
+    configs:
+      - source: loki-config
+        target: /etc/loki/local-config.yaml
+    networks:
+      - net
+
+  promtail:
+    image: grafana/promtail:2.9.8
+    command:
+      - -config.file=/etc/promtail/config.yml
+    deploy:
+      mode: global
+      resources:
+        limits:
+          memory: 128M
+        reservations:
+          memory: 64M
+    volumes:
+      - type: bind
+        source: /var/run/docker.sock
+        target: /var/run/docker.sock
+        read_only: true
+      - type: volume
+        source: promtail-data
+        target: /tmp
+    configs:
+      - source: promtail-config
+        target: /etc/promtail/config.yml
     networks:
       - net
 
@@ -131,12 +182,16 @@ services:
 volumes:
   grafana-data:
   prometheus-data:
+  loki-data:
+  promtail-data:
 
 configs:
   prometheus-config:
     file: ./prometheus/prometheus.yml
   grafana-datasource:
     file: ./grafana/provisioning/datasources/prometheus.yml
+  grafana-datasource-loki:
+    file: ./grafana/provisioning/datasources/loki.yml
   grafana-dashboards-provider:
     file: ./grafana/provisioning/dashboards/dashboards.yml
   grafana-dashboard-vms:
@@ -145,6 +200,12 @@ configs:
     file: ./grafana/dashboards/swarm-services-overview.json
   grafana-dashboard-storage-db:
     file: ./grafana/dashboards/storage-db-overview.json
+  grafana-dashboard-logs:
+    file: ./grafana/dashboards/stack-logs-overview.json
+  loki-config:
+    file: ./loki/loki-config.yml
+  promtail-config:
+    file: ./promtail/promtail-config.yml
 
 networks:
   net:
