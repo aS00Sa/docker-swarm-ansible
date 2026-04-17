@@ -64,3 +64,8 @@
         label: "{{ item.stack }}"
       register: manual_business_stack_deploy
       changed_when: manual_business_stack_deploy is succeeded
+
+# После бизнес-стеков — обновление monitoring (идемпотентно, без stack rm).
+- import_playbook: manual-deploy-monitoring-stack.yml
+  vars:
+    monitoring_force_redeploy: false

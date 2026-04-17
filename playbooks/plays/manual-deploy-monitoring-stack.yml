@@ -1,3 +1,7 @@
+# monitoring_force_redeploy:
+#   true (по умолчанию) — stack rm + удаление docker configs monitoring_* (нужно при смене configs).
+#   false — только копирование файлов, сеть monitoring_net и docker stack deploy (идемпотентно, без сноса).
+# install.yml и manual-business-stacks-redeploy.yml вызывают с false в конце цепочки (после HAProxy/Traefik и приложений).
 - name: Deploy monitoring stack on DVS cluster
   hosts: "swarm_managers[0]"
   become: true
@@ -16,6 +20,7 @@
         mode: preserve
 
     - name: Remove existing monitoring stack (force redeploy)
+      when: (monitoring_force_redeploy | default(true)) | bool
       ansible.builtin.command:
         argv:
           - docker
@@ -27,6 +32,7 @@
       failed_when: false
 
     - name: Wait until monitoring services are removed
+      when: (monitoring_force_redeploy | default(true)) | bool
       ansible.builtin.command:
         argv:
           - docker
@@ -43,6 +49,7 @@
       until: (monitoring_services_after_rm.stdout_lines | default([]) | length) == 0
 
     - name: Collect existing docker configs
+      when: (monitoring_force_redeploy | default(true)) | bool
       ansible.builtin.command:
         argv:
           - docker
@@ -54,6 +61,7 @@
       changed_when: false
 
     - name: Build monitoring config cleanup list
+      when: (monitoring_force_redeploy | default(true)) | bool
       ansible.builtin.set_fact:
         monitoring_config_names: >-
           {{
@@ -63,7 +71,9 @@
           }}
 
     - name: Remove stale monitoring configs
-      when: (monitoring_config_names | default([]) | length) > 0
+      when:
+        - (monitoring_force_redeploy | default(true)) | bool
+        - (monitoring_config_names | default([]) | length) > 0
       ansible.builtin.command:
         argv:
           - docker

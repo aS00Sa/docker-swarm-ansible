@@ -30,3 +30,7 @@
 - import_playbook: plays/12-cert-manager.yml
 - import_playbook: plays/10-portainer.yml
 - import_playbook: plays/13-traefik.yml
+# Мониторинг после edge (HAProxy, cert-manager, Portainer, Traefik): stack deploy без сноса; Grafana по домену опирается на Traefik/HAProxy.
+- import_playbook: plays/manual-deploy-monitoring-stack.yml
+  vars:
+    monitoring_force_redeploy: false
