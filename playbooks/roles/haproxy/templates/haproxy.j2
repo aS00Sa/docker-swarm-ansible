@@ -146,7 +146,7 @@ backend traefik_websecure_upstream
   balance roundrobin
   option tcp-check
 {% for h in _traefik_nodes %}
-  server traefik_websecure_{{ loop.index }} {{ hostvars[h].ansible_host | default(h) }}:{{ haproxy_traefik_websecure_port | default(8443) }} check
+  server traefik_websecure_{{ loop.index }} {{ hostvars[h].ansible_host | default(h) }}:{{ haproxy_traefik_websecure_port | default(8443) }} check send-proxy-v2
 {% endfor %}
 
 {# Direct app backends from cert_manager slots (HAProxy -> swarm managers, bypass Traefik). #}

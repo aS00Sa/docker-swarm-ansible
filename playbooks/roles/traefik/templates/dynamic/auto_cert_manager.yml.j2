@@ -25,6 +25,16 @@
 {% set _mw_hsts_name = _name ~ '-hsts' %}
 {% set _mw_retry_name = _name ~ '-retry' %}
 {% set _mw_cors_name = _name ~ '-cors' %}
+{% set _mw_ipallow_name = _name ~ '-ipallow' %}
+{# ipAllowList: ключ ip_allowlist в слоте cert_manager, либо middleware "ipallowlist" → fallback firewall_trusted_admin_cidrs из inventory. #}
+{% set _explicit_ip_allow = _c.ip_allowlist | default([]) %}
+{% set _ipallow_mw_requested = ('ipallowlist' in _middlewares) %}
+{% if _ipallow_mw_requested %}
+{% set _ip_ranges_eff = _explicit_ip_allow if (_explicit_ip_allow | length > 0) else (firewall_trusted_admin_cidrs | default([])) %}
+{% else %}
+{% set _ip_ranges_eff = _explicit_ip_allow %}
+{% endif %}
+{% set _ipallow_on = (_ip_ranges_eff | length > 0) and (_ipallow_mw_requested or (_explicit_ip_allow | length > 0)) %}
 {# Пул upstream без upstream_host/upstream_servers: приоритет traefik_default_upstream_host (ниже, _default_h).
    Иначе непустой [test_backend] → только он; иначе [swarm_managers] (не workers). #}
 {% set _tb = groups.get('test_backend', []) | list %}
@@ -45,8 +55,16 @@ tls:
       keyFile: "/etc/traefik/letsencrypt/live/{{ _cn }}/privkey.pem"
 
 http:
-{% if _middlewares | length > 0 %}
+{% if (_middlewares | length > 0) or _ipallow_on %}
   middlewares:
+{% if _ipallow_on %}
+    {{ _mw_ipallow_name }}:
+      ipAllowList:
+        sourceRange:
+{% for cidr in _ip_ranges_eff %}
+          - "{{ cidr }}"
+{% endfor %}
+{% endif %}
 {% if 'compress' in _middlewares %}
     {{ _mw_compress_name }}:
       compress: {}
@@ -103,6 +121,22 @@ http:
         responseHeaderTimeout: 0s
         idleConnTimeout: 0s
 
+{% set mw_chain = namespace(items=[]) %}
+{% if _ipallow_on %}
+{% set _ = mw_chain.items.append(_mw_ipallow_name) %}
+{% endif %}
+{% if 'cors' in _middlewares %}
+{% set _ = mw_chain.items.append(_mw_cors_name) %}
+{% endif %}
+{% if 'compress' in _middlewares %}
+{% set _ = mw_chain.items.append(_mw_compress_name) %}
+{% endif %}
+{% if 'hsts' in _middlewares %}
+{% set _ = mw_chain.items.append(_mw_hsts_name) %}
+{% endif %}
+{% if 'retry' in _middlewares %}
+{% set _ = mw_chain.items.append(_mw_retry_name) %}
+{% endif %}
   routers:
 {% if _has_ports_map %}
 {% for ep in _entrypoints %}
@@ -112,8 +146,8 @@ http:
       service: {{ _service_name }}-{{ _ep_safe }}
       entryPoints: [{{ ep }}]
       tls: {}
-{% if _middlewares | length > 0 %}
-      middlewares: [{% if 'cors' in _middlewares %}{{ _mw_cors_name }}{% endif %}{% if 'cors' in _middlewares and ('compress' in _middlewares or 'hsts' in _middlewares or 'retry' in _middlewares) %}, {% endif %}{% if 'compress' in _middlewares %}{{ _mw_compress_name }}{% endif %}{% if 'compress' in _middlewares and ('hsts' in _middlewares or 'retry' in _middlewares) %}, {% endif %}{% if 'hsts' in _middlewares %}{{ _mw_hsts_name }}{% endif %}{% if 'hsts' in _middlewares and 'retry' in _middlewares %}, {% endif %}{% if 'retry' in _middlewares %}{{ _mw_retry_name }}{% endif %}]
+{% if (mw_chain.items | length) > 0 %}
+      middlewares: [{{ mw_chain.items | join(', ') }}]
 {% endif %}
 {% endfor %}
 {% else %}
@@ -122,8 +156,8 @@ http:
       service: {{ _service_name }}
       entryPoints: [{% for ep in _entrypoints %}{{ ep }}{% if not loop.last %}, {% endif %}{% endfor %}]
       tls: {}
-{% if _middlewares | length > 0 %}
-      middlewares: [{% if 'cors' in _middlewares %}{{ _mw_cors_name }}{% endif %}{% if 'cors' in _middlewares and ('compress' in _middlewares or 'hsts' in _middlewares or 'retry' in _middlewares) %}, {% endif %}{% if 'compress' in _middlewares %}{{ _mw_compress_name }}{% endif %}{% if 'compress' in _middlewares and ('hsts' in _middlewares or 'retry' in _middlewares) %}, {% endif %}{% if 'hsts' in _middlewares %}{{ _mw_hsts_name }}{% endif %}{% if 'hsts' in _middlewares and 'retry' in _middlewares %}, {% endif %}{% if 'retry' in _middlewares %}{{ _mw_retry_name }}{% endif %}]
+{% if (mw_chain.items | length) > 0 %}
+      middlewares: [{{ mw_chain.items | join(', ') }}]
 {% endif %}
 {% endif %}
 
