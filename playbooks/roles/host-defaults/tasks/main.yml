@@ -111,10 +111,19 @@
       }}
   when: host_defaults_auto_hostname_enabled | default(false) | bool
 
+# hostnamectl ходит в D-Bus; на части хостов (зависший systemd/dbus) может «висеть» без ответа.
+# Для сравнения с ^swarm- достаточно /etc/hostname или kernel hostname.
 - name: Read current static hostname
   become: true
   become_method: sudo
-  ansible.builtin.command: hostnamectl --static
+#  ansible.builtin.command: hostnamectl --static
+  ansible.builtin.shell: |
+    set -e
+    if [ -r /etc/hostname ]; then
+      head -n1 /etc/hostname | tr -d '\r'
+    else
+      cat /proc/sys/kernel/hostname
+    fi
   register: host_defaults_current_hostname_cmd
   changed_when: false
   when: host_defaults_auto_hostname_enabled | default(false) | bool
