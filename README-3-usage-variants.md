@@ -195,18 +195,23 @@ ANSIBLE_CONFIG="$PWD/ansible.cfg" ansible-playbook -i inventory-dvsprtbt.ini -u 
 ```
 
 ###  Перезадеплоить мониторинг (или хотя бы Grafana):
-
+```bash
 ansible-playbook -i inventory-sprtbt.ini playbooks/plays/manual-deploy-monitoring-stack.yml
+```
 
 ### Принудительно обновить Grafana/Prometheus сервисы:
+```bash
 docker service update --force monitoring_grafana
 docker service update --force monitoring_prometheus
-
+```
 ### Если всё ещё No data, проверьте таргеты Prometheus
+```bash
 docker exec -it $(docker ps --filter name=monitoring_prometheus -q | head -n1) \
   wget -qO- http://localhost:9090/api/v1/targets | jq '.data.activeTargets[] | {job:.labels.job, health:.health, endpoint:.scrapeUrl}'
+```
 
 #### Как исправить и поставить мониторинг с нуля. 
+
 Удалить стек мониторинга:
 docker stack rm monitoring
 Подождать, пока сервисы уйдут:
