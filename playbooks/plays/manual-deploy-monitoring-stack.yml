@@ -55,6 +55,34 @@
           Re-run this playbook from the beginning (do not use --start-at-task pointing to deploy step).
       when: not (monitoring_loki_config_stat.stat.exists | default(false))
 
+    - name: Get all manager node hostnames for monitoring label
+      ansible.builtin.command:
+        argv:
+          - docker
+          - node
+          - ls
+          - --filter
+          - role=manager
+          - --format
+          - "{{ '{{.Hostname}}' }}"
+      register: monitoring_manager_nodes
+      changed_when: false
+
+    - name: Ensure monitoring=true label on all managers
+      ansible.builtin.command:
+        argv:
+          - docker
+          - node
+          - update
+          - --label-add
+          - monitoring=true
+          - "{{ item }}"
+      loop: "{{ monitoring_manager_nodes.stdout_lines | default([]) }}"
+      loop_control:
+        label: "{{ item }}"
+      register: monitoring_label_update
+      changed_when: true
+
     - name: Remove existing monitoring stack (force redeploy)
       when: (monitoring_force_redeploy | default(true)) | bool
       ansible.builtin.command:
