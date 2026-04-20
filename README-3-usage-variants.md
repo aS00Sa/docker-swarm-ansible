@@ -176,7 +176,6 @@ ansible -i inventory.ini gluster_nodes -m file -a "path=/mnt/gfs/frontend-minio/
 docker stack deploy -c examples/frontend-infra/docker-compose.yml frontend-infra
 ```
 
-
 ## Эксплуатация и обслуживание
 
 ```bash
@@ -185,29 +184,29 @@ ansible-playbook -i inventory-prod.ini playbooks/plays/manual-sysctl-high-load-p
 ansible-playbook -i inventory-prod.ini playbooks/plays/manual-sysctl-high-load-profile.yml -e sysctl_high_load_state=absent
 ```
 
-Сброс кластера (nuke):
+## Мониторинг
 
 ```bash
-ANSIBLE_CONFIG="$PWD/ansible.cfg" ANSIBLE_STDOUT_CALLBACK=default \
-ansible-playbook -i inventory.ini playbooks/plays/manual-nuke-node-reset.yml \
-  -e nuke_confirm=YES -e nuke-reboot=YES -u root --private-key ~/.ssh/id_ed25519 -vvv 2>&1 | tee reset-$(date +%Y%m%d-%H%M).log
-```
-
 ANSIBLE_CONFIG="$PWD/ansible.cfg" ansible-playbook -i inventory-dvsprtbt.ini -u root --private-key ~/.ssh/id_ed25519 playbooks/plays/manual-deploy-monitoring-stack.yml -v 2>&1 | tee "inventory-dvsprtbt-manual-deploy-monitoring-stack-$(date +%Y%m%d-%H%M).log" 
-
+```
+```bash
   -e grafana_user=admin \
   -e grafana_password='NewStrongPass123!'
+```
 
-  Перезадеплоить мониторинг (или хотя бы Grafana):
+###  Перезадеплоить мониторинг (или хотя бы Grafana):
+
 ansible-playbook -i inventory-sprtbt.ini playbooks/plays/manual-deploy-monitoring-stack.yml
-Принудительно обновить Grafana/Prometheus сервисы:
+
+### Принудительно обновить Grafana/Prometheus сервисы:
 docker service update --force monitoring_grafana
 docker service update --force monitoring_prometheus
-Если всё ещё No data, проверьте таргеты Prometheus
+
+### Если всё ещё No data, проверьте таргеты Prometheus
 docker exec -it $(docker ps --filter name=monitoring_prometheus -q | head -n1) \
   wget -qO- http://localhost:9090/api/v1/targets | jq '.data.activeTargets[] | {job:.labels.job, health:.health, endpoint:.scrapeUrl}'
 
-Как исправить сейчас (быстро)
+#### Как исправить и поставить мониторинг с нуля. 
 Удалить стек мониторинга:
 docker stack rm monitoring
 Подождать, пока сервисы уйдут:
@@ -216,4 +215,3 @@ watch -n 2 "docker service ls | grep monitoring || true"
 docker config ls --format '{{.Name}}' | grep '^monitoring_' | xargs -r docker config rm
 Запустить ваш playbook снова:
 ansible-playbook -i inventory-dvsprtbt.ini playbooks/plays/manual-deploy-monitoring-stack.yml
-
