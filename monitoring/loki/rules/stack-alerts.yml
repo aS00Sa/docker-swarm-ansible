@@ -1,0 +1,32 @@
+groups:
+  - name: stack-log-alerts
+    rules:
+      - alert: StackErrorLogsHigh
+        expr: sum(count_over_time({job="docker", stack!="monitoring", service!="monitoring_loki"} |~ "(?i)error|panic|timeout" !~ "(?i)context canceled|error copying response body from proxied request" [5m])) > 20
+        for: 2m
+        labels:
+          severity: warning
+          source: loki
+        annotations:
+          summary: "High error log rate across stack"
+          description: "More than 20 log lines with error|panic|timeout in 5 minutes."
+
+      - alert: StackPanicLogsDetected
+        expr: sum(count_over_time({job="docker", stack!="monitoring", service!="monitoring_loki"} |~ "(?i)panic" [5m])) > 0
+        for: 1m
+        labels:
+          severity: critical
+          source: loki
+        annotations:
+          summary: "Panic detected in stack logs"
+          description: "At least one panic log line detected in the last 5 minutes."
+
+      - alert: StackTimeoutLogsHigh
+        expr: sum(count_over_time({job="docker", stack!="monitoring", service!="monitoring_loki"} |~ "(?i)timeout|timed out|deadline exceeded" [5m])) > 10
+        for: 2m
+        labels:
+          severity: warning
+          source: loki
+        annotations:
+          summary: "High timeout log rate"
+          description: "More than 10 timeout-related log lines in 5 minutes."

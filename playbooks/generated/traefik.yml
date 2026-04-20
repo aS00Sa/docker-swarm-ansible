@@ -1,0 +1,50 @@
+api:
+  dashboard: true
+
+entryPoints:
+  web:
+    address: ":8080"
+    transport:
+      # Долгие аплоады не должны обрываться прокси из-за таймаутов.
+      respondingTimeouts:
+        readTimeout: 0s
+        writeTimeout: 0s
+    http:
+      redirections:
+        entryPoint:
+          to: websecure
+          scheme: https  
+  websecure:
+    address: ":8443"
+    proxyProtocol:
+      insecure: true
+    transport:
+      respondingTimeouts:
+        readTimeout: 0s
+        writeTimeout: 0s
+
+  traefik:
+    address: ":9091"
+
+providers:
+  swarm:
+    endpoint: "unix:///var/run/docker.sock"
+    watch: true
+    exposedByDefault: false
+    network: "traefik_network"
+  file:
+    directory: /etc/traefik/dynamic
+    watch: true
+
+serversTransport:
+  forwardingTimeouts:
+    # Таймауты upstream-соединений (Traefik -> backend, напр. GitLab/Nexus)
+    dialTimeout: 600s
+    responseHeaderTimeout: 0s
+    idleConnTimeout: 0s
+
+
+log:
+  level: INFO
+
+accessLog: {}
