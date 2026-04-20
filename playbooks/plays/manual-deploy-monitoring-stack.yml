@@ -19,6 +19,24 @@
         dest: /root/monitoring/
         mode: preserve
 
+    - name: Upload Loki config subtree explicitly
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/../../monitoring/loki/"
+        dest: /root/monitoring/loki/
+        mode: preserve
+
+    - name: Check Loki config exists on manager
+      ansible.builtin.stat:
+        path: /root/monitoring/loki/loki-config.yml
+      register: monitoring_loki_config_stat
+
+    - name: Fail fast if Loki config is missing before deploy
+      ansible.builtin.fail:
+        msg: >-
+          Required file /root/monitoring/loki/loki-config.yml is missing on manager.
+          Re-run this playbook from the beginning (do not use --start-at-task pointing to deploy step).
+      when: not (monitoring_loki_config_stat.stat.exists | default(false))
+
     - name: Remove existing monitoring stack (force redeploy)
       when: (monitoring_force_redeploy | default(true)) | bool
       ansible.builtin.command:
