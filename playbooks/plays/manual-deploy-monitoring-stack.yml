@@ -7,6 +7,13 @@
   become: true
   gather_facts: false
   tasks:
+    - name: Validate Grafana password rotation inputs
+      when: monitoring_grafana_change_password | default(false) | bool
+      ansible.builtin.assert:
+        that:
+          - (monitoring_grafana_new_password | default('') | trim | length) > 0
+        fail_msg: >-
+          monitoring_grafana_change_password=true requires non-empty monitoring_grafana_new_password.
     - name: Check local monitoring source exists on control node
       delegate_to: localhost
       become: false
@@ -263,3 +270,25 @@
           - "{{ ps_prometheus.stdout | default(ps_prometheus.stderr, true) }}"
           - "{{ ps_node_exporter.stdout | default(ps_node_exporter.stderr, true) }}"
           - "{{ ps_cadvisor.stdout | default(ps_cadvisor.stderr, true) }}"
+
+    - name: Find running Grafana container id (for optional password reset)
+      when: monitoring_grafana_change_password | default(false) | bool
+      ansible.builtin.shell: |
+        set -e
+        docker ps --filter name=monitoring_grafana --format '{{ "{{.ID}}" }}' | head -n1
+      register: monitoring_grafana_container_id
+      changed_when: false
+      retries: 20
+      delay: 3
+      until: (monitoring_grafana_container_id.stdout | default('') | trim | length) > 0
+
+    - name: Reset Grafana admin password (explicit, optional)
+      when: monitoring_grafana_change_password | default(false) | bool
+      ansible.builtin.shell: |
+        set -e
+        cid="{{ monitoring_grafana_container_id.stdout | trim }}"
+        docker exec "${cid}" sh -lc 'grafana-cli admin reset-admin-password "$GRAFANA_NEW_PASSWORD" || grafana cli admin reset-admin-password "$GRAFANA_NEW_PASSWORD"'
+      environment:
+        GRAFANA_NEW_PASSWORD: "{{ monitoring_grafana_new_password }}"
+      register: monitoring_grafana_password_reset
+      changed_when: true

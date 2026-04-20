@@ -35,9 +35,10 @@ services:
         target: /var/lib/grafana/dashboards/storage-db-overview.json
       - source: grafana-dashboard-logs
         target: /var/lib/grafana/dashboards/stack-logs-overview.json
+      - source: grafana-dashboard-bethome-release
+        target: /var/lib/grafana/dashboards/bethome-release-overview.json
     environment:
       - GF_SECURITY_ADMIN_USER=${GRAFANA_USER}
-      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD}
       - GF_USERS_ALLOW_SIGN_UP=false
       - GF_SERVER_ROOT_URL=https://grafana.dvsprtbt.ru/
       - GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/var/lib/grafana/dashboards/swarm-services-overview.json
@@ -68,6 +69,8 @@ services:
         target: /etc/prometheus/prometheus.yml
     networks:
       - net
+      - bethome-network
+      - inhome-network
 
   loki:
     image: grafana/loki:2.9.8
@@ -223,6 +226,8 @@ configs:
     file: ./grafana/dashboards/storage-db-overview.json
   grafana-dashboard-logs:
     file: ./grafana/dashboards/stack-logs-overview.json
+  grafana-dashboard-bethome-release:
+    file: ./grafana/dashboards/bethome-release-overview.json
   loki-config:
     file: ./loki/loki-config.yml
   loki-rules:
@@ -236,6 +241,10 @@ networks:
   net:
     external: true
     name: monitoring_net
+  bethome-network:
+    external: true
+  inhome-network:
+    external: true
 
 
 

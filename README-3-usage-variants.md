@@ -188,9 +188,13 @@ ansible-playbook -i inventory-prod.ini playbooks/plays/manual-sysctl-high-load-p
 ```bash
 ANSIBLE_CONFIG="$PWD/ansible.cfg" ansible-playbook -i inventory-dvsprtbt.ini -u root --private-key ~/.ssh/id_ed25519 playbooks/plays/manual-deploy-monitoring-stack.yml -v 2>&1 | tee "inventory-dvsprtbt-manual-deploy-monitoring-stack-$(date +%Y%m%d-%H%M).log" 
 ```
+По умолчанию redeploy мониторинга не меняет пароль Grafana.
+Смена пароля выполняется только явно:
 ```bash
-  -e grafana_user=admin \
-  -e grafana_password='NewStrongPass123!'
+ANSIBLE_CONFIG="$PWD/ansible.cfg" ansible-playbook -i inventory-dvsprtbt.ini -u root --private-key ~/.ssh/id_ed25519 \
+  playbooks/plays/manual-deploy-monitoring-stack.yml \
+  -e monitoring_grafana_change_password=true \
+  -e monitoring_grafana_new_password='NewStrongPass123!'
 ```
 
 ###  Перезадеплоить мониторинг (или хотя бы Grafana):
@@ -207,6 +211,11 @@ docker service update --force monitoring_prometheus
 ```bash
 docker exec -it $(docker ps --filter name=monitoring_prometheus -q | head -n1) \
   wget -qO- http://localhost:9090/api/v1/targets | jq '.data.activeTargets[] | {job:.labels.job, health:.health, endpoint:.scrapeUrl}'
+```
+Для bethome/inhome jobs:
+```bash
+docker exec -it $(docker ps --filter name=monitoring_prometheus -q | head -n1) \
+  wget -qO- http://localhost:9090/api/v1/targets | jq '.data.activeTargets[] | select(.labels.job=="bethome-pushgateway" or .labels.job=="bethome-services" or .labels.job=="inhome-services") | {job:.labels.job, health:.health, endpoint:.scrapeUrl, lastError:.lastError}'
 ```
 
 #### Как исправить и поставить мониторинг с нуля. 
