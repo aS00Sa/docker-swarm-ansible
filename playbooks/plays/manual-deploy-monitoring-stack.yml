@@ -7,6 +7,24 @@
   become: true
   gather_facts: false
   tasks:
+    - name: Check local monitoring source exists on control node
+      delegate_to: localhost
+      become: false
+      run_once: true
+      ansible.builtin.stat:
+        path: "{{ inventory_dir }}/monitoring/docker-compose.yml"
+      register: monitoring_local_compose_stat
+
+    - name: Fail if local monitoring source is missing
+      delegate_to: localhost
+      become: false
+      run_once: true
+      ansible.builtin.fail:
+        msg: >-
+          Local monitoring source is missing: {{ inventory_dir }}/monitoring/docker-compose.yml.
+          Run playbook with inventory from repository root or set proper inventory path.
+      when: not (monitoring_local_compose_stat.stat.exists | default(false))
+
     - name: Ensure monitoring project directory exists on manager
       ansible.builtin.file:
         path: /root/monitoring
@@ -15,13 +33,13 @@
 
     - name: Upload monitoring project files to manager
       ansible.builtin.copy:
-        src: "{{ playbook_dir }}/../../monitoring/"
+        src: "{{ inventory_dir }}/monitoring/"
         dest: /root/monitoring/
         mode: preserve
 
     - name: Upload Loki config subtree explicitly
       ansible.builtin.copy:
-        src: "{{ playbook_dir }}/../../monitoring/loki/"
+        src: "{{ inventory_dir }}/monitoring/loki/"
         dest: /root/monitoring/loki/
         mode: preserve
 
