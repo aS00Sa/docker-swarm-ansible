@@ -185,7 +185,6 @@ ansible-playbook -i inventory-prod.ini playbooks/plays/manual-sysctl-high-load-p
 ```
 
 ## Мониторинг
-
 ```bash
 ANSIBLE_CONFIG="$PWD/ansible.cfg" ansible-playbook -i inventory-dvsprtbt.ini -u root --private-key ~/.ssh/id_ed25519 playbooks/plays/manual-deploy-monitoring-stack.yml -v 2>&1 | tee "inventory-dvsprtbt-manual-deploy-monitoring-stack-$(date +%Y%m%d-%H%M).log" 
 ```
@@ -213,10 +212,18 @@ docker exec -it $(docker ps --filter name=monitoring_prometheus -q | head -n1) \
 #### Как исправить и поставить мониторинг с нуля. 
 
 Удалить стек мониторинга:
+```bash
 docker stack rm monitoring
+```
 Подождать, пока сервисы уйдут:
+```bash
 watch -n 2 "docker service ls | grep monitoring || true"
+```
 Удалить старые configs стека:
+```bash
 docker config ls --format '{{.Name}}' | grep '^monitoring_' | xargs -r docker config rm
+```
 Запустить ваш playbook снова:
+```bash
 ansible-playbook -i inventory-dvsprtbt.ini playbooks/plays/manual-deploy-monitoring-stack.yml
+```
