@@ -11,10 +11,15 @@
   become_method: sudo
   vars:
     swarm_manager_first: "{{ (groups['swarm_managers'] | default([])) | first | default('') }}"
+    swarm_join_target_addr: "{{ hostvars[swarm_manager_first].swarm_advertise_addr | default(hostvars[swarm_manager_first].ansible_host | default(swarm_manager_first)) }}"
+    swarm_self_advertise_addr: "{{ hostvars[inventory_hostname].swarm_advertise_addr | default(hostvars[inventory_hostname].ansible_host | default(inventory_hostname)) }}"
+    swarm_self_listen_addr: "{{ hostvars[inventory_hostname].swarm_listen_addr | default((hostvars[inventory_hostname].swarm_advertise_addr | default(hostvars[inventory_hostname].ansible_host | default(inventory_hostname))) ~ ':2377') }}"
   shell: >-
     docker swarm join
     --token {{ hostvars[swarm_manager_first]['manager_token']['stdout'] }}
-    {{ swarm_manager_first }}:2377
+    --advertise-addr {{ swarm_self_advertise_addr }}
+    --listen-addr {{ swarm_self_listen_addr }}
+    {{ swarm_join_target_addr }}:2377
   register: swarm_join_result
   changed_when: >
     (swarm_join_result.rc | int == 0) and

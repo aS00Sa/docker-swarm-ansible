@@ -10,7 +10,11 @@
 - name: Initialize new Docker Swarm Leader
   become: true
   become_method: sudo
-  shell: docker swarm init --dispatcher-heartbeat 1s --advertise-addr={{ inventory_hostname }}
+  shell: >-
+    docker swarm init
+    --dispatcher-heartbeat 1s
+    --advertise-addr={{ hostvars[inventory_hostname].swarm_advertise_addr | default(hostvars[inventory_hostname].ansible_host | default(inventory_hostname)) }}
+    --listen-addr={{ hostvars[inventory_hostname].swarm_listen_addr | default((hostvars[inventory_hostname].swarm_advertise_addr | default(hostvars[inventory_hostname].ansible_host | default(inventory_hostname))) ~ ':2377') }}
   when:
     - swarm_status.rc != 0
     - inventory_hostname == ((groups['swarm_managers'] | default([])) | first | default(''))
