@@ -82,9 +82,11 @@
       },
       "id": 2,
       "options": {
-        "minVizHeight": 75,
-        "minVizWidth": 75,
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
         "orientation": "auto",
+        "percentChangeColorMode": "standard",
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
@@ -92,22 +94,22 @@
           "fields": "",
           "values": false
         },
-        "showThresholdLabels": false,
-        "showThresholdMarkers": true,
-        "sizing": "auto"
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
       },
       "pluginVersion": "12.4.2",
       "targets": [
         {
           "editorMode": "builder",
-          "expr": "sum(bethome_server_users_online) or vector(0)",
-          "legendFormat": "{{result}}",
+          "expr": "sum(bethome_server_users_online)",
+          "legendFormat": "online",
           "range": true,
           "refId": "A"
         }
       ],
       "title": "Пользователи онлайн",
-      "type": "gauge"
+      "type": "stat"
     },
     {
       "datasource": {
@@ -172,7 +174,7 @@
             "uid": "prometheus"
           },
           "editorMode": "builder",
-          "expr": "bethome_betradaramqp_amqp_per_minute or vector(0)",
+          "expr": "bethome_betradaramqp_amqp_per_minute",
           "legendFormat": "Событий",
           "range": true,
           "refId": "A"
@@ -240,14 +242,14 @@
             "uid": "prometheus"
           },
           "editorMode": "builder",
-          "expr": "bethome_cachetable_table_cache or vector(0)",
+          "expr": "bethome_cachetable_table_cache",
           "instant": false,
-          "legendFormat": "{{status}}",
+          "legendFormat": "{{status}}_{{lang}}{{language}}",
           "range": true,
           "refId": "C"
         }
       ],
-      "title": "Таблици в кеше",
+      "title": "Таблици в кеше (_en/_ru)",
       "type": "stat"
     },
     {
@@ -310,14 +312,14 @@
           },
           "editorMode": "builder",
           "exemplar": false,
-          "expr": "sum(bethome_server_users_online) or vector(0)",
+          "expr": "bethome_betradarhttp_http_per_minute",
           "instant": false,
-          "legendFormat": "Тип:{{type}} Статус:{{result}}",
+          "legendFormat": "{{result}}",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "Пользователи онлайн (дубликат)",
+      "title": "HTTP запросы к бетрадару",
       "type": "stat"
     },
     {
@@ -409,7 +411,7 @@
             "uid": "prometheus"
           },
           "editorMode": "builder",
-          "expr": "bethome_cachebet_cache_bet_count or vector(0)",
+          "expr": "bethome_cachebet_cache_bet_count",
           "instant": false,
           "legendFormat": "{{cache}}",
           "range": true,
