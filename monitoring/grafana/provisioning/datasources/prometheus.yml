@@ -8,3 +8,10 @@ datasources:
     url: http://prometheus:9090
     isDefault: true
     editable: true
+  - name: Bethome Prometheus
+    uid: bethome_prometheus
+    type: prometheus
+    access: proxy
+    url: http://bethome-infra_prometheus:9090
+    isDefault: false
+    editable: true
