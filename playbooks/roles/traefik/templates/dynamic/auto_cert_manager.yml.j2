@@ -7,7 +7,7 @@
 {% set _c_scheme = _c.upstream_scheme | default('http') %}
 {% set _c_port = _c.upstream_port | default(80) %}
 {% set _default_h = traefik_default_upstream_host | default('') | trim %}
-{% set _cors_allow_headers = _c.cors_allow_headers | default(traefik_cors_allow_headers | default([])) %}
+{% set _cors_allow_headers = _c.cors_allow_headers | default(cors_allow_headers | default([])) %}
 {% set _router_name = _c.router_name | default('site-' ~ _name) %}
 {% set _service_name = _c.service_name | default('svc-' ~ _name) %}
 {% set _middlewares = _c.middlewares | default([]) %}
@@ -85,7 +85,7 @@ http:
 {% if 'cors' in _middlewares %}
     {{ _mw_cors_name }}:
       headers:
-{% set _cors_origins = _c.cors_allow_origin_list | default(traefik_cors_allow_origin_list | default([])) %}
+{% set _cors_origins = _c.cors_allow_origin_list | default(cors_allow_origin_list | default([])) %}
 {% if _cors_origins | length > 0 %}
         accessControlAllowOriginList:
 {% for o in _cors_origins %}
@@ -93,7 +93,7 @@ http:
 {% endfor %}
 {% else %}
         accessControlAllowOriginListRegex:
-{% for r in (traefik_cors_allow_origin_list_regex | default(['.*'])) %}
+{% for r in (cors_allow_origin_list_regex | default(['.*'])) %}
           - "{{ r }}"
 {% endfor %}
 {% endif %}

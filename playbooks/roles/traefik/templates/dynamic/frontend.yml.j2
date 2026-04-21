@@ -5,7 +5,7 @@
 {% else %}
 {% set traefik_backend_hosts = _mgr %}
 {% endif %}
-{% set _cors_allow_headers = traefik_cors_allow_headers | default([]) %}
+{% set _cors_allow_headers = cors_allow_headers | default([]) %}
 http:
   middlewares:
     frontend-basicauth:
@@ -13,7 +13,7 @@ http:
         usersFile: "/etc/traefik/dynamic/.htpasswd"
     allow-cors:
       headers:
-{% set _cors_origins = traefik_cors_allow_origin_list | default([]) %}
+{% set _cors_origins = cors_allow_origin_list | default([]) %}
 {% if _cors_origins | length > 0 %}
         accessControlAllowOriginList:
 {% for o in _cors_origins %}
@@ -21,7 +21,7 @@ http:
 {% endfor %}
 {% else %}
         accessControlAllowOriginListRegex:
-{% for r in (traefik_cors_allow_origin_list_regex | default(['.*'])) %}
+{% for r in (cors_allow_origin_list_regex | default(['.*'])) %}
           - "{{ r }}"
 {% endfor %}
 {% endif %}
