@@ -100,13 +100,13 @@
       "targets": [
         {
           "editorMode": "builder",
-          "expr": "bethome_betradarhttp_http_per_minute",
+          "expr": "sum(bethome_server_users_online) or vector(0)",
           "legendFormat": "{{result}}",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "Успешные запросы к бетрадару",
+      "title": "Пользователи онлайн",
       "type": "gauge"
     },
     {
@@ -172,7 +172,7 @@
             "uid": "prometheus"
           },
           "editorMode": "builder",
-          "expr": "bethome_betradaramqp_amqp_per_minute",
+          "expr": "bethome_betradaramqp_amqp_per_minute or vector(0)",
           "legendFormat": "Событий",
           "range": true,
           "refId": "A"
@@ -240,7 +240,7 @@
             "uid": "prometheus"
           },
           "editorMode": "builder",
-          "expr": "bethome_cachetable_table_cache",
+          "expr": "bethome_cachetable_table_cache or vector(0)",
           "instant": false,
           "legendFormat": "{{status}}",
           "range": true,
@@ -310,14 +310,14 @@
           },
           "editorMode": "builder",
           "exemplar": false,
-          "expr": "bethome_server_bets_accepted_total",
+          "expr": "sum(bethome_server_users_online) or vector(0)",
           "instant": false,
           "legendFormat": "Тип:{{type}} Статус:{{result}}",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "Успешные запросы к бетрадару",
+      "title": "Пользователи онлайн (дубликат)",
       "type": "stat"
     },
     {
@@ -409,7 +409,7 @@
             "uid": "prometheus"
           },
           "editorMode": "builder",
-          "expr": "bethome_cachebet_cache_bet_count",
+          "expr": "bethome_cachebet_cache_bet_count or vector(0)",
           "instant": false,
           "legendFormat": "{{cache}}",
           "range": true,
@@ -428,7 +428,7 @@
     "list": []
   },
   "time": {
-    "from": "now-1m",
+    "from": "now-15m",
     "to": "now"
   },
   "timepicker": {},
