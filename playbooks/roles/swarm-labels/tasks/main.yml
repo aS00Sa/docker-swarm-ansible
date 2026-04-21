@@ -3,7 +3,7 @@
   when: inventory_hostname in (groups['swarm_managers'] | default([]))
   run_once: true
   vars:
-    gfs_nodes: "{{ (groups['swarm_managers'] | default([])) + (groups['swarm_workers'] | default([])) }}"
+    gfs_nodes: "{{ groups['swarm_managers'] | default([]) }}"
     swarm_label_kv: "gfs=true"
   include_tasks: label-one-node.yml
   loop: "{{ gfs_nodes | unique }}"

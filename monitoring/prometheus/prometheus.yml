@@ -48,19 +48,19 @@ scrape_configs:
         port: 3000
 
   # Direct scraping of Inhome app services exposed on container port 3000.
-  - job_name: inhome-services
-    metrics_path: /metrics
-    dns_sd_configs:
-      - names:
-          - tasks.inhome_account
-          - tasks.inhome_admin
-          - tasks.inhome_nard
-          - tasks.inhome_cupis
-          - tasks.inhome_exchange-1c
-          - tasks.inhome_bridge
-          - tasks.inhome_erai
-          - tasks.inhome_boxing
-          - tasks.inhome_pps-partners
-          - tasks.inhome_statistics-worker
-        type: A
-        port: 3000
+#  - job_name: inhome-services
+#    metrics_path: /metrics
+#    dns_sd_configs:
+#      - names:
+#          - tasks.inhome_account
+#          - tasks.inhome_admin
+#          - tasks.inhome_nard
+#          - tasks.inhome_cupis
+#          - tasks.inhome_exchange-1c
+#          - tasks.inhome_bridge
+#          - tasks.inhome_erai
+#          - tasks.inhome_boxing
+#          - tasks.inhome_pps-partners
+#          - tasks.inhome_statistics-worker
+#        type: A
+#        port: 3000
