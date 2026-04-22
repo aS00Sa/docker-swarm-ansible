@@ -31,7 +31,7 @@
 
     - name: Docker login (password-stdin)
       ansible.builtin.shell: |
-        set -euo pipefail
+        set -eu
         printf '%s\n' "${DOCKER_REGISTRY_PASSWORD}" | \
           docker login "{{ docker_registry_url }}" \
             -u '{{ docker_registry_username }}' \
