@@ -47,7 +47,7 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "count(count by (container_label_com_docker_swarm_service_name) (container_last_seen{job=\"cadvisor\",container_label_com_docker_swarm_service_name=~\"(bethome_.*|rabbit-shared_.*)\"}))",
+          "expr": "count(count by (container_label_com_docker_swarm_service_name) (container_last_seen{job=\"cadvisor\",container_label_com_docker_swarm_service_name=~\"(bethome.*|rabbitmq-shared_.*)\"}))",
           "legendFormat": "services",
           "range": true,
           "refId": "A"
@@ -84,13 +84,13 @@
           "placement": "bottom"
         },
         "tooltip": {
-          "mode": "multi"
+          "mode": "single"
         }
       },
       "targets": [
         {
           "editorMode": "code",
-          "expr": "sum by (container_label_com_docker_swarm_service_name) (rate(container_cpu_usage_seconds_total{job=\"cadvisor\",container_label_com_docker_swarm_service_name=~\"(bethome_.*|rabbit-shared_.*)\",image!=\"\"}[5m]))",
+          "expr": "sum by (container_label_com_docker_swarm_service_name) (rate(container_cpu_usage_seconds_total{job=\"cadvisor\",container_label_com_docker_swarm_service_name=~\"(bethome.*|rabbitmq-shared_.*)\",image!=\"\"}[5m]))",
           "legendFormat": "{{container_label_com_docker_swarm_service_name}}",
           "range": true,
           "refId": "A"
@@ -127,13 +127,13 @@
           "placement": "bottom"
         },
         "tooltip": {
-          "mode": "multi"
+          "mode": "single"
         }
       },
       "targets": [
         {
           "editorMode": "code",
-          "expr": "sum by (container_label_com_docker_swarm_service_name) (container_memory_working_set_bytes{job=\"cadvisor\",container_label_com_docker_swarm_service_name=~\"(bethome_.*|rabbit-shared_.*)\",image!=\"\"}) / 1024 / 1024 / 1024",
+          "expr": "sum by (container_label_com_docker_swarm_service_name) (container_memory_working_set_bytes{job=\"cadvisor\",container_label_com_docker_swarm_service_name=~\"(bethome.*|rabbitmq-shared_.*)\",image!=\"\"}) / 1024 / 1024 / 1024",
           "legendFormat": "{{container_label_com_docker_swarm_service_name}}",
           "range": true,
           "refId": "A"
@@ -170,20 +170,20 @@
           "placement": "bottom"
         },
         "tooltip": {
-          "mode": "multi"
+          "mode": "single"
         }
       },
       "targets": [
         {
           "editorMode": "code",
-          "expr": "sum by (container_label_com_docker_swarm_service_name) (rate(container_network_receive_bytes_total{job=\"cadvisor\",container_label_com_docker_swarm_service_name=~\"(bethome_.*|rabbit-shared_.*)\"}[5m]))",
+          "expr": "sum by (container_label_com_docker_swarm_service_name) (rate(container_network_receive_bytes_total{job=\"cadvisor\",container_label_com_docker_swarm_service_name=~\"(bethome.*|rabbitmq-shared_.*)\"}[5m]))",
           "legendFormat": "{{container_label_com_docker_swarm_service_name}} RX",
           "range": true,
           "refId": "A"
         },
         {
           "editorMode": "code",
-          "expr": "sum by (container_label_com_docker_swarm_service_name) (rate(container_network_transmit_bytes_total{job=\"cadvisor\",container_label_com_docker_swarm_service_name=~\"(bethome_.*|rabbit-shared_.*)\"}[5m]))",
+          "expr": "sum by (container_label_com_docker_swarm_service_name) (rate(container_network_transmit_bytes_total{job=\"cadvisor\",container_label_com_docker_swarm_service_name=~\"(bethome.*|rabbitmq-shared_.*)\"}[5m]))",
           "legendFormat": "{{container_label_com_docker_swarm_service_name}} TX",
           "range": true,
           "refId": "B"
@@ -224,7 +224,7 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "count by (container_label_com_docker_swarm_service_name) (container_start_time_seconds{job=\"cadvisor\",container_label_com_docker_swarm_service_name=~\"(bethome_.*|rabbit-shared_.*)\",image!=\"\"})",
+          "expr": "count by (container_label_com_docker_swarm_service_name) (container_start_time_seconds{job=\"cadvisor\",container_label_com_docker_swarm_service_name=~\"(bethome.*|rabbitmq-shared_.*)\",image!=\"\"})",
           "format": "table",
           "instant": true,
           "legendFormat": "{{container_label_com_docker_swarm_service_name}}",
