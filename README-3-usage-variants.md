@@ -179,9 +179,13 @@ docker stack deploy -c examples/frontend-infra/docker-compose.yml frontend-infra
 ## Эксплуатация и обслуживание
 
 ```bash
+# обновить докер с переустановкой 
 ansible-playbook -i inventory-localdomain.ini playbooks/upgrade-docker.yml -e docker_upgrade_hosts=all -e docker_force_reinstall=true
+# включить и выключить хай-лоад-стейт
 ansible-playbook -i inventory-prod.ini playbooks/plays/manual-sysctl-high-load-profile.yml
 ansible-playbook -i inventory-prod.ini playbooks/plays/manual-sysctl-high-load-profile.yml -e sysctl_high_load_state=absent
+# посатвить метку ВПН
+docker node update --label-add betradar.vpn=yes swarm-workers-03
 ```
 
 ## Мониторинг
