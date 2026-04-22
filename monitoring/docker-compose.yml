@@ -2,7 +2,7 @@ version: "3.8"
 
 services:
   grafana:
-    image: nexus.btnxlocal.ru:9082/grafana/grafana-oss:13.0.1
+    image: nexus.btnxlocal.ru:9082/grafana/grafana-oss:12.4.3
     ports:
       - target: 3000
         published: 19999
