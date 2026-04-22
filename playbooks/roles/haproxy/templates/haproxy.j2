@@ -213,12 +213,13 @@ backend {{ _site_backend_name }}
 {% else %}
   acl cors_origin_allowed hdr_reg(origin) -i {{ _site_cors_allow_origin_regex | join(' ') }}
 {% endif %}
+  http-request set-var(txn.cors_origin) req.hdr(Origin) if cors_origin_allowed
   http-request return status 204 hdr Access-Control-Allow-Origin "%[req.hdr(origin)]" hdr Access-Control-Allow-Credentials "true" hdr Access-Control-Allow-Methods "GET,POST,PUT,PATCH,DELETE,OPTIONS" hdr Access-Control-Allow-Headers "{{ _site_cors_allow_headers_csv }}" hdr Vary "Origin" if METH_OPTIONS cors_origin_allowed
-  http-response set-header Access-Control-Allow-Origin "%[req.hdr(origin)]" if cors_origin_allowed
-  http-response set-header Access-Control-Allow-Credentials "true" if cors_origin_allowed
-  http-response set-header Access-Control-Allow-Methods "GET,POST,PUT,PATCH,DELETE,OPTIONS" if cors_origin_allowed
-  http-response set-header Access-Control-Allow-Headers "{{ _site_cors_allow_headers_csv }}" if cors_origin_allowed
-  http-response set-header Vary "Origin" if cors_origin_allowed
+  http-response set-header Access-Control-Allow-Origin "%[var(txn.cors_origin)]" if { var(txn.cors_origin) -m found }
+  http-response set-header Access-Control-Allow-Credentials "true" if { var(txn.cors_origin) -m found }
+  http-response set-header Access-Control-Allow-Methods "GET,POST,PUT,PATCH,DELETE,OPTIONS" if { var(txn.cors_origin) -m found }
+  http-response set-header Access-Control-Allow-Headers "{{ _site_cors_allow_headers_csv }}" if { var(txn.cors_origin) -m found }
+  http-response set-header Vary "Origin" if { var(txn.cors_origin) -m found }
 {% endif %}
 {% if _app_use_slot_upstream_host and ((site.upstream_host | default('') | trim | length) > 0) %}
   server app_upstream_{{ _site_idx }} {{ site.upstream_host | trim }}:{{ site.upstream_port | int }} check
