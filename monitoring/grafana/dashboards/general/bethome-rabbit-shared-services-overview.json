@@ -1,0 +1,259 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value"
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "count(count by (container_label_com_docker_swarm_service_name) (container_last_seen{job=\"cadvisor\",container_label_com_docker_swarm_service_name=~\"(bethome_.*|rabbit-shared_.*)\"}))",
+          "legendFormat": "services",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Detected Services",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 18,
+        "x": 6,
+        "y": 0
+      },
+      "id": 2,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "sum by (container_label_com_docker_swarm_service_name) (rate(container_cpu_usage_seconds_total{job=\"cadvisor\",container_label_com_docker_swarm_service_name=~\"(bethome_.*|rabbit-shared_.*)\",image!=\"\"}[5m]))",
+          "legendFormat": "{{container_label_com_docker_swarm_service_name}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "CPU Usage by Service (cores)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "gbytes"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 8
+      },
+      "id": 3,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "sum by (container_label_com_docker_swarm_service_name) (container_memory_working_set_bytes{job=\"cadvisor\",container_label_com_docker_swarm_service_name=~\"(bethome_.*|rabbit-shared_.*)\",image!=\"\"}) / 1024 / 1024 / 1024",
+          "legendFormat": "{{container_label_com_docker_swarm_service_name}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Memory Usage by Service",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "Bps"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 8
+      },
+      "id": 4,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "sum by (container_label_com_docker_swarm_service_name) (rate(container_network_receive_bytes_total{job=\"cadvisor\",container_label_com_docker_swarm_service_name=~\"(bethome_.*|rabbit-shared_.*)\"}[5m]))",
+          "legendFormat": "{{container_label_com_docker_swarm_service_name}} RX",
+          "range": true,
+          "refId": "A"
+        },
+        {
+          "editorMode": "code",
+          "expr": "sum by (container_label_com_docker_swarm_service_name) (rate(container_network_transmit_bytes_total{job=\"cadvisor\",container_label_com_docker_swarm_service_name=~\"(bethome_.*|rabbit-shared_.*)\"}[5m]))",
+          "legendFormat": "{{container_label_com_docker_swarm_service_name}} TX",
+          "range": true,
+          "refId": "B"
+        }
+      ],
+      "title": "Network by Service",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 16
+      },
+      "id": 5,
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": true,
+            "displayName": "Value"
+          }
+        ]
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "count by (container_label_com_docker_swarm_service_name) (container_start_time_seconds{job=\"cadvisor\",container_label_com_docker_swarm_service_name=~\"(bethome_.*|rabbit-shared_.*)\",image!=\"\"})",
+          "format": "table",
+          "instant": true,
+          "legendFormat": "{{container_label_com_docker_swarm_service_name}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Running Tasks per Service",
+      "type": "table"
+    }
+  ],
+  "refresh": "15s",
+  "schemaVersion": 39,
+  "style": "dark",
+  "tags": [
+    "services",
+    "bethome",
+    "rabbit-shared"
+  ],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "",
+  "title": "Bethome + Rabbit-shared Services Overview",
+  "uid": "bethome-rabbit-shared-services-overview",
+  "version": 1,
+  "weekStart": ""
+}

@@ -8,4 +8,12 @@ providers:
     disableDeletion: false
     editable: true
     options:
-      path: /var/lib/grafana/dashboards
+      path: /var/lib/grafana/dashboards/swarm
+  - name: "general-overview"
+    orgId: 1
+    folder: "General"
+    type: file
+    disableDeletion: false
+    editable: true
+    options:
+      path: /var/lib/grafana/dashboards/general

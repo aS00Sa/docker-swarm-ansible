@@ -28,20 +28,30 @@ services:
       - source: grafana-dashboards-provider
         target: /etc/grafana/provisioning/dashboards/dashboards.yml
       - source: grafana-dashboard-vms
-        target: /var/lib/grafana/dashboards/cluster-vms-overview.json
+        target: /var/lib/grafana/dashboards/swarm/cluster-vms-overview.json
       - source: grafana-dashboard-services
-        target: /var/lib/grafana/dashboards/swarm-services-overview.json
+        target: /var/lib/grafana/dashboards/swarm/swarm-services-overview.json
       - source: grafana-dashboard-storage-db
-        target: /var/lib/grafana/dashboards/storage-db-overview.json
+        target: /var/lib/grafana/dashboards/swarm/storage-db-overview.json
       - source: grafana-dashboard-logs
-        target: /var/lib/grafana/dashboards/stack-logs-overview.json
+        target: /var/lib/grafana/dashboards/general/stack-logs-overview.json
       - source: grafana-dashboard-bethome-release
-        target: /var/lib/grafana/dashboards/bethome-release-overview.json
+        target: /var/lib/grafana/dashboards/general/bethome-release-overview.json
+      - source: grafana-dashboard-node-metrics
+        target: /var/lib/grafana/dashboards/swarm/node-metrics.json
+      - source: grafana-dashboard-container-metrics
+        target: /var/lib/grafana/dashboards/swarm/container-metrics.json
+      - source: grafana-dashboard-bethome-rabbit-shared
+        target: /var/lib/grafana/dashboards/general/bethome-rabbit-shared-services-overview.json
+      - source: grafana-dashboard-inhome-rabbit-shared
+        target: /var/lib/grafana/dashboards/general/inhome-rabbit-shared-services-overview.json
+      - source: grafana-dashboard-frontend-rabbit-shared
+        target: /var/lib/grafana/dashboards/general/frontend-rabbit-shared-services-overview.json
     environment:
       - GF_SECURITY_ADMIN_USER=${GRAFANA_USER}
       - GF_USERS_ALLOW_SIGN_UP=false
       - GF_SERVER_ROOT_URL=https://grafana.dvsprtbt.ru/
-      - GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/var/lib/grafana/dashboards/swarm-services-overview.json
+      - GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/var/lib/grafana/dashboards/general/stack-logs-overview.json
     networks:
       - net
 
@@ -228,6 +238,16 @@ configs:
     file: ./grafana/dashboards/stack-logs-overview.json
   grafana-dashboard-bethome-release:
     file: ./grafana/dashboards/bethome-release-overview.json
+  grafana-dashboard-node-metrics:
+    file: ./grafana/dashboards/swarm/node-metrics.json
+  grafana-dashboard-container-metrics:
+    file: ./grafana/dashboards/swarm/container-metrics.json
+  grafana-dashboard-bethome-rabbit-shared:
+    file: ./grafana/dashboards/general/bethome-rabbit-shared-services-overview.json
+  grafana-dashboard-inhome-rabbit-shared:
+    file: ./grafana/dashboards/general/inhome-rabbit-shared-services-overview.json
+  grafana-dashboard-frontend-rabbit-shared:
+    file: ./grafana/dashboards/general/frontend-rabbit-shared-services-overview.json
   loki-config:
     file: ./loki/loki-config.yml
   loki-rules:
