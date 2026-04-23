@@ -27,6 +27,13 @@
   when: inventory_hostname == ((groups['swarm_managers'] | default([])) | first | default(''))
   register: manager_token
 
+- name: Ensure Swarm task history limit is configured
+  become: true
+  become_method: sudo
+  shell: docker swarm update --task-history-limit {{ swarm_task_history_limit | default(1) }}
+  when: inventory_hostname == ((groups['swarm_managers'] | default([])) | first | default(''))
+  run_once: true
+
 - name: Get the worker join-token
   become: true
   become_method: sudo
