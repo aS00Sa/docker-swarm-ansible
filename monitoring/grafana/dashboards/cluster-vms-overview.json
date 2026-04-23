@@ -100,8 +100,8 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "100 - (avg by (instance) (rate(node_cpu_seconds_total{job=\"node-exporter\",mode=\"idle\"}[5m])) * 100)",
-          "legendFormat": "{{instance}}",
+          "expr": "(100 - (avg by (instance) (rate(node_cpu_seconds_total{job=\"node-exporter\",mode=\"idle\"}[5m])) * 100)) * on(instance) group_left(nodename) max by (instance, nodename) (node_uname_info{job=\"node-exporter\"})",
+          "legendFormat": "{{nodename}} ({{instance}})",
           "range": true,
           "refId": "A"
         }
@@ -143,8 +143,8 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "(1 - (node_memory_MemAvailable_bytes{job=\"node-exporter\"} / node_memory_MemTotal_bytes{job=\"node-exporter\"})) * 100",
-          "legendFormat": "{{instance}}",
+          "expr": "((1 - (node_memory_MemAvailable_bytes{job=\"node-exporter\"} / node_memory_MemTotal_bytes{job=\"node-exporter\"})) * 100) * on(instance) group_left(nodename) max by (instance, nodename) (node_uname_info{job=\"node-exporter\"})",
+          "legendFormat": "{{nodename}} ({{instance}})",
           "range": true,
           "refId": "A"
         }
@@ -186,8 +186,8 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "100 - ((node_filesystem_avail_bytes{job=\"node-exporter\",mountpoint=\"/\",fstype!~\"tmpfs|overlay\"} / node_filesystem_size_bytes{job=\"node-exporter\",mountpoint=\"/\",fstype!~\"tmpfs|overlay\"}) * 100)",
-          "legendFormat": "{{instance}}",
+          "expr": "(100 - ((node_filesystem_avail_bytes{job=\"node-exporter\",mountpoint=\"/\",fstype!~\"tmpfs|overlay\"} / node_filesystem_size_bytes{job=\"node-exporter\",mountpoint=\"/\",fstype!~\"tmpfs|overlay\"}) * 100)) * on(instance) group_left(nodename) max by (instance, nodename) (node_uname_info{job=\"node-exporter\"})",
+          "legendFormat": "{{nodename}} ({{instance}})",
           "range": true,
           "refId": "A"
         }
@@ -229,15 +229,15 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "sum by (instance) (rate(node_network_receive_bytes_total{job=\"node-exporter\",device!=\"lo\"}[5m]))",
-          "legendFormat": "{{instance}} RX",
+          "expr": "sum by (instance, nodename) (rate(node_network_receive_bytes_total{job=\"node-exporter\",device!=\"lo\"}[5m]) * on(instance) group_left(nodename) max by (instance, nodename) (node_uname_info{job=\"node-exporter\"}))",
+          "legendFormat": "{{nodename}} ({{instance}}) RX",
           "range": true,
           "refId": "A"
         },
         {
           "editorMode": "code",
-          "expr": "sum by (instance) (rate(node_network_transmit_bytes_total{job=\"node-exporter\",device!=\"lo\"}[5m]))",
-          "legendFormat": "{{instance}} TX",
+          "expr": "sum by (instance, nodename) (rate(node_network_transmit_bytes_total{job=\"node-exporter\",device!=\"lo\"}[5m]) * on(instance) group_left(nodename) max by (instance, nodename) (node_uname_info{job=\"node-exporter\"}))",
+          "legendFormat": "{{nodename}} ({{instance}}) TX",
           "range": true,
           "refId": "B"
         }

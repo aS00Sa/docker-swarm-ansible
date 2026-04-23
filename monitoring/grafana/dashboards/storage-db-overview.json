@@ -43,15 +43,15 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "sum by (instance) (rate(node_disk_read_bytes_total{job=\"node-exporter\"}[5m]))",
-          "legendFormat": "{{instance}} read",
+          "expr": "sum by (instance, nodename) (rate(node_disk_read_bytes_total{job=\"node-exporter\"}[5m]) * on(instance) group_left(nodename) max by (instance, nodename) (node_uname_info{job=\"node-exporter\"}))",
+          "legendFormat": "{{nodename}} ({{instance}}) read",
           "range": true,
           "refId": "A"
         },
         {
           "editorMode": "code",
-          "expr": "sum by (instance) (rate(node_disk_written_bytes_total{job=\"node-exporter\"}[5m]))",
-          "legendFormat": "{{instance}} write",
+          "expr": "sum by (instance, nodename) (rate(node_disk_written_bytes_total{job=\"node-exporter\"}[5m]) * on(instance) group_left(nodename) max by (instance, nodename) (node_uname_info{job=\"node-exporter\"}))",
+          "legendFormat": "{{nodename}} ({{instance}}) write",
           "range": true,
           "refId": "B"
         }
@@ -93,8 +93,8 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "100 - ((node_filesystem_avail_bytes{job=\"node-exporter\",mountpoint=\"/mnt/gfs\",fstype!~\"tmpfs|overlay\"} / node_filesystem_size_bytes{job=\"node-exporter\",mountpoint=\"/mnt/gfs\",fstype!~\"tmpfs|overlay\"}) * 100)",
-          "legendFormat": "{{instance}} /mnt/gfs",
+          "expr": "(100 - ((node_filesystem_avail_bytes{job=\"node-exporter\",mountpoint=\"/mnt/gfs\",fstype!~\"tmpfs|overlay\"} / node_filesystem_size_bytes{job=\"node-exporter\",mountpoint=\"/mnt/gfs\",fstype!~\"tmpfs|overlay\"}) * 100)) * on(instance) group_left(nodename) max by (instance, nodename) (node_uname_info{job=\"node-exporter\"})",
+          "legendFormat": "{{nodename}} ({{instance}}) /mnt/gfs",
           "range": true,
           "refId": "A"
         }

@@ -185,6 +185,7 @@ services:
 
   node-exporter:
     image: nexus.btnxlocal.ru:9082/prom/node-exporter:v1.11.1
+    hostname: "{{.Node.Hostname}}"
     command:
       - '--path.sysfs=/host/sys'
       - '--path.procfs=/host/proc'
