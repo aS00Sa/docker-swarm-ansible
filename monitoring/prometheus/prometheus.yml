@@ -36,37 +36,20 @@ scrape_configs:
   - job_name: bethome-redis-exporter
     metrics_path: /metrics
     dns_sd_configs:
-      - names: ["tasks.bethome-infra_redis-exporter"]
+      - names: ["tasks.bethome-infra_bethome-redis-exporter"]
         type: A
         port: 9121
 
   # Bethome business metrics are pushed here by services via PUSHGATEWAY_URL.
   - job_name: bethome-pushgateway
     dns_sd_configs:
-      - names: ["tasks.bethome-infra_pushgateway"]
+      - names: ["tasks.bethome-infra_bethome-pushgateway"]
         type: A
         port: 9091
 
-  # Direct scraping of Bethome app services exposed on container port 3000.
-  - job_name: bethome-services
-    metrics_path: /metrics
-    dns_sd_configs:
-      - names:
-          - tasks.bethome_server
-          - tasks.bethome_betradar-amq
-          - tasks.bethome_betradar-http
-          - tasks.bethome_betradar-mts
-          - tasks.bethome_resulting
-          - tasks.bethome_queue-worker
-          - tasks.bethome_cache-static
-          - tasks.bethome_cache-table
-          - tasks.bethome_cache-fast
-          - tasks.bethome_cache-bet
-          - tasks.bethome_cdn
-          - tasks.bethome_stream
-          - tasks.bethome_admin
-        type: A
-        port: 3000
+  # Direct scraping of Bethome app services is intentionally disabled:
+  # most services do not expose /metrics and generate persistent 404/refused noise.
+  # Use Pushgateway series (bethome-pushgateway job) for business metrics instead.
 
   # Direct scraping of Inhome app services exposed on container port 3000.
 #  - job_name: inhome-services
