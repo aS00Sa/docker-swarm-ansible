@@ -72,9 +72,9 @@
       },
       "gridPos": {
         "h": 8,
-        "w": 18,
-        "x": 6,
-        "y": 0
+        "w": 24,
+        "x": 0,
+        "y": 16
       },
       "id": 2,
       "options": {
@@ -98,6 +98,67 @@
       ],
       "title": "CPU Usage by Service (cores)",
       "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 6,
+        "x": 0,
+        "y": 5
+      },
+      "id": 7,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value"
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "sum(rate(container_network_transmit_bytes_total{job=\"cadvisor\",container_label_com_docker_swarm_service_name=~\"rabbitmq-shared_.*\"}[1m]))",
+          "legendFormat": "sent",
+          "range": true,
+          "refId": "A"
+        },
+        {
+          "editorMode": "code",
+          "expr": "sum(rate(container_network_receive_bytes_total{job=\"cadvisor\",container_label_com_docker_swarm_service_name=~\"rabbitmq-shared_.*\"}[1m]))",
+          "legendFormat": "received",
+          "range": true,
+          "refId": "B"
+        },
+        {
+          "editorMode": "code",
+          "expr": "sum(rate(container_network_receive_errors_total{job=\"cadvisor\",container_label_com_docker_swarm_service_name=~\"rabbitmq-shared_.*\"}[5m])) + sum(rate(container_network_transmit_errors_total{job=\"cadvisor\",container_label_com_docker_swarm_service_name=~\"rabbitmq-shared_.*\"}[5m]))",
+          "legendFormat": "errors",
+          "range": true,
+          "refId": "C"
+        }
+      ],
+      "title": "Раббит сообщения",
+      "type": "stat"
     },
     {
       "datasource": {
@@ -209,7 +270,7 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 16
+        "y": 24
       },
       "id": 5,
       "options": {
@@ -233,6 +294,70 @@
       ],
       "title": "Running Tasks per Service",
       "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "Bps"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 18,
+        "x": 6,
+        "y": 0
+      },
+      "id": 6,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "sum(rate(container_network_transmit_bytes_total{job=\"cadvisor\",container_label_com_docker_swarm_service_name=~\"frontend.*\"}[5m]))",
+          "legendFormat": "frontend TX",
+          "range": true,
+          "refId": "A"
+        },
+        {
+          "editorMode": "code",
+          "expr": "sum(rate(container_network_receive_bytes_total{job=\"cadvisor\",container_label_com_docker_swarm_service_name=~\"frontend.*\"}[5m]))",
+          "legendFormat": "frontend RX",
+          "range": true,
+          "refId": "B"
+        },
+        {
+          "editorMode": "code",
+          "expr": "sum(rate(container_network_transmit_bytes_total{job=\"cadvisor\",container_label_com_docker_swarm_service_name=~\"rabbitmq-shared_.*\"}[5m]))",
+          "legendFormat": "rabbit-shared TX",
+          "range": true,
+          "refId": "C"
+        },
+        {
+          "editorMode": "code",
+          "expr": "sum(rate(container_network_receive_bytes_total{job=\"cadvisor\",container_label_com_docker_swarm_service_name=~\"rabbitmq-shared_.*\"}[5m]))",
+          "legendFormat": "rabbit-shared RX",
+          "range": true,
+          "refId": "D"
+        }
+      ],
+      "title": "Frontend <-> Rabbit-shared Exchange",
+      "type": "timeseries"
     }
   ],
   "refresh": "15s",
@@ -254,6 +379,6 @@
   "timezone": "",
   "title": "Frontend + Rabbit-shared Services Overview",
   "uid": "frontend-rabbit-shared-services-overview",
-  "version": 1,
+  "version": 4,
   "weekStart": ""
 }

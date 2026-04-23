@@ -19,6 +19,29 @@ scrape_configs:
         type: A
         port: 9100
 
+  # RabbitMQ shared native Prometheus endpoint.
+  - job_name: rabbitmq-shared-native
+    metrics_path: /metrics
+    dns_sd_configs:
+      - names: ["tasks.rabbitmq-shared_rabbitmq-shared"]
+        type: A
+        port: 15692
+
+  # Redis exporters from infra stacks (keys/memory/ops/hits/misses).
+  - job_name: inhome-redis-exporter
+    metrics_path: /metrics
+    dns_sd_configs:
+      - names: ["tasks.inhome-infra_redis-exporter"]
+        type: A
+        port: 9121
+
+  - job_name: bethome-redis-exporter
+    metrics_path: /metrics
+    dns_sd_configs:
+      - names: ["tasks.bethome-infra_redis-exporter"]
+        type: A
+        port: 9121
+
   # Bethome business metrics are pushed here by services via PUSHGATEWAY_URL.
   - job_name: bethome-pushgateway
     dns_sd_configs:
