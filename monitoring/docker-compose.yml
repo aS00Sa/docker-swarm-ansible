@@ -2,7 +2,7 @@ version: "3.8"
 
 services:
   grafana:
-    image: nexus.btnxlocal.ru:9082/grafana/grafana-oss:12.4.3
+    image: grafana/grafana-oss:12.4.3
     ports:
       - target: 3000
         published: 19999
@@ -58,7 +58,7 @@ services:
       - net
 
   prometheus:
-    image: nexus.btnxlocal.ru:9082/prom/prometheus:v3.11.2
+    image: prom/prometheus:v3.11.2
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--log.level=error'
@@ -85,7 +85,7 @@ services:
       - inhome-network
 
   loki:
-    image: nexus.btnxlocal.ru:9082/grafana/loki:3.6.10
+    image: grafana/loki:3.6.10
     command:
       - -config.file=/etc/loki/local-config.yaml
     deploy:
@@ -109,7 +109,7 @@ services:
       - net
 
   alertmanager:
-    image: nexus.btnxlocal.ru:9082/prom/alertmanager:v0.32.0
+    image: prom/alertmanager:v0.32.0
     command:
       - --config.file=/etc/alertmanager/alertmanager.yml
     deploy:
@@ -127,7 +127,7 @@ services:
       - net
 
   promtail:
-    image: nexus.btnxlocal.ru:9082/grafana/promtail:3.6.10
+    image: grafana/promtail:3.6.10
     command:
       - -config.file=/etc/promtail/config.yml
     deploy:
@@ -186,7 +186,7 @@ services:
       - net
 
   node-exporter:
-    image: nexus.btnxlocal.ru:9082/prom/node-exporter:v1.11.1
+    image: prom/node-exporter:v1.11.1
     hostname: "{{.Node.Hostname}}"
     command:
       - '--path.sysfs=/host/sys'
