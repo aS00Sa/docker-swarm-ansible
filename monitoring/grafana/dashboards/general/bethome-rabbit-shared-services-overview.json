@@ -137,27 +137,81 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "sum(rate(container_network_transmit_bytes_total{job=\"cadvisor\",container_label_com_docker_swarm_service_name=~\"rabbitmq-shared_.*\"}[1m]))",
+          "expr": "sum(rate(rabbitmq_queue_messages_published_total{job=\"rabbitmq-shared-native\",queue=~\"(bethome.*|bthm.*|resulting.*|queue-worker.*|betradar.*)\"}[5m])) or vector(0)",
           "legendFormat": "sent",
           "range": true,
           "refId": "A"
         },
         {
           "editorMode": "code",
-          "expr": "sum(rate(container_network_receive_bytes_total{job=\"cadvisor\",container_label_com_docker_swarm_service_name=~\"rabbitmq-shared_.*\"}[1m]))",
+          "expr": "sum(rate(rabbitmq_queue_messages_delivered_total{job=\"rabbitmq-shared-native\",queue=~\"(bethome.*|bthm.*|resulting.*|queue-worker.*|betradar.*)\"}[5m])) or vector(0)",
           "legendFormat": "received",
           "range": true,
           "refId": "B"
         },
         {
           "editorMode": "code",
-          "expr": "sum(rate(container_network_receive_errors_total{job=\"cadvisor\",container_label_com_docker_swarm_service_name=~\"rabbitmq-shared_.*\"}[5m])) + sum(rate(container_network_transmit_errors_total{job=\"cadvisor\",container_label_com_docker_swarm_service_name=~\"rabbitmq-shared_.*\"}[5m]))",
+          "expr": "(sum(rate(rabbitmq_queue_messages_unroutable_dropped_total{job=\"rabbitmq-shared-native\",queue=~\"(bethome.*|bthm.*|resulting.*|queue-worker.*|betradar.*)\"}[5m])) + sum(rate(rabbitmq_queue_messages_unroutable_returned_total{job=\"rabbitmq-shared-native\",queue=~\"(bethome.*|bthm.*|resulting.*|queue-worker.*|betradar.*)\"}[5m])) + sum(rate(rabbitmq_queue_messages_redelivered_total{job=\"rabbitmq-shared-native\",queue=~\"(bethome.*|bthm.*|resulting.*|queue-worker.*|betradar.*)\"}[5m]))) or vector(0)",
           "legendFormat": "errors",
           "range": true,
           "refId": "C"
         }
       ],
       "title": "Раббит сообщения",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 18,
+        "x": 6,
+        "y": 5
+      },
+      "id": 8,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value"
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "rabbitmq_queue_messages{job=\"rabbitmq-shared-native\",queue!=\"\"}",
+          "legendFormat": "{{queue}} msg",
+          "range": true,
+          "refId": "A"
+        },
+        {
+          "editorMode": "code",
+          "expr": "rabbitmq_queue_consumers{job=\"rabbitmq-shared-native\",queue!=\"\"}",
+          "legendFormat": "{{queue}} cons",
+          "range": true,
+          "refId": "B"
+        }
+      ],
+      "title": "Active Rabbit-shared Queues",
       "type": "stat"
     },
     {
@@ -213,7 +267,7 @@
           "color": {
             "mode": "palette-classic"
           },
-          "unit": "Bps"
+          "unit": "ops"
         },
         "overrides": []
       },
@@ -329,34 +383,34 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "sum(rate(container_network_transmit_bytes_total{job=\"cadvisor\",container_label_com_docker_swarm_service_name=~\"bethome.*\"}[5m]))",
-          "legendFormat": "bethome TX",
+          "expr": "sum(rate(rabbitmq_queue_messages_published_total{job=\"rabbitmq-shared-native\",queue=~\"(bethome.*|bthm.*|resulting.*|queue-worker.*|betradar.*)\"}[5m])) or vector(0)",
+          "legendFormat": "bethome sent",
           "range": true,
           "refId": "A"
         },
         {
           "editorMode": "code",
-          "expr": "sum(rate(container_network_receive_bytes_total{job=\"cadvisor\",container_label_com_docker_swarm_service_name=~\"bethome.*\"}[5m]))",
-          "legendFormat": "bethome RX",
+          "expr": "sum(rate(rabbitmq_queue_messages_delivered_total{job=\"rabbitmq-shared-native\",queue=~\"(bethome.*|bthm.*|resulting.*|queue-worker.*|betradar.*)\"}[5m])) or vector(0)",
+          "legendFormat": "bethome received",
           "range": true,
           "refId": "B"
         },
         {
           "editorMode": "code",
-          "expr": "sum(rate(container_network_transmit_bytes_total{job=\"cadvisor\",container_label_com_docker_swarm_service_name=~\"rabbitmq-shared_.*\"}[5m]))",
-          "legendFormat": "rabbit-shared TX",
+          "expr": "sum(rate(rabbitmq_queue_messages_acked_total{job=\"rabbitmq-shared-native\",queue=~\"(bethome.*|bthm.*|resulting.*|queue-worker.*|betradar.*)\"}[5m])) or vector(0)",
+          "legendFormat": "bethome ack",
           "range": true,
           "refId": "C"
         },
         {
           "editorMode": "code",
-          "expr": "sum(rate(container_network_receive_bytes_total{job=\"cadvisor\",container_label_com_docker_swarm_service_name=~\"rabbitmq-shared_.*\"}[5m]))",
-          "legendFormat": "rabbit-shared RX",
+          "expr": "(sum(rate(rabbitmq_queue_messages_unroutable_dropped_total{job=\"rabbitmq-shared-native\",queue=~\"(bethome.*|bthm.*|resulting.*|queue-worker.*|betradar.*)\"}[5m])) + sum(rate(rabbitmq_queue_messages_unroutable_returned_total{job=\"rabbitmq-shared-native\",queue=~\"(bethome.*|bthm.*|resulting.*|queue-worker.*|betradar.*)\"}[5m])) + sum(rate(rabbitmq_queue_messages_redelivered_total{job=\"rabbitmq-shared-native\",queue=~\"(bethome.*|bthm.*|resulting.*|queue-worker.*|betradar.*)\"}[5m]))) or vector(0)",
+          "legendFormat": "bethome errors",
           "range": true,
           "refId": "D"
         }
       ],
-      "title": "Bethome <-> Rabbit-shared Exchange",
+      "title": "Bethome Queue Exchange via Rabbit-shared",
       "type": "timeseries"
     }
   ],
