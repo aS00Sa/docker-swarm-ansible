@@ -176,7 +176,7 @@
       },
       "gridPos": {
         "h": 3,
-        "w": 18,
+        "w": 12,
         "x": 6,
         "y": 5
       },
@@ -212,6 +212,79 @@
         }
       ],
       "title": "Active Rabbit-shared Queues",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [
+            {
+              "options": {
+                "0": {
+                  "text": "absent"
+                },
+                "1": {
+                  "text": "present"
+                }
+              },
+              "type": "value"
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 6,
+        "x": 18,
+        "y": 5
+      },
+      "id": 9,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value"
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "count(rabbitmq_queue_messages{job=\"rabbitmq-shared-native\",queue!=\"\"}) > bool 0",
+          "legendFormat": "queue-series",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Queue Series Health",
       "type": "stat"
     },
     {
