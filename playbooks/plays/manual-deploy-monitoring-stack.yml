@@ -166,6 +166,9 @@
           - balancer-network
 
     - name: Print monitoring external networks
+      ansible.builtin.debug:
+        var: monitoring_external_networks
+
     - name: Ensure external networks exist before deploy
       ansible.builtin.command:
         argv:
