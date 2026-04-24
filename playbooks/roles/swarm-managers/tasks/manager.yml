@@ -41,5 +41,5 @@
   until: (swarm_state_after_join.stdout | default('') | trim) == "active"
   when:
     - swarm_status.rc != 0
-    - swarm_manager_first | length > 0
-    - inventory_hostname != swarm_manager_first
+    - ((groups['swarm_managers'] | default([])) | first | default('')) | length > 0
+    - inventory_hostname != ((groups['swarm_managers'] | default([])) | first | default(''))
