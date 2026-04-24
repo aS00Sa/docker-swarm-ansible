@@ -156,7 +156,17 @@
       changed_when: true
       failed_when: false
 
-    - name: Ensure external monitoring network exists before deploy
+    - name: Define required external networks for monitoring stack
+      ansible.builtin.set_fact:
+        monitoring_external_networks:
+          - monitoring_net
+          - bethome-network
+          - inhome-network
+          - frontend-network
+          - balancer-network
+
+    - name: Print monitoring external networks
+    - name: Ensure external networks exist before deploy
       ansible.builtin.command:
         argv:
           - docker
@@ -164,20 +174,26 @@
           - create
           - --driver
           - overlay
-          - monitoring_net
+          - "{{ item }}"
+      loop: "{{ monitoring_external_networks }}"
+      loop_control:
+        label: "{{ item }}"
       register: monitoring_network_create
       changed_when: (monitoring_network_create.rc | default(1)) == 0
       failed_when: >-
         (monitoring_network_create.rc | default(1)) != 0 and
         ('already exists' not in (monitoring_network_create.stderr | default('') | lower))
 
-    - name: Wait until monitoring network is inspectable
+    - name: Wait until external networks are inspectable
       ansible.builtin.command:
         argv:
           - docker
           - network
           - inspect
-          - monitoring_net
+          - "{{ item }}"
+      loop: "{{ monitoring_external_networks }}"
+      loop_control:
+        label: "{{ item }}"
       register: monitoring_network_inspect
       changed_when: false
       retries: 10
