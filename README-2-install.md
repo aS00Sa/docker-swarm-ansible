@@ -52,7 +52,7 @@ ansible-playbook -i inventory.ini playbooks/install.yml -u root --private-key ~/
 ansible-playbook -i inventory.ini playbooks/install.yml --tags haproxy
 ansible-playbook -i inventory.ini playbooks/plays/11-haproxy.yml
 ansible-playbook -i inventory.ini playbooks/plays/03-firewall-iptables.yml
-ansible-playbook -i inventory.ini playbooks/run-role.yml -e target_role=haproxy -e target_hosts=haproxy
+ansible-playbook -i inventory.ini playbooks/run-role.yml -e target_role=docker -e target_hosts=swarm_nodes
 ```
 
 ## Syntax-check

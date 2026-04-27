@@ -1,0 +1,51 @@
+---
+- name: Install Docker cleanup script for nexus images older than 24h
+  become: true
+  become_method: sudo
+  ansible.builtin.copy:
+    dest: /root/docker-image-prune--filter-until-24h.sh
+    owner: root
+    group: root
+    mode: "0750"
+    content: |
+      #!/bin/bash
+      {% raw %}
+      docker images --format "{{.Repository}} {{.Tag}} {{.ID}} {{.CreatedSince}}" \
+      {% endraw %}
+      | awk '$1 ~ /^{{ docker_cleanup_nexus_registry_prefix | regex_escape() | replace("/", "\\/") }}/ && ($4 ~ /days|weeks|months|years/ || ($4+0) >= 24 && $5 ~ /hours/) {print $3}' \
+      | sort -u \
+      | xargs -r docker rmi
+  when: docker_enable_cleanup_cron | default(true)
+
+- name: Configure cron for nexus image cleanup (older than 24h)
+  become: true
+  become_method: sudo
+  ansible.builtin.cron:
+    name: "docker-cleanup-nexus-images-24h"
+    user: root
+    minute: "{{ docker_cleanup_nexus_images_schedule_minute }}"
+    hour: "{{ docker_cleanup_nexus_images_schedule_hour }}"
+    job: "/bin/bash /root/docker-image-prune--filter-until-24h.sh >> /root/docker-image-prune--filter-until-24h.log 2>&1"
+  when: docker_enable_cleanup_cron | default(true)
+
+- name: Configure cron for docker system prune every 24 hours
+  become: true
+  become_method: sudo
+  ansible.builtin.cron:
+    name: "docker-system-prune-every-24h"
+    user: root
+    minute: "{{ docker_cleanup_system_prune_schedule_minute }}"
+    hour: "{{ docker_cleanup_system_prune_schedule_hour }}"
+    job: "/usr/bin/docker system prune -a -f >> /root/docker-system-prune.log 2>&1"
+  when: docker_enable_cleanup_cron | default(true)
+
+- name: Configure cron for docker buildx clear cache every 1 hours
+  become: true
+  become_method: sudo
+  ansible.builtin.cron:
+    name: "docker-buildx-prune-every-1h"
+    user: root
+    minute: "{{ docker_buildx_prune_schedule_minute }}"
+    hour: "{{ docker_buildx_prune_schedule_hour }}"
+    job: "/usr/bin/docker buildx prune -a -f >> /root/docker-buildx-prune.log 2>&1"
+  when: docker_enable_cleanup_cron | default(true)
