@@ -104,7 +104,7 @@
   become: true
   become_method: sudo
   ansible.builtin.shell: |
-    set -euo pipefail
+    set -eu
     tmpdir="$(mktemp -d)"
     openssl req -x509 -nodes -newkey rsa:2048 -days 30 \
       -subj "/CN=haproxy-bootstrap-{{ app_domain_name | default('local') }}/O=ACME-bootstrap" \
