@@ -9,9 +9,10 @@ datasources:
     isDefault: true
     editable: true
   - name: Bethome Prometheus
-    uid: bethome_prometheus
+    uid: bethome-prometheus
     type: prometheus
     access: proxy
-    url: http://bethome-infra_prometheus:9090
+    # Swarm stack bethome-infra, service bethome-prometheus (rabbit-shared/bethome-infra.yml)
+    url: http://bethome-prometheus:9090
     isDefault: false
     editable: true

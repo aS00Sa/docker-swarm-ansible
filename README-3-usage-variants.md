@@ -218,8 +218,9 @@ docker exec -it $(docker ps --filter name=monitoring_prometheus -q | head -n1) \
 ```
 Для bethome/inhome jobs:
 ```bash
-docker exec -it $(docker ps --filter name=monitoring_prometheus -q | head -n1) \
-  wget -qO- http://localhost:9090/api/v1/targets | jq '.data.activeTargets[] | select(.labels.job=="bethome-pushgateway" or .labels.job=="bethome-services" or .labels.job=="inhome-services") | {job:.labels.job, health:.health, endpoint:.scrapeUrl, lastError:.lastError}'
+# Bethome business metrics (pushgateway) — в bethome-infra_bethome-prometheus, не в monitoring_prometheus:
+docker exec -it $(docker ps --filter name=bethome-infra_bethome-prometheus -q | head -n1) \
+  wget -qO- http://localhost:9090/api/v1/targets | jq '.data.activeTargets[] | select(.labels.job=="bethome-pushgateway") | {job:.labels.job, health:.health, endpoint:.scrapeUrl, lastError:.lastError}'
 ```
 
 #### Как исправить и поставить мониторинг с нуля. 

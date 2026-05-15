@@ -23,27 +23,27 @@ scrape_configs:
   - job_name: rabbitmq-shared-native
     metrics_path: /metrics
     static_configs:
-      - targets: ["rabbitmq-shared_rabbitmq-shared:15692"]
+      - targets: ["rabbitmq-shared:15692"]
 
   # Redis exporters from infra stacks (keys/memory/ops/hits/misses).
   - job_name: inhome-redis-exporter
     metrics_path: /metrics
     dns_sd_configs:
-      - names: ["tasks.inhome-infra_redis-exporter"]
+      - names: ["tasks.redis-exporter"]
         type: A
         port: 9121
 
   - job_name: bethome-redis-exporter
     metrics_path: /metrics
     dns_sd_configs:
-      - names: ["tasks.bethome-infra_bethome-redis-exporter"]
+      - names: ["tasks.bethome-redis-exporter"]
         type: A
         port: 9121
 
   # Bethome business metrics are pushed here by services via PUSHGATEWAY_URL.
   - job_name: bethome-pushgateway
     dns_sd_configs:
-      - names: ["tasks.bethome-infra_bethome-pushgateway"]
+      - names: ["tasks.bethome-pushgateway"]
         type: A
         port: 9091
 
