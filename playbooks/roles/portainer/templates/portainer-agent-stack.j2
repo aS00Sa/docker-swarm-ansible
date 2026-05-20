@@ -34,7 +34,11 @@ services:
       mode: replicated
       replicas: 1
       placement:
-        constraints: [node.role == manager]
+        constraints:
+          - node.role == manager
+{% if portainer_placement_hostname | default('') | length > 0 %}
+          - node.hostname == {{ portainer_placement_hostname }}
+{% endif %}
 
 networks:
   {{portainer_network_name}}:

@@ -7,6 +7,7 @@ portainer_admin_port: 9999
 portainer_agent_port: 9991
 portainer_tunnel_port: 9998
 portainer_gfs_subdir: portainer_gfs
+portainer_placement_hostname: ""
 portainer_network_name: portainer_network
 portainer_volume_name: portainer_data
 portainer_app_name: portainer_app
